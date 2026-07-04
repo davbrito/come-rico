@@ -1,5 +1,6 @@
 using ComeRico.Core.Domain.Entities;
 using ComeRico.Core.Interfaces;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -7,8 +8,13 @@ using Microsoft.EntityFrameworkCore;
 namespace ComeRico.Core.Persistence;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService tenantService)
-    : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>(options), IAppDbContext
+    : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>(options), IAppDbContext, IDataProtectionKeyContext
 {
+    // Shared storage for ASP.NET Core Data Protection keys. Without this, each
+    // container instance generates its own in-memory keyring and cookies issued
+    // by one instance fail to decrypt on another (random session loss).
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
+
     public DbSet<Household> Households => Set<Household>();
     public DbSet<Dish> Dishes => Set<Dish>();
     public DbSet<RouletteSession> RouletteSessions => Set<RouletteSession>();

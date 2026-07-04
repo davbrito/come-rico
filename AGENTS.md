@@ -70,6 +70,7 @@ dotnet sln add ComeRico.Api/ComeRico.Api.csproj
 - `AppUserClaimsPrincipalFactory` stamps `household_id`, `household_role`, and `display_name` claims into the cookie. After create/join household, the endpoint calls `RefreshSignInAsync` to re-issue the cookie with fresh claims.
 - Endpoints: `POST /api/auth/register|login|logout`, `GET /api/auth/me`, `POST /api/households`, `POST /api/households/join` (invite code).
 - Cookie auth events return 401/403 JSON instead of login-page redirects.
+- Data Protection keys persist in the shared database (`DataProtectionKeys` table via `PersistKeysToDbContext`), so cookies stay valid across container instances/restarts. In-memory keys caused random session loss in production.
 - **Frontend session (TanStack Start pattern):** `fetchCurrentUser` (`createServerFn` in `src/server/auth.ts`) forwards the request cookie to `/api/auth/me` on the Start server; the root route's `beforeLoad` puts the user into router context, and protected routes throw `redirect({ to: '/login' })` when missing. SSR, reloads, and client navigations all share the same auth state — never store the session in client-only React state.
 
 ### Multi-Tenancy (Household Isolation)

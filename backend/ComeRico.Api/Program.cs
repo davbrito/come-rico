@@ -8,6 +8,7 @@ using ComeRico.Core.Features.Households.Commands;
 using ComeRico.Core.Interfaces;
 using ComeRico.Core.Persistence;
 using FluentValidation;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -46,6 +47,13 @@ builder.Services
     .AddSignInManager()
     .AddDefaultTokenProviders()
     .AddClaimsPrincipalFactory<AppUserClaimsPrincipalFactory>();
+
+// Persist Data Protection keys in the shared database so auth cookies remain
+// valid across container instances and restarts (in-memory keys caused random
+// session loss in production).
+builder.Services.AddDataProtection()
+    .SetApplicationName("ComeRico")
+    .PersistKeysToDbContext<AppDbContext>();
 
 builder.Services
     .AddAuthentication(IdentityConstants.ApplicationScheme)
