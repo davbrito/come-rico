@@ -20,6 +20,10 @@ jobs:
       - name: Install dotnet-ef
         run: dotnet tool install --global dotnet-ef
 
+      - name: Restore
+        working-directory: backend
+        run: dotnet restore ComeRico.Api/ComeRico.Api.csproj
+
       - name: List pending migrations
         working-directory: backend
         env:
