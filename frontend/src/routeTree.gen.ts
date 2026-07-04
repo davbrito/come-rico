@@ -10,6 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as RouletteRouteImport } from './routes/roulette'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as HouseholdRouteImport } from './routes/household'
 import { Route as DishesRouteImport } from './routes/dishes'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
@@ -17,6 +19,16 @@ import { Route as IndexRouteImport } from './routes/index'
 const RouletteRoute = RouletteRouteImport.update({
   id: '/roulette',
   path: '/roulette',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HouseholdRoute = HouseholdRouteImport.update({
+  id: '/household',
+  path: '/household',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DishesRoute = DishesRouteImport.update({
@@ -39,12 +51,16 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/dishes': typeof DishesRoute
+  '/household': typeof HouseholdRoute
+  '/login': typeof LoginRoute
   '/roulette': typeof RouletteRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/dishes': typeof DishesRoute
+  '/household': typeof HouseholdRoute
+  '/login': typeof LoginRoute
   '/roulette': typeof RouletteRoute
 }
 export interface FileRoutesById {
@@ -52,20 +68,31 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/dishes': typeof DishesRoute
+  '/household': typeof HouseholdRoute
+  '/login': typeof LoginRoute
   '/roulette': typeof RouletteRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/dishes' | '/roulette'
+  fullPaths: '/' | '/about' | '/dishes' | '/household' | '/login' | '/roulette'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/dishes' | '/roulette'
-  id: '__root__' | '/' | '/about' | '/dishes' | '/roulette'
+  to: '/' | '/about' | '/dishes' | '/household' | '/login' | '/roulette'
+  id:
+    | '__root__'
+    | '/'
+    | '/about'
+    | '/dishes'
+    | '/household'
+    | '/login'
+    | '/roulette'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
   DishesRoute: typeof DishesRoute
+  HouseholdRoute: typeof HouseholdRoute
+  LoginRoute: typeof LoginRoute
   RouletteRoute: typeof RouletteRoute
 }
 
@@ -76,6 +103,20 @@ declare module '@tanstack/react-router' {
       path: '/roulette'
       fullPath: '/roulette'
       preLoaderRoute: typeof RouletteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/household': {
+      id: '/household'
+      path: '/household'
+      fullPath: '/household'
+      preLoaderRoute: typeof HouseholdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dishes': {
@@ -106,6 +147,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   DishesRoute: DishesRoute,
+  HouseholdRoute: HouseholdRoute,
+  LoginRoute: LoginRoute,
   RouletteRoute: RouletteRoute,
 }
 export const routeTree = rootRouteImport

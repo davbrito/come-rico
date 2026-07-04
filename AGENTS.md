@@ -18,10 +18,13 @@ come-rico/                    # Root (all lowercase)
     ├── AGENTS.md             # TanStack Intent skill mappings (auto-generated)
     └── src/
         ├── lib/
-        │   ├── api.ts        # Typed REST API client
+        │   ├── api.ts        # Typed REST API client (cookie-based, same-origin)
+        │   ├── auth.tsx      # AuthProvider + useAuth (session state from /api/auth/me)
         │   └── signalr.ts    # SignalR connection helpers
         └── routes/
             ├── index.tsx     # Home page
+            ├── login.tsx     # Login / register
+            ├── household.tsx # Create/join household + invite code
             ├── dishes.tsx    # Dishes CRUD
             └── roulette.tsx  # Real-time roulette
 ```
@@ -59,10 +62,18 @@ dotnet sln add ComeRico.Api/ComeRico.Api.csproj
 ### API Style
 - **Minimal APIs only** — controllers are forbidden.
 
+### Authentication (BFF pattern)
+- ASP.NET Core Identity with `AppUser : IdentityUser<Guid>` (`DisplayName`, nullable `HouseholdId`, `Role` Admin/Member).
+- Cookie-based session (`comerico.auth`, HttpOnly, SameSite=Lax) — the BFF pattern: no tokens ever reach browser JavaScript; the frontend proxies `/api` and `/hubs` to the backend on the same origin and the cookie rides along automatically.
+- `AppUserClaimsPrincipalFactory` stamps `household_id`, `household_role`, and `display_name` claims into the cookie. After create/join household, the endpoint calls `RefreshSignInAsync` to re-issue the cookie with fresh claims.
+- Endpoints: `POST /api/auth/register|login|logout`, `GET /api/auth/me`, `POST /api/households`, `POST /api/households/join` (invite code).
+- Cookie auth events return 401/403 JSON instead of login-page redirects.
+
 ### Multi-Tenancy (Household Isolation)
 - Global Query Filters on `Dish` and `RouletteSession` filter automatically by `HouseholdId`.
-- `ITenantService` is resolved per HTTP request via `HttpTenantService` (reads `X-Household-Id` header).
-- **Production upgrade path:** Replace header-based resolution with a validated JWT claim.
+- `ITenantService` is resolved per HTTP request via `ClaimsTenantService` — it reads the `household_id` claim from the validated auth cookie (never client-supplied headers).
+- `RequiresHousehold` policy = authenticated user + `household_id` claim present.
+- Note: `PendingModelChangesWarning` is suppressed in `Program.cs` — the tenant query filters capture a scoped service, which makes the runtime model never match the snapshot exactly (false positive).
 
 ### Mediator Pattern
 - All business logic lives in `ComeRico.Core/Features/**` as MediatR `IRequestHandler<,>`.
@@ -70,7 +81,7 @@ dotnet sln add ComeRico.Api/ComeRico.Api.csproj
 - Validation is enforced by `ValidationBehavior<,>` in the MediatR pipeline before any handler executes.
 
 ### SignalR Hub Design
-- `RouletteHub` only handles group join/leave.
+- `RouletteHub` is `[Authorize]`d; on connect it joins the socket to the `household-{id}` group resolved from the cookie's `household_id` claim (never a client-passed id).
 - Business logic (spinning, selecting winner) is a MediatR command in `Core`.
 - After the command completes, `RouletteEndpoints` broadcasts the result via `IHubContext<RouletteHub>`.
 
@@ -82,10 +93,9 @@ dotnet sln add ComeRico.Api/ComeRico.Api.csproj
 
 ## 5. Known Issues & Next Steps
 
-- **Authentication:** Currently uses `X-Household-Id` header for tenant resolution. Replace with JWT-based auth (e.g., ASP.NET Core Identity or an OIDC provider) before any production deployment.
-- **Authorization Policy:** `RequiresHousehold` policy is a placeholder; it should validate the JWT claim matches the household being accessed.
-- **Frontend household setup:** Household creation/selection UI is not yet implemented; `householdId` is read from `localStorage`. Build a proper onboarding flow.
-- **EF Core migrations:** No initial migration has been applied yet. Run `dotnet ef migrations add InitialCreate ...` before first use.
+- **CSRF:** SameSite=Lax on the auth cookie blocks cross-site POSTs, which is a solid baseline for a JSON API. For defense in depth, add antiforgery tokens or require a custom header on mutating requests.
+- **Production cookies:** `CookieSecurePolicy.SameAsRequest` is dev-friendly; enforce `Always` (HTTPS-only) in production.
+- **Email confirmation / password reset:** Not implemented; `AddDefaultTokenProviders()` is already wired for when they're needed.
 - **Tests:** No automated tests yet. Add xUnit for backend and Vitest for frontend.
 
 ---

@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { rouletteApi, type RouletteSession, type SpinRouletteResult } from '#/lib/api'
+import RequireHousehold from '#/components/RequireHousehold'
 import {
   onRouletteSpun,
   startRouletteConnection,
@@ -10,19 +11,25 @@ import {
 export const Route = createFileRoute('/roulette')({ component: RoulettePage })
 
 function RoulettePage() {
+  return (
+    <RequireHousehold>
+      <RouletteContent />
+    </RequireHousehold>
+  )
+}
+
+function RouletteContent() {
   const [spinning, setSpinning] = useState(false)
   const [winner, setWinner] = useState<SpinRouletteResult | null>(null)
   const [history, setHistory] = useState<RouletteSession[]>([])
   const [loadingHistory, setLoadingHistory] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const householdId = typeof window !== 'undefined' ? (localStorage.getItem('householdId') ?? '') : ''
   const unsubRef = useRef<(() => void) | null>(null)
 
-  // Connect to SignalR and listen for real-time roulette events
+  // Connect to SignalR and listen for real-time roulette events.
+  // The auth cookie identifies the household — nothing to pass from the client.
   useEffect(() => {
-    if (!householdId) return
-
-    startRouletteConnection(householdId).catch(console.error)
+    startRouletteConnection().catch(console.error)
 
     unsubRef.current = onRouletteSpun((result) => {
       setWinner(result)
@@ -31,9 +38,9 @@ function RoulettePage() {
 
     return () => {
       unsubRef.current?.()
-      stopRouletteConnection(householdId).catch(console.error)
+      stopRouletteConnection().catch(console.error)
     }
-  }, [householdId])
+  }, [])
 
   useEffect(() => {
     rouletteApi
@@ -67,15 +74,6 @@ function RoulettePage() {
         </p>
       )}
 
-      {!householdId && (
-        <div className="island-shell mb-6 rounded-2xl p-6 text-center">
-          <p className="text-4xl">🏠</p>
-          <p className="mt-2 text-sm text-[var(--sea-ink-soft)]">
-            Necesitas configurar tu hogar antes de usar la ruleta.
-          </p>
-        </div>
-      )}
-
       {/* Roulette Spinner */}
       <section className="island-shell mb-6 flex flex-col items-center gap-6 rounded-2xl p-8">
         <div
@@ -102,7 +100,7 @@ function RoulettePage() {
 
         <button
           onClick={handleSpin}
-          disabled={spinning || !householdId}
+          disabled={spinning}
           className="rounded-full bg-orange-500 px-8 py-3 text-base font-semibold text-white shadow-md transition hover:-translate-y-0.5 hover:bg-orange-600 active:translate-y-0 disabled:opacity-50"
         >
           {spinning ? 'Girando…' : '¡Girar!'}

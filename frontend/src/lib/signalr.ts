@@ -10,6 +10,8 @@ let connection: HubConnection | null = null
 
 export const getRouletteConnection = (): HubConnection => {
   if (!connection) {
+    // Same-origin connection: the auth cookie rides along automatically and the
+    // backend joins the socket to the household group based on its claims.
     connection = new HubConnectionBuilder()
       .withUrl('/hubs/roulette')
       .withAutomaticReconnect()
@@ -19,18 +21,17 @@ export const getRouletteConnection = (): HubConnection => {
   return connection
 }
 
-export const startRouletteConnection = async (householdId: string): Promise<void> => {
+export const startRouletteConnection = async (): Promise<void> => {
   const conn = getRouletteConnection()
   if (conn.state === HubConnectionState.Disconnected) {
     await conn.start()
   }
-  await conn.invoke('JoinHouseholdGroup', householdId)
 }
 
-export const stopRouletteConnection = async (householdId: string): Promise<void> => {
+export const stopRouletteConnection = async (): Promise<void> => {
   const conn = getRouletteConnection()
   if (conn.state === HubConnectionState.Connected) {
-    await conn.invoke('LeaveHouseholdGroup', householdId)
+    await conn.stop()
   }
 }
 

@@ -1,5 +1,15 @@
 // ─── Domain Types ──────────────────────────────────────────────────────────────
 
+export interface CurrentUser {
+  id: string
+  displayName: string
+  email: string
+  householdId: string | null
+  householdName: string | null
+  inviteCode: string | null
+  role: 'Admin' | 'Member'
+}
+
 export interface Household {
   id: string
   name: string
@@ -36,29 +46,62 @@ export interface RouletteSession {
 }
 
 // ─── API Client ────────────────────────────────────────────────────────────────
+//
+// BFF pattern: every call goes to the same origin (`/api/*`, proxied to the .NET
+// backend). Auth lives in an HttpOnly cookie set by the backend — the browser
+// sends it automatically and no token is ever readable from JavaScript.
 
-const getHouseholdId = (): string => {
-  if (typeof window === 'undefined') return ''
-  return localStorage.getItem('householdId') ?? ''
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+  ) {
+    super(message)
+  }
 }
 
 const apiFetch = async <T>(path: string, init?: RequestInit): Promise<T> => {
-  const householdId = getHouseholdId()
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-    ...(householdId ? { 'X-Household-Id': householdId } : {}),
-    ...(init?.headers ?? {}),
-  }
-
-  const res = await fetch(`/api${path}`, { ...init, headers })
+  const res = await fetch(`/api${path}`, {
+    credentials: 'same-origin',
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(init?.headers ?? {}),
+    },
+  })
 
   if (!res.ok) {
-    const body = await res.json().catch(() => ({ message: res.statusText }))
-    throw new Error(body.message ?? `API error ${res.status}`)
+    const body = await res.json().catch(() => ({}) as Record<string, unknown>)
+    const message =
+      (body as { message?: string }).message ??
+      (body as { errors?: Array<{ message: string }> }).errors?.[0]?.message ??
+      `API error ${res.status}`
+    throw new ApiError(message, res.status)
   }
 
   if (res.status === 204) return undefined as T
   return res.json() as Promise<T>
+}
+
+// ─── Auth ──────────────────────────────────────────────────────────────────────
+
+export const authApi = {
+  register: (data: { displayName: string; email: string; password: string }) =>
+    apiFetch<CurrentUser>('/auth/register', { method: 'POST', body: JSON.stringify(data) }),
+
+  login: (data: { email: string; password: string }) =>
+    apiFetch<CurrentUser>('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+
+  logout: () => apiFetch<void>('/auth/logout', { method: 'POST' }),
+
+  me: async (): Promise<CurrentUser | null> => {
+    try {
+      return await apiFetch<CurrentUser>('/auth/me')
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) return null
+      throw e
+    }
+  },
 }
 
 // ─── Households ────────────────────────────────────────────────────────────────
@@ -68,6 +111,12 @@ export const householdsApi = {
     apiFetch<Household>('/households', {
       method: 'POST',
       body: JSON.stringify({ name }),
+    }),
+
+  join: (inviteCode: string) =>
+    apiFetch<Household>('/households/join', {
+      method: 'POST',
+      body: JSON.stringify({ inviteCode }),
     }),
 }
 

@@ -1,7 +1,16 @@
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import ThemeToggle from './ThemeToggle'
+import { useAuth } from '../lib/auth'
 
 export default function Header() {
+  const { user, loading, logout } = useAuth()
+  const navigate = useNavigate()
+
+  const handleLogout = async () => {
+    await logout()
+    navigate({ to: '/login' })
+  }
+
   return (
     <header className="sticky top-0 z-50 border-b border-[var(--line)] bg-[var(--header-bg)] px-4 backdrop-blur-lg">
       <nav className="page-wrap flex flex-wrap items-center gap-x-3 gap-y-2 py-3 sm:py-4">
@@ -37,9 +46,37 @@ export default function Header() {
           >
             Ruleta
           </Link>
+          <Link
+            to="/household"
+            className="nav-link"
+            activeProps={{ className: 'nav-link is-active' }}
+          >
+            Hogar
+          </Link>
         </div>
 
         <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+          {!loading &&
+            (user ? (
+              <>
+                <span className="hidden text-sm font-medium text-[var(--sea-ink-soft)] sm:inline">
+                  {user.displayName}
+                </span>
+                <button
+                  onClick={handleLogout}
+                  className="rounded-full border border-[var(--chip-line)] bg-[var(--chip-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--sea-ink)] transition hover:border-orange-400"
+                >
+                  Salir
+                </button>
+              </>
+            ) : (
+              <Link
+                to="/login"
+                className="rounded-full bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white no-underline transition hover:bg-orange-600"
+              >
+                Entrar
+              </Link>
+            ))}
           <ThemeToggle />
         </div>
       </nav>

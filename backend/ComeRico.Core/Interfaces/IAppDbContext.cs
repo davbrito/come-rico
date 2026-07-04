@@ -5,6 +5,7 @@ namespace ComeRico.Core.Interfaces;
 
 public interface IAppDbContext
 {
+    DbSet<AppUser> Users { get; }
     DbSet<Household> Households { get; }
     DbSet<Dish> Dishes { get; }
     DbSet<RouletteSession> RouletteSessions { get; }

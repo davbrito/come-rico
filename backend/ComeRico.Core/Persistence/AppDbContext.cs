@@ -1,11 +1,13 @@
 using ComeRico.Core.Domain.Entities;
 using ComeRico.Core.Interfaces;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace ComeRico.Core.Persistence;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService tenantService)
-    : DbContext(options), IAppDbContext
+    : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>(options), IAppDbContext
 {
     public DbSet<Household> Households => Set<Household>();
     public DbSet<Dish> Dishes => Set<Dish>();
@@ -14,6 +16,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<AppUser>(entity =>
+        {
+            entity.Property(u => u.DisplayName).IsRequired().HasMaxLength(200);
+            entity.Property(u => u.Role).HasConversion<string>().IsRequired();
+
+            entity.HasOne(u => u.Household)
+                  .WithMany(h => h.Members)
+                  .HasForeignKey(u => u.HouseholdId)
+                  .OnDelete(DeleteBehavior.SetNull);
+        });
 
         modelBuilder.Entity<Household>(entity =>
         {

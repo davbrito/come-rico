@@ -1,10 +1,19 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { dishesApi, type Dish } from '#/lib/api'
+import RequireHousehold from '#/components/RequireHousehold'
 
 export const Route = createFileRoute('/dishes')({ component: DishesPage })
 
 function DishesPage() {
+  return (
+    <RequireHousehold>
+      <DishesContent />
+    </RequireHousehold>
+  )
+}
+
+function DishesContent() {
   const [dishes, setDishes] = useState<Dish[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

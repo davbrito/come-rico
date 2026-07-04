@@ -7,6 +7,7 @@ public class Household
     public string InviteCode { get; private set; } = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
     public DateTime CreatedAt { get; private set; } = DateTime.UtcNow;
 
+    public ICollection<AppUser> Members { get; private set; } = [];
     public ICollection<Dish> Dishes { get; private set; } = [];
     public ICollection<RouletteSession> RouletteSessions { get; private set; } = [];
 
