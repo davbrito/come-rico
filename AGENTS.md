@@ -1,16 +1,10 @@
 # AGENTS.md — ComeRico Project Context
 
-This file is the durable context file for AI agents and contributors working on the **ComeRico** project. Keep it up to date after significant architectural changes.
+This file is the durable context file for AI agents and contributors working on the **ComeRico** project. Keep it up to date after significant architectural changes. For project overview, setup, and run commands, see [README.md](README.md).
 
 ---
 
-## 1. Project Overview
-
-**ComeRico** is a domestic/family application to plan meals and resolve culinary indecision via a real-time synchronized roulette. Target audience: families and households. Primary language for user-facing features: **Spanish**.
-
----
-
-## 2. Monorepo Structure
+## 1. Monorepo Structure
 
 ```text
 come-rico/                    # Root (all lowercase)
@@ -34,23 +28,7 @@ come-rico/                    # Root (all lowercase)
 
 ---
 
-## 3. Technology Stack
-
-| Layer | Technology |
-|---|---|
-| Backend Framework | ASP.NET Core 10 — **Minimal APIs only** (controllers forbidden) |
-| ORM | Entity Framework Core 9 + Npgsql (PostgreSQL) |
-| Mediator | MediatR 12 — Commands/Queries in `ComeRico.Core` |
-| Validation | FluentValidation 11 — via MediatR pipeline behavior |
-| Real-time | ASP.NET Core SignalR — Hubs broadcast only, no business logic |
-| Frontend | TanStack Start (React 19 + Vite 8 + TanStack Router) |
-| Styling | Tailwind CSS 4 |
-| Package Manager | **pnpm** (frontend only) |
-| Database | PostgreSQL |
-
----
-
-## 4. Scaffolding Commands (for reference / re-creation)
+## 2. Scaffolding Commands (for reference / re-creation)
 
 ### Frontend — TanStack CLI
 
@@ -76,7 +54,10 @@ dotnet sln add ComeRico.Api/ComeRico.Api.csproj
 
 ---
 
-## 5. Architecture Decisions
+## 3. Architecture Decisions
+
+### API Style
+- **Minimal APIs only** — controllers are forbidden.
 
 ### Multi-Tenancy (Household Isolation)
 - Global Query Filters on `Dish` and `RouletteSession` filter automatically by `HouseholdId`.
@@ -96,106 +77,20 @@ dotnet sln add ComeRico.Api/ComeRico.Api.csproj
 ### Frontend ↔ Backend Communication
 - **REST** (`/api/*`) for CRUD operations — proxied by Vite dev server to `.NET` backend.
 - **WebSocket** (`/hubs/roulette`) for real-time roulette events — also proxied with `ws: true`.
-- Backend URL defaults to `http://localhost:5000`; override with `BACKEND_URL` env var.
 
 ---
 
-## 6. Environment Variables
-
-### Backend (`backend/ComeRico.Api/appsettings.json`)
-
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Host=localhost;Port=5432;Database=comerico;Username=postgres;******"
-  },
-  "AllowedOrigins": {
-    "ViteDev": "http://localhost:3000"
-  }
-}
-```
-
-> **Note:** Set the real password in user secrets (`dotnet user-secrets`) or an environment variable `ConnectionStrings__DefaultConnection`. Never commit real credentials.
-
-### Frontend
-
-| Variable | Default | Description |
-|---|---|---|
-| `BACKEND_URL` | `http://localhost:5000` | .NET API base URL for Vite proxy |
-
----
-
-## 7. Running the Project Locally
-
-### Prerequisites
-- .NET 10 SDK
-- PostgreSQL 15+
-- Node.js 22+, pnpm 11+
-
-### Backend
-
-```bash
-cd backend/ComeRico.Api
-# Set DB password via user secrets (recommended)
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=localhost;Port=5432;Database=comerico;Username=postgres;******"
-dotnet run
-# API: http://localhost:5000
-# OpenAPI: http://localhost:5000/openapi/v1.json
-```
-
-### Frontend
-
-```bash
-cd frontend
-pnpm install
-pnpm dev
-# App: http://localhost:3000
-```
-
----
-
-## 8. EF Core Migrations
-
-```bash
-cd backend/
-# Create a migration
-dotnet ef migrations add <MigrationName> --project ComeRico.Core --startup-project ComeRico.Api
-
-# Apply to DB
-dotnet ef database update --project ComeRico.Core --startup-project ComeRico.Api
-```
-
-> The API auto-migrates in the `Development` environment on startup (`db.Database.MigrateAsync()`).
-
----
-
-## 9. Lint / Build / Test Commands
-
-```bash
-# Backend
-dotnet build backend/ComeRico.slnx
-
-# Frontend type-check
-cd frontend && pnpm exec tsc --noEmit
-
-# Frontend tests (Vitest)
-cd frontend && pnpm test
-```
-
----
-
-## 10. Known Issues & Next Steps
+## 5. Known Issues & Next Steps
 
 - **Authentication:** Currently uses `X-Household-Id` header for tenant resolution. Replace with JWT-based auth (e.g., ASP.NET Core Identity or an OIDC provider) before any production deployment.
 - **Authorization Policy:** `RequiresHousehold` policy is a placeholder; it should validate the JWT claim matches the household being accessed.
-- **Microsoft.OpenApi warning:** `NU1903` warning is a transitive dependency from `Microsoft.AspNetCore.OpenApi`. Monitor for an upstream fix.
 - **Frontend household setup:** Household creation/selection UI is not yet implemented; `householdId` is read from `localStorage`. Build a proper onboarding flow.
 - **EF Core migrations:** No initial migration has been applied yet. Run `dotnet ef migrations add InitialCreate ...` before first use.
 - **Tests:** No automated tests yet. Add xUnit for backend and Vitest for frontend.
 
 ---
 
-## 11. TanStack Intent — Skill Mappings
+## 6. TanStack Intent — Skill Mappings
 
 <!-- intent-skills:start -->
 ## Skill Loading
