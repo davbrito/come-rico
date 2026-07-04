@@ -1,61 +1,39 @@
-import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, redirect, useNavigate, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
 import { householdsApi } from '#/lib/api'
-import { useAuth } from '#/lib/auth'
 
-export const Route = createFileRoute('/household')({ component: HouseholdPage })
+export const Route = createFileRoute('/household')({
+  beforeLoad: ({ context }) => {
+    if (!context.user) throw redirect({ to: '/login' })
+  },
+  component: HouseholdPage,
+})
 
 const inputClass =
   'w-full rounded-xl border border-[var(--line)] bg-[var(--chip-bg)] px-4 py-2.5 text-sm text-[var(--sea-ink)] outline-none focus:border-orange-400'
 
 function HouseholdPage() {
+  const { user } = Route.useRouteContext()
+  const router = useRouter()
   const navigate = useNavigate()
-  const { user, loading, refresh } = useAuth()
   const [name, setName] = useState('')
   const [inviteCode, setInviteCode] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState(false)
 
-  if (loading) {
-    return (
-      <main className="page-wrap px-4 pb-8 pt-10">
-        <p className="text-sm text-[var(--sea-ink-soft)]">Cargando…</p>
-      </main>
-    )
-  }
-
-  if (!user) {
-    return (
-      <main className="page-wrap px-4 pb-8 pt-10">
-        <div className="island-shell mx-auto max-w-md rounded-2xl p-8 text-center">
-          <p className="text-4xl">🔒</p>
-          <p className="mt-2 text-sm text-[var(--sea-ink-soft)]">
-            Inicia sesión para configurar tu hogar.
-          </p>
-          <Link
-            to="/login"
-            className="mt-4 inline-block rounded-full bg-orange-500 px-5 py-2 text-sm font-semibold text-white transition hover:bg-orange-600"
-          >
-            Iniciar sesión
-          </Link>
-        </div>
-      </main>
-    )
-  }
-
   // Already in a household: show its info + invite code
-  if (user.householdId) {
+  if (user!.householdId) {
     return (
       <main className="page-wrap px-4 pb-8 pt-10">
         <div className="mx-auto max-w-md">
           <h1 className="mb-6 text-center text-2xl font-bold text-[var(--sea-ink)]">🏠 Tu hogar</h1>
           <div className="island-shell rounded-2xl p-6 text-center">
-            <p className="text-lg font-semibold text-[var(--sea-ink)]">{user.householdName}</p>
+            <p className="text-lg font-semibold text-[var(--sea-ink)]">{user!.householdName}</p>
             <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
-              Tu rol: {user.role === 'Admin' ? 'Administrador' : 'Miembro'}
+              Tu rol: {user!.role === 'Admin' ? 'Administrador' : 'Miembro'}
             </p>
-            {user.inviteCode && (
+            {user!.inviteCode && (
               <div className="mt-5">
                 <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">
                   Código de invitación
@@ -63,7 +41,7 @@ function HouseholdPage() {
                 <button
                   type="button"
                   onClick={() => {
-                    navigator.clipboard?.writeText(user.inviteCode!).then(() => {
+                    navigator.clipboard?.writeText(user!.inviteCode!).then(() => {
                       setCopied(true)
                       setTimeout(() => setCopied(false), 2000)
                     })
@@ -71,7 +49,7 @@ function HouseholdPage() {
                   className="mt-2 rounded-xl border border-dashed border-[var(--line)] bg-[var(--chip-bg)] px-6 py-3 font-mono text-xl font-bold tracking-[0.3em] text-[var(--sea-ink)] transition hover:border-orange-400"
                   title="Copiar código"
                 >
-                  {user.inviteCode}
+                  {user!.inviteCode}
                 </button>
                 <p className="mt-2 text-xs text-[var(--sea-ink-soft)]">
                   {copied ? '¡Copiado!' : 'Compártelo con tu familia para que se unan. Toca para copiar.'}
@@ -90,7 +68,7 @@ function HouseholdPage() {
     setBusy(true)
     try {
       await householdsApi.create(name)
-      await refresh()
+      await router.invalidate()
       navigate({ to: '/' })
     } catch (err) {
       setError((err as Error).message)
@@ -105,7 +83,7 @@ function HouseholdPage() {
     setBusy(true)
     try {
       await householdsApi.join(inviteCode)
-      await refresh()
+      await router.invalidate()
       navigate({ to: '/' })
     } catch (err) {
       setError((err as Error).message)

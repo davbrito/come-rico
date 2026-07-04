@@ -1,19 +1,16 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { dishesApi, type Dish } from '#/lib/api'
-import RequireHousehold from '#/components/RequireHousehold'
 
-export const Route = createFileRoute('/dishes')({ component: DishesPage })
+export const Route = createFileRoute('/dishes')({
+  beforeLoad: ({ context }) => {
+    if (!context.user) throw redirect({ to: '/login' })
+    if (!context.user.householdId) throw redirect({ to: '/household' })
+  },
+  component: DishesPage,
+})
 
 function DishesPage() {
-  return (
-    <RequireHousehold>
-      <DishesContent />
-    </RequireHousehold>
-  )
-}
-
-function DishesContent() {
   const [dishes, setDishes] = useState<Dish[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

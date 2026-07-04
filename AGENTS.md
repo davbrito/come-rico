@@ -19,14 +19,16 @@ come-rico/                    # Root (all lowercase)
     └── src/
         ├── lib/
         │   ├── api.ts        # Typed REST API client (cookie-based, same-origin)
-        │   ├── auth.tsx      # AuthProvider + useAuth (session state from /api/auth/me)
         │   └── signalr.ts    # SignalR connection helpers
+        ├── server/
+        │   └── auth.ts       # fetchCurrentUser server fn (reads session on the Start server)
         └── routes/
+            ├── __root.tsx    # beforeLoad reads the session into router context
             ├── index.tsx     # Home page
-            ├── login.tsx     # Login / register
+            ├── login.tsx     # Login / register (redirects away when authenticated)
             ├── household.tsx # Create/join household + invite code
-            ├── dishes.tsx    # Dishes CRUD
-            └── roulette.tsx  # Real-time roulette
+            ├── dishes.tsx    # Dishes CRUD (protected via beforeLoad redirect)
+            └── roulette.tsx  # Real-time roulette (protected via beforeLoad redirect)
 ```
 
 ---
@@ -68,6 +70,7 @@ dotnet sln add ComeRico.Api/ComeRico.Api.csproj
 - `AppUserClaimsPrincipalFactory` stamps `household_id`, `household_role`, and `display_name` claims into the cookie. After create/join household, the endpoint calls `RefreshSignInAsync` to re-issue the cookie with fresh claims.
 - Endpoints: `POST /api/auth/register|login|logout`, `GET /api/auth/me`, `POST /api/households`, `POST /api/households/join` (invite code).
 - Cookie auth events return 401/403 JSON instead of login-page redirects.
+- **Frontend session (TanStack Start pattern):** `fetchCurrentUser` (`createServerFn` in `src/server/auth.ts`) forwards the request cookie to `/api/auth/me` on the Start server; the root route's `beforeLoad` puts the user into router context, and protected routes throw `redirect({ to: '/login' })` when missing. SSR, reloads, and client navigations all share the same auth state — never store the session in client-only React state.
 
 ### Multi-Tenancy (Household Isolation)
 - Global Query Filters on `Dish` and `RouletteSession` filter automatically by `HouseholdId`.
@@ -86,8 +89,8 @@ dotnet sln add ComeRico.Api/ComeRico.Api.csproj
 - After the command completes, `RouletteEndpoints` broadcasts the result via `IHubContext<RouletteHub>`.
 
 ### Frontend ↔ Backend Communication
-- **REST** (`/api/*`) for CRUD operations — proxied by Vite dev server to `.NET` backend.
-- **WebSocket** (`/hubs/roulette`) for real-time roulette events — also proxied with `ws: true`.
+- **REST** (`/api/*`) for CRUD operations — in dev, proxied via Nitro's `devProxy` (configured on the `nitro()` plugin in `vite.config.ts`; Vite's own `server.proxy` is NOT used because the Nitro dev server handles requests first). In production, `vercel.json` rewrites route these paths to the backend service.
+- **WebSocket** (`/hubs/roulette`) for real-time roulette events — same proxying.
 
 ---
 

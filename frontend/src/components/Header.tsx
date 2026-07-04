@@ -1,13 +1,15 @@
-import { Link, useNavigate } from '@tanstack/react-router'
+import { Link, useNavigate, useRouteContext, useRouter } from '@tanstack/react-router'
 import ThemeToggle from './ThemeToggle'
-import { useAuth } from '../lib/auth'
+import { authApi } from '../lib/api'
 
 export default function Header() {
-  const { user, loading, logout } = useAuth()
+  const { user } = useRouteContext({ from: '__root__' })
+  const router = useRouter()
   const navigate = useNavigate()
 
   const handleLogout = async () => {
-    await logout()
+    await authApi.logout().catch(() => undefined)
+    await router.invalidate()
     navigate({ to: '/login' })
   }
 
@@ -56,27 +58,26 @@ export default function Header() {
         </div>
 
         <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
-          {!loading &&
-            (user ? (
-              <>
-                <span className="hidden text-sm font-medium text-[var(--sea-ink-soft)] sm:inline">
-                  {user.displayName}
-                </span>
-                <button
-                  onClick={handleLogout}
-                  className="rounded-full border border-[var(--chip-line)] bg-[var(--chip-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--sea-ink)] transition hover:border-orange-400"
-                >
-                  Salir
-                </button>
-              </>
-            ) : (
-              <Link
-                to="/login"
-                className="rounded-full bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white no-underline transition hover:bg-orange-600"
+          {user ? (
+            <>
+              <span className="hidden text-sm font-medium text-[var(--sea-ink-soft)] sm:inline">
+                {user.displayName}
+              </span>
+              <button
+                onClick={handleLogout}
+                className="rounded-full border border-[var(--chip-line)] bg-[var(--chip-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--sea-ink)] transition hover:border-orange-400"
               >
-                Entrar
-              </Link>
-            ))}
+                Salir
+              </button>
+            </>
+          ) : (
+            <Link
+              to="/login"
+              className="rounded-full bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white no-underline transition hover:bg-orange-600"
+            >
+              Entrar
+            </Link>
+          )}
           <ThemeToggle />
         </div>
       </nav>

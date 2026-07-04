@@ -1,16 +1,22 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, redirect, useNavigate, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
 import { authApi } from '#/lib/api'
-import { useAuth } from '#/lib/auth'
 
-export const Route = createFileRoute('/login')({ component: LoginPage })
+export const Route = createFileRoute('/login')({
+  beforeLoad: ({ context }) => {
+    if (context.user) {
+      throw redirect({ to: context.user.householdId ? '/' : '/household' })
+    }
+  },
+  component: LoginPage,
+})
 
 const inputClass =
   'w-full rounded-xl border border-[var(--line)] bg-[var(--chip-bg)] px-4 py-2.5 text-sm text-[var(--sea-ink)] outline-none focus:border-orange-400'
 
 function LoginPage() {
+  const router = useRouter()
   const navigate = useNavigate()
-  const { refresh } = useAuth()
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [form, setForm] = useState({ displayName: '', email: '', password: '' })
   const [error, setError] = useState<string | null>(null)
@@ -25,7 +31,8 @@ function LoginPage() {
         mode === 'login'
           ? await authApi.login({ email: form.email, password: form.password })
           : await authApi.register(form)
-      await refresh()
+      // Re-run beforeLoad so the router context picks up the new session
+      await router.invalidate()
       navigate({ to: user.householdId ? '/' : '/household' })
     } catch (err) {
       setError((err as Error).message)
@@ -61,6 +68,7 @@ function LoginPage() {
             <input
               required
               type="email"
+              autoComplete="email"
               placeholder="Correo electrónico *"
               value={form.email}
               onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
@@ -70,6 +78,7 @@ function LoginPage() {
               required
               type="password"
               minLength={8}
+              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               placeholder="Contraseña *"
               value={form.password}
               onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}

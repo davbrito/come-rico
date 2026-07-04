@@ -1,24 +1,21 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
 import { rouletteApi, type RouletteSession, type SpinRouletteResult } from '#/lib/api'
-import RequireHousehold from '#/components/RequireHousehold'
 import {
   onRouletteSpun,
   startRouletteConnection,
   stopRouletteConnection,
 } from '#/lib/signalr'
 
-export const Route = createFileRoute('/roulette')({ component: RoulettePage })
+export const Route = createFileRoute('/roulette')({
+  beforeLoad: ({ context }) => {
+    if (!context.user) throw redirect({ to: '/login' })
+    if (!context.user.householdId) throw redirect({ to: '/household' })
+  },
+  component: RoulettePage,
+})
 
 function RoulettePage() {
-  return (
-    <RequireHousehold>
-      <RouletteContent />
-    </RequireHousehold>
-  )
-}
-
-function RouletteContent() {
   const [spinning, setSpinning] = useState(false)
   const [winner, setWinner] = useState<SpinRouletteResult | null>(null)
   const [history, setHistory] = useState<RouletteSession[]>([])

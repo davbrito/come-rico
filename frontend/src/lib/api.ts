@@ -93,15 +93,6 @@ export const authApi = {
     apiFetch<CurrentUser>('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
 
   logout: () => apiFetch<void>('/auth/logout', { method: 'POST' }),
-
-  me: async (): Promise<CurrentUser | null> => {
-    try {
-      return await apiFetch<CurrentUser>('/auth/me')
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 401) return null
-      throw e
-    }
-  },
 }
 
 // ─── Households ────────────────────────────────────────────────────────────────
