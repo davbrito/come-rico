@@ -35,19 +35,6 @@ builder.Services.AddValidatorsFromAssemblyContaining<CreateHouseholdCommand>();
 // SignalR
 builder.Services.AddSignalR();
 
-// CORS — allow the Vite dev server during development
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("ViteDev", policy =>
-    {
-        policy.WithOrigins(
-                builder.Configuration.GetValue<string>("AllowedOrigins:ViteDev") ?? "http://localhost:3000")
-              .AllowAnyMethod()
-              .AllowAnyHeader()
-              .AllowCredentials(); // Required for SignalR WebSockets
-    });
-});
-
 // Authorization policy that requires the X-Household-Id header to be resolvable
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy("RequiresHousehold", policy =>
@@ -69,8 +56,6 @@ if (app.Environment.IsDevelopment())
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await db.Database.MigrateAsync();
 }
-
-app.UseCors("ViteDev");
 
 // Global exception handler for validation errors
 app.UseExceptionHandler(exceptionApp =>
