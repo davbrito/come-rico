@@ -15,9 +15,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 // ---------- Services ----------
 
-// EF Core + PostgreSQL
+// EF Core + PostgreSQL (DATABASE_URL from Neon/Vercel, or DefaultConnection locally)
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
+    options.UseNpgsql(ConnectionStringResolver.Resolve(builder.Configuration))
         // False positive: the tenant query filters capture a scoped service, which makes
         // the runtime model never match the snapshot exactly. Migrations stay in sync via
         // `dotnet ef migrations add` (which compiles a design-time model without the closure).
