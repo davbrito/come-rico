@@ -105,15 +105,9 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-// Apply pending EF Core migrations at startup — covers local dev and production
-// deploys alike (the deployment environment can't be reached from dev machines,
-// so the app migrates its own database on boot; MigrateAsync is a no-op when
-// the schema is already current).
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    await db.Database.MigrateAsync();
-}
+// Migrations are applied exclusively via the dotnet CLI:
+//   dotnet ef database update --project ComeRico.Core --startup-project ComeRico.Api
+// The app never migrates the database itself.
 
 // Global exception handler for validation errors
 app.UseExceptionHandler(exceptionApp =>

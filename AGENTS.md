@@ -97,7 +97,8 @@ dotnet sln add ComeRico.Api/ComeRico.Api.csproj
 - **Production cookies:** `CookieSecurePolicy.SameAsRequest` is dev-friendly; enforce `Always` (HTTPS-only) in production.
 - **Email confirmation / password reset:** Not implemented; `AddDefaultTokenProviders()` is already wired for when they're needed.
 - **Tests:** No automated tests yet. Add xUnit for backend and Vitest for frontend.
-- **Database config:** The backend prefers a URI-style `DATABASE_URL` (Neon/Vercel format, converted by `ConnectionStringResolver`) and falls back to `ConnectionStrings:DefaultConnection`. EF Core migrations auto-apply at startup in every environment (Neon is unreachable from dev sandboxes, so the deployed app migrates its own database on boot).
+- **Database config:** The backend prefers a URI-style `DATABASE_URL` (Neon/Vercel format, converted by `ConnectionStringResolver`) and falls back to `ConnectionStrings:DefaultConnection`.
+- **Migrations policy:** Migrations run exclusively via the dotnet CLI (`dotnet ef database update --project ComeRico.Core --startup-project ComeRico.Api`). The app never auto-migrates at startup, in any environment.
 
 ---
 
