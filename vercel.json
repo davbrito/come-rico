@@ -1,7 +1,9 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "services": {
     "frontend": {
-      "root": "frontend"
+      "root": "frontend",
+      "framework": "tanstack-start"
     },
     "backend": {
       "root": "backend",
