@@ -1,0 +1,33 @@
+name: migrate-database
+
+# Manually-dispatched: applies pending EF Core migrations to the database
+# configured in the DATABASE_URL repo secret. Migrations are never applied
+# automatically by the app itself — this workflow (run via the dotnet CLI)
+# is the only supported way to apply them outside a developer's machine.
+on:
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install dotnet-ef
+        run: dotnet tool install --global dotnet-ef
+
+      - name: List pending migrations
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: dotnet ef migrations list --project ComeRico.Core --startup-project ComeRico.Api
+
+      - name: Apply migrations
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: dotnet ef database update --project ComeRico.Core --startup-project ComeRico.Api
