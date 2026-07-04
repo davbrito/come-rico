@@ -1,15 +1,17 @@
 name: migrate-database
 
 # Manually-dispatched: applies pending EF Core migrations to the database
-# configured in the DATABASE_URL repo secret. Migrations are never applied
-# automatically by the app itself — this workflow (run via the dotnet CLI)
-# is the only supported way to apply them outside a developer's machine.
+# configured in the DATABASE_URL secret (Production environment). Migrations
+# are never applied automatically by the app itself — this workflow (run via
+# the dotnet CLI) is the only supported way to apply them outside a
+# developer's machine.
 on:
   workflow_dispatch:
 
 jobs:
   migrate:
     runs-on: ubuntu-latest
+    environment: Production
     steps:
       - uses: actions/checkout@v4
 
