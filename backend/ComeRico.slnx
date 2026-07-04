@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="ComeRico.Api/ComeRico.Api.csproj" />
+  <Project Path="ComeRico.Core/ComeRico.Core.csproj" />
+</Solution>

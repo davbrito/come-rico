@@ -1,0 +1,33 @@
+# ─── .NET / Backend ────────────────────────────────────────────────────────────
+**/bin/
+**/obj/
+*.user
+*.suo
+.vs/
+*.swp
+*.DS_Store
+backend/**/*.db
+backend/**/*.db-shm
+backend/**/*.db-wal
+
+# User secrets
+**/secrets.json
+
+# ─── Frontend / Node ───────────────────────────────────────────────────────────
+frontend/node_modules/
+frontend/.output/
+frontend/.vinxi/
+frontend/dist/
+frontend/.env.local
+frontend/.env.*.local
+
+# ─── Environment files ─────────────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+
+# ─── Editor / OS ───────────────────────────────────────────────────────────────
+.idea/
+*.iml
+*.orig
+Thumbs.db
