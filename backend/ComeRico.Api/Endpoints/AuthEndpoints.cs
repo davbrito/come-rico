@@ -1,5 +1,6 @@
 using ComeRico.Core.Domain.Entities;
 using ComeRico.Core.Persistence;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -8,6 +9,8 @@ using Microsoft.EntityFrameworkCore;
 namespace ComeRico.Api.Endpoints;
 
 public sealed record UserRegisterRequest(string DisplayName, string Email, string Password);
+
+public sealed record UserLoginRequest(string Email, string Password);
 
 public sealed record CurrentUserDto(
     Guid Id,

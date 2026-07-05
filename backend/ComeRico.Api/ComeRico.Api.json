@@ -5,18 +5,16 @@
     "version": "1.0.0"
   },
   "paths": {
-    "/api/auth/register": {
+    "/api/identity/register": {
       "post": {
         "tags": [
-          "Auth"
+          "ComeRico.Api"
         ],
-        "summary": "Registra un nuevo usuario e inicia sesión",
-        "operationId": "Register",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UserRegisterRequest"
+                "$ref": "#/components/schemas/RegisterRequest"
               }
             }
           },
@@ -24,14 +22,7 @@
         },
         "responses": {
           "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CurrentUserDto"
-                }
-              }
-            }
+            "description": "OK"
           },
           "400": {
             "description": "Bad Request",
@@ -46,7 +37,7 @@
         }
       }
     },
-    "/api/auth/login": {
+    "/api/identity/login": {
       "post": {
         "tags": [
           "ComeRico.Api"
@@ -91,7 +82,7 @@
         }
       }
     },
-    "/api/auth/refresh": {
+    "/api/identity/refresh": {
       "post": {
         "tags": [
           "ComeRico.Api"
@@ -120,12 +111,12 @@
         }
       }
     },
-    "/api/auth/confirmEmail": {
+    "/api/identity/confirmEmail": {
       "get": {
         "tags": [
           "ComeRico.Api"
         ],
-        "operationId": "MapIdentityApi-/api/auth/confirmEmail",
+        "operationId": "MapIdentityApi-/api/identity/confirmEmail",
         "parameters": [
           {
             "name": "userId",
@@ -158,7 +149,7 @@
         }
       }
     },
-    "/api/auth/resendConfirmationEmail": {
+    "/api/identity/resendConfirmationEmail": {
       "post": {
         "tags": [
           "ComeRico.Api"
@@ -180,7 +171,7 @@
         }
       }
     },
-    "/api/auth/forgotPassword": {
+    "/api/identity/forgotPassword": {
       "post": {
         "tags": [
           "ComeRico.Api"
@@ -212,7 +203,7 @@
         }
       }
     },
-    "/api/auth/resetPassword": {
+    "/api/identity/resetPassword": {
       "post": {
         "tags": [
           "ComeRico.Api"
@@ -244,7 +235,7 @@
         }
       }
     },
-    "/api/auth/manage/2fa": {
+    "/api/identity/manage/2fa": {
       "post": {
         "tags": [
           "ComeRico.Api"
@@ -286,7 +277,7 @@
         }
       }
     },
-    "/api/auth/manage/info": {
+    "/api/identity/manage/info": {
       "get": {
         "tags": [
           "ComeRico.Api"
@@ -354,6 +345,47 @@
           },
           "404": {
             "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Registra un nuevo usuario e inicia sesión",
+        "operationId": "Register",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserRegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentUserDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
           }
         }
       }

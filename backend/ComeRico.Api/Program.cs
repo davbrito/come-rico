@@ -144,7 +144,7 @@ app.UseAuthorization();
 // Built-in Identity API endpoints under /api/auth: /api/auth/login, /api/auth/refresh,
 // /api/auth/manage/info, etc. POST /api/auth/login accepts ?useCookies=true for
 // SPA cookie auth, or returns a bearer token by default for native/mobile clients.
-app.MapGroup("/api/auth").MapIdentityApi<AppUser>();
+app.MapGroup("/api/identity").MapIdentityApi<AppUser>();
 
 // Map endpoints
 app.MapAuthEndpoints();
