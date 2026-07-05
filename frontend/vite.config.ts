@@ -10,6 +10,7 @@ const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:5276";
 
 const config = defineConfig({
   resolve: { tsconfigPaths: true },
+  envPrefix: ["VITE_", "PUBLIC_"],
   plugins: [
     devtools(),
     tailwindcss(),

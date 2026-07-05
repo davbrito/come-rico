@@ -21,7 +21,7 @@ public sealed class R2Options
 
     /// <summary>
     /// Public base URL of the bucket (r2.dev subdomain or custom domain),
-    /// e.g. "https://pub-xxxx.r2.dev" or "https://images.comerico.app".
+    /// e.g. "https://pub-xxxx.r2.dev" or "https://storage.comerico.davbrito.dev".
     /// </summary>
     public string PublicBaseUrl { get; set; } = string.Empty;
 }
@@ -50,26 +50,29 @@ public sealed class R2FileStorage : IFileStorage, IDisposable
         );
     }
 
-    public async Task<SignedUploadTarget> CreateSignedUploadAsync(
+    // R2 does not support presigned POST, so we sign a PUT. The signature pins
+    // the exact Content-Type and Content-Length headers: R2 rejects any upload
+    // whose headers differ from what was signed, so the size validated at
+    // ticket time is enforced by storage itself.
+    public Task<string> CreateSignedUploadAsync(
         string key,
         string contentType,
-        long maxSizeBytes,
+        long sizeBytes,
         TimeSpan expiresIn,
         CancellationToken ct
     )
     {
-        var request = new CreatePresignedPostRequest
+        var request = new GetPreSignedUrlRequest
         {
             BucketName = _options.BucketName,
             Key = key,
+            Verb = HttpVerb.PUT,
+            ContentType = contentType,
             Expires = DateTime.UtcNow.Add(expiresIn),
         };
-        request.Fields["Content-Type"] = contentType;
-        request.Conditions.Add(S3PostCondition.ExactMatch("Content-Type", contentType));
-        request.Conditions.Add(S3PostCondition.ContentLengthRange(1, maxSizeBytes));
+        request.Headers.ContentLength = sizeBytes;
 
-        var response = await _client.CreatePresignedPostAsync(request);
-        return new SignedUploadTarget(response.Url, response.Fields);
+        return _client.GetPreSignedURLAsync(request);
     }
 
     public string GetPublicUrl(string key) => $"{_options.PublicBaseUrl.TrimEnd('/')}/{key}";

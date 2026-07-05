@@ -152,10 +152,11 @@ function DishesPage() {
       setUploadError(null);
       let imageUploadId: string | null = null;
       if (imageFile) {
-        // Ticket first (Pending row + presigned POST policy), then multipart
-        // POST straight to R2 so upload bytes never flow through the API. The
-        // signed policy enforces content type and size server-side; the file
-        // must be the last form field.
+        // Ticket first (Pending row + presigned PUT URL), then PUT straight to
+        // R2 so upload bytes never flow through the API. The signature pins
+        // Content-Type and Content-Length: the browser sets Content-Length
+        // from the body (= the declared file.size), and we send the same
+        // Content-Type we declared when requesting the ticket.
         const ticket = await uploadMut.mutateAsync({
           body: {
             type: "image",
@@ -164,14 +165,11 @@ function DishesPage() {
             sizeBytes: imageFile.size,
           },
         });
-        const formData = new FormData();
-        for (const [name, value] of Object.entries(ticket.fields)) {
-          formData.append(name, value);
-        }
-        formData.append("file", imageFile);
-        const res = await fetch(ticket.uploadUrl, { method: "POST", body: formData }).catch(
-          () => null,
-        );
+        const res = await fetch(ticket.uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": imageFile.type },
+          body: imageFile,
+        }).catch(() => null);
         if (!res?.ok) {
           setUploadError("No se pudo subir la imagen. Inténtalo de nuevo.");
           return;

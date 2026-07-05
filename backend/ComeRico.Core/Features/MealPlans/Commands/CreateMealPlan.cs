@@ -1,4 +1,5 @@
 using ComeRico.Core.Domain.Entities;
+using ComeRico.Core.Features.Images;
 using ComeRico.Core.Features.MealPlans.Queries;
 using ComeRico.Core.Interfaces;
 using FluentValidation;
@@ -18,7 +19,7 @@ public sealed class CreateMealPlanCommandValidator : AbstractValidator<CreateMea
     }
 }
 
-public sealed class CreateMealPlanCommandHandler(IAppDbContext dbContext, ITenantService tenantService)
+public sealed class CreateMealPlanCommandHandler(IAppDbContext dbContext, ITenantService tenantService, IFileStorage storage)
     : IRequestHandler<CreateMealPlanCommand, MealPlanDto>
 {
     public async Task<MealPlanDto> Handle(CreateMealPlanCommand request, CancellationToken cancellationToken)
@@ -38,6 +39,13 @@ public sealed class CreateMealPlanCommandHandler(IAppDbContext dbContext, ITenan
         dbContext.MealPlans.Add(mealPlan);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return new MealPlanDto(mealPlan.Id, mealPlan.Date, mealPlan.MealType, dish.Id, dish.Name, dish.ImageUrl);
+        return new MealPlanDto(
+            mealPlan.Id,
+            mealPlan.Date,
+            mealPlan.MealType,
+            dish.Id,
+            dish.Name,
+            storage.ResolveImageUrl(dish.ImageKey)
+        );
     }
 }

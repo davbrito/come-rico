@@ -16,7 +16,7 @@ public sealed class SetDishTagsCommandValidator : AbstractValidator<SetDishTagsC
     }
 }
 
-public sealed class SetDishTagsCommandHandler(IAppDbContext dbContext) : IRequestHandler<SetDishTagsCommand, DishDto?>
+public sealed class SetDishTagsCommandHandler(IAppDbContext dbContext, IFileStorage storage) : IRequestHandler<SetDishTagsCommand, DishDto?>
 {
     public async Task<DishDto?> Handle(SetDishTagsCommand request, CancellationToken cancellationToken)
     {
@@ -35,6 +35,6 @@ public sealed class SetDishTagsCommandHandler(IAppDbContext dbContext) : IReques
 
         dish.ReplaceTags(tags);
         await dbContext.SaveChangesAsync(cancellationToken);
-        return dish.ToDto();
+        return dish.ToDto(storage);
     }
 }

@@ -1,4 +1,5 @@
 using ComeRico.Core.Domain.Entities;
+using ComeRico.Core.Features.Images;
 using ComeRico.Core.Features.Tags.Queries;
 using ComeRico.Core.Interfaces;
 using FluentValidation;
@@ -25,13 +26,15 @@ public sealed record DishDto(
 
 public static class DishDtoMapper
 {
-    public static DishDto ToDto(this Dish dish) =>
+    // The DB stores only the storage key; the public URL is built here from
+    // the configured base URL.
+    public static DishDto ToDto(this Dish dish, IFileStorage storage) =>
         new(
             dish.Id,
             dish.HouseholdId,
             dish.Name,
             dish.Description,
-            dish.ImageUrl,
+            storage.ResolveImageUrl(dish.ImageKey),
             dish.IsActive,
             dish.CreatedAt,
             [.. dish.Ingredients.OrderBy(i => i.Name).Select(i => new IngredientDto(i.Id, i.Name, i.Amount, i.Unit))],
@@ -39,7 +42,8 @@ public static class DishDtoMapper
         );
 }
 
-public sealed class GetDishesQueryHandler(IAppDbContext dbContext) : IRequestHandler<GetDishesQuery, IReadOnlyList<DishDto>>
+public sealed class GetDishesQueryHandler(IAppDbContext dbContext, IFileStorage storage)
+    : IRequestHandler<GetDishesQuery, IReadOnlyList<DishDto>>
 {
     public async Task<IReadOnlyList<DishDto>> Handle(GetDishesQuery request, CancellationToken cancellationToken)
     {
@@ -50,6 +54,6 @@ public sealed class GetDishesQueryHandler(IAppDbContext dbContext) : IRequestHan
             .OrderBy(d => d.Name)
             .ToListAsync(cancellationToken);
 
-        return [.. dishes.Select(d => d.ToDto())];
+        return [.. dishes.Select(d => d.ToDto(storage))];
     }
 }

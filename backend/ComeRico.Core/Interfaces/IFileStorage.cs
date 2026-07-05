@@ -1,23 +1,18 @@
 namespace ComeRico.Core.Interfaces;
 
-/// <summary>
-/// Presigned POST target: the client submits multipart/form-data with all
-/// <see cref="Fields"/> (policy + signature) followed by the file itself.
-/// </summary>
-public sealed record SignedUploadTarget(string Url, IReadOnlyDictionary<string, string> Fields);
-
 public interface IFileStorage
 {
     /// <summary>
-    /// Creates a presigned POST so the client uploads directly to storage (no
-    /// upload traffic through the API). The signed policy restricts the upload
-    /// to the exact content type and the size range — storage itself rejects
-    /// anything else.
+    /// Creates a presigned PUT URL so the client uploads directly to storage
+    /// (no upload traffic through the API). The signature pins the exact
+    /// Content-Type and Content-Length headers, so storage itself rejects an
+    /// upload whose type or size differs from what was validated and signed.
+    /// The client must PUT with those same headers (it already knows both).
     /// </summary>
-    Task<SignedUploadTarget> CreateSignedUploadAsync(
+    Task<string> CreateSignedUploadAsync(
         string key,
         string contentType,
-        long maxSizeBytes,
+        long sizeBytes,
         TimeSpan expiresIn,
         CancellationToken ct
     );

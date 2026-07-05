@@ -30,10 +30,10 @@ public sealed class CreateDishCommandHandler(IAppDbContext dbContext, ITenantSer
 {
     public async Task<DishDto> Handle(CreateDishCommand request, CancellationToken cancellationToken)
     {
-        var imageUrl = await dbContext.ResolveUploadAsync(storage, request.ImageUploadId, cancellationToken);
-        var dish = Dish.Create(tenantService.HouseholdId, request.Name, request.Description, imageUrl);
+        var imageKey = await dbContext.ResolveUploadAsync(storage, request.ImageUploadId, cancellationToken);
+        var dish = Dish.Create(tenantService.HouseholdId, request.Name, request.Description, imageKey);
         dbContext.Dishes.Add(dish);
         await dbContext.SaveChangesAsync(cancellationToken);
-        return dish.ToDto();
+        return dish.ToDto(storage);
     }
 }

@@ -2204,8 +2204,7 @@
       "UploadTicketDto": {
         "required": [
           "uploadId",
-          "uploadUrl",
-          "fields"
+          "uploadUrl"
         ],
         "type": "object",
         "properties": {
@@ -2215,12 +2214,6 @@
           },
           "uploadUrl": {
             "type": "string"
-          },
-          "fields": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "string"
-            }
           }
         }
       },

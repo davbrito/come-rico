@@ -1,3 +1,4 @@
+using ComeRico.Core.Features.Images;
 using ComeRico.Core.Interfaces;
 using FluentValidation;
 using MediatR;
@@ -15,13 +16,26 @@ public sealed class GetMealPlanByIdValidator : AbstractValidator<GetMealPlanById
     }
 }
 
-public sealed class GetMealPlanByIdQueryHandler(IAppDbContext dbContext) : IRequestHandler<GetMealPlanByIdQuery, MealPlanDto?>
+public sealed class GetMealPlanByIdQueryHandler(IAppDbContext dbContext, IFileStorage storage)
+    : IRequestHandler<GetMealPlanByIdQuery, MealPlanDto?>
 {
     public async Task<MealPlanDto?> Handle(GetMealPlanByIdQuery request, CancellationToken cancellationToken)
     {
-        return await dbContext
+        var plan = await dbContext
             .MealPlans.Where(m => m.Id == request.Id)
-            .Select(m => new MealPlanDto(m.Id, m.Date, m.MealType, m.DishId, m.Dish.Name, m.Dish.ImageUrl))
+            .Select(m => new
+            {
+                m.Id,
+                m.Date,
+                m.MealType,
+                m.DishId,
+                DishName = m.Dish.Name,
+                m.Dish.ImageKey,
+            })
             .FirstOrDefaultAsync(cancellationToken);
+
+        return plan is null
+            ? null
+            : new MealPlanDto(plan.Id, plan.Date, plan.MealType, plan.DishId, plan.DishName, storage.ResolveImageUrl(plan.ImageKey));
     }
 }

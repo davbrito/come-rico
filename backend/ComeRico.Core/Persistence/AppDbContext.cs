@@ -67,7 +67,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService
             entity.HasKey(d => d.Id);
             entity.Property(d => d.Name).IsRequired().HasMaxLength(200);
             entity.Property(d => d.Description).HasMaxLength(1000);
-            entity.Property(d => d.ImageUrl).HasMaxLength(2048);
+            entity.Property(d => d.ImageKey).HasMaxLength(2048);
         });
 
         modelBuilder.Entity<RouletteSession>(entity =>
@@ -137,10 +137,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService
         {
             entity.HasKey(i => i.Id);
             entity.Property(i => i.Key).IsRequired().HasMaxLength(512);
-            entity.Property(i => i.Url).IsRequired().HasMaxLength(2048);
             entity.Property(i => i.ContentType).IsRequired().HasMaxLength(100);
             entity.Property(i => i.Status).HasConversion<string>().IsRequired();
-            entity.HasIndex(i => new { i.HouseholdId, i.Url });
+            entity.HasIndex(i => new { i.HouseholdId, i.Key });
             entity.HasIndex(i => new { i.Status, i.CreatedAt });
 
             entity.HasOne(i => i.Household).WithMany().HasForeignKey(i => i.HouseholdId).OnDelete(DeleteBehavior.Cascade);

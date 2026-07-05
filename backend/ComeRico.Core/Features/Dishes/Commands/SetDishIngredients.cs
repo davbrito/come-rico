@@ -31,7 +31,7 @@ public sealed class SetDishIngredientsCommandValidator : AbstractValidator<SetDi
     }
 }
 
-public sealed class SetDishIngredientsCommandHandler(IAppDbContext dbContext, ITenantService tenantService)
+public sealed class SetDishIngredientsCommandHandler(IAppDbContext dbContext, ITenantService tenantService, IFileStorage storage)
     : IRequestHandler<SetDishIngredientsCommand, DishDto?>
 {
     public async Task<DishDto?> Handle(SetDishIngredientsCommand request, CancellationToken cancellationToken)
@@ -55,6 +55,6 @@ public sealed class SetDishIngredientsCommandHandler(IAppDbContext dbContext, IT
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        return dish.ToDto();
+        return dish.ToDto(storage);
     }
 }

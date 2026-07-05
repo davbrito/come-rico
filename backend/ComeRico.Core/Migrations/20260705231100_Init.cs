@@ -118,7 +118,7 @@ namespace ComeRico.Core.Migrations
                     HouseholdId = table.Column<Guid>(type: "uuid", nullable: false),
                     Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
                     Description = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
-                    ImageUrl = table.Column<string>(type: "character varying(2048)", maxLength: 2048, nullable: true),
+                    ImageKey = table.Column<string>(type: "character varying(2048)", maxLength: 2048, nullable: true),
                     IsActive = table.Column<bool>(type: "boolean", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
@@ -165,7 +165,6 @@ namespace ComeRico.Core.Migrations
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     HouseholdId = table.Column<Guid>(type: "uuid", nullable: false),
                     Key = table.Column<string>(type: "character varying(512)", maxLength: 512, nullable: false),
-                    Url = table.Column<string>(type: "character varying(2048)", maxLength: 2048, nullable: false),
                     ContentType = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
                     Status = table.Column<string>(type: "text", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
@@ -477,9 +476,9 @@ namespace ComeRico.Core.Migrations
                 columns: new[] { "HouseholdId", "GeneratedForWeekStart" });
 
             migrationBuilder.CreateIndex(
-                name: "IX_StoredFiles_HouseholdId_Url",
+                name: "IX_StoredFiles_HouseholdId_Key",
                 table: "StoredFiles",
-                columns: new[] { "HouseholdId", "Url" });
+                columns: new[] { "HouseholdId", "Key" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_StoredFiles_Status_CreatedAt",

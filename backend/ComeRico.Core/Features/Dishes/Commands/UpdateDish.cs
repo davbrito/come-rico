@@ -42,21 +42,21 @@ public sealed class UpdateDishCommandHandler(IAppDbContext dbContext, IFileStora
         if (dish is null)
             return null;
 
-        var imageUrl = dish.ImageUrl;
+        var imageKey = dish.ImageKey;
         if (request.ImageUploadId is not null)
         {
-            imageUrl = await dbContext.ResolveUploadAsync(storage, request.ImageUploadId, cancellationToken);
+            imageKey = await dbContext.ResolveUploadAsync(storage, request.ImageUploadId, cancellationToken);
         }
         else if (request.RemoveImage)
         {
-            imageUrl = null;
+            imageKey = null;
         }
 
-        if (imageUrl != dish.ImageUrl)
-            await dbContext.StoredFiles.OrphanByUrlAsync(dish.ImageUrl, cancellationToken);
+        if (imageKey != dish.ImageKey)
+            await dbContext.StoredFiles.OrphanByKeyAsync(dish.ImageKey, cancellationToken);
 
-        dish.Update(request.Name, request.Description, imageUrl);
+        dish.Update(request.Name, request.Description, imageKey);
         await dbContext.SaveChangesAsync(cancellationToken);
-        return dish.ToDto();
+        return dish.ToDto(storage);
     }
 }

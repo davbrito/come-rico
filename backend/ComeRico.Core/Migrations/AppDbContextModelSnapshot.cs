@@ -120,7 +120,7 @@ namespace ComeRico.Core.Migrations
                     b.Property<Guid>("HouseholdId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("ImageUrl")
+                    b.Property<string>("ImageKey")
                         .HasMaxLength(2048)
                         .HasColumnType("character varying(2048)");
 
@@ -326,14 +326,9 @@ namespace ComeRico.Core.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<string>("Url")
-                        .IsRequired()
-                        .HasMaxLength(2048)
-                        .HasColumnType("character varying(2048)");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("HouseholdId", "Url");
+                    b.HasIndex("HouseholdId", "Key");
 
                     b.HasIndex("Status", "CreatedAt");
 

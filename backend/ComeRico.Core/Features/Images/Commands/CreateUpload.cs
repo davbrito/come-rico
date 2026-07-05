@@ -8,7 +8,9 @@ namespace ComeRico.Core.Features.Images.Commands;
 /// <summary>
 /// Issues an upload ticket: registers a <see cref="StoredFile"/> as
 /// <see cref="StoredFileStatus.Pending"/> and returns a presigned PUT URL so
-/// the client uploads directly to storage. Entities then reference the upload
+/// the client uploads directly to storage. The declared size is validated
+/// strictly here and signed into the URL as Content-Length, so storage rejects
+/// any upload that doesn't match it exactly. Entities then reference the upload
 /// by id (never by storage path), and consuming commands (e.g. CreateDish)
 /// flip the file to Active. Abandoned tickets are swept by
 /// <see cref="CleanupOrphanedFilesCommand"/>.
@@ -16,7 +18,7 @@ namespace ComeRico.Core.Features.Images.Commands;
 public sealed record CreateUploadCommand(string Type, string KeyFolder, string ContentType, long SizeBytes)
     : IRequest<UploadTicketDto>;
 
-public sealed record UploadTicketDto(Guid UploadId, string UploadUrl, IReadOnlyDictionary<string, string> Fields);
+public sealed record UploadTicketDto(Guid UploadId, string UploadUrl);
 
 public static class UploadRules
 {
@@ -94,17 +96,17 @@ public sealed class CreateUploadCommandHandler(IAppDbContext dbContext, IFileSto
         var extension = config.AllowedContentTypes[request.ContentType];
         var key = $"staging/{request.KeyFolder}/{tenantService.HouseholdId}/{Guid.NewGuid():N}{extension}";
 
-        var file = StoredFile.Create(tenantService.HouseholdId, key, storage.GetPublicUrl(key), request.ContentType);
+        var file = StoredFile.Create(tenantService.HouseholdId, key, request.ContentType);
         dbContext.StoredFiles.Add(file);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        var target = await storage.CreateSignedUploadAsync(
+        var url = await storage.CreateSignedUploadAsync(
             key,
             request.ContentType,
-            config.MaxSizeBytes,
+            request.SizeBytes,
             UploadUrlLifetime,
             cancellationToken
         );
-        return new UploadTicketDto(file.Id, target.Url, target.Fields);
+        return new UploadTicketDto(file.Id, url);
     }
 }
