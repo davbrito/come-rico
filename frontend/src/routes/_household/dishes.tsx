@@ -11,7 +11,6 @@ import {
 import { getApiErrorMessage } from "#/lib/api";
 
 export const Route = createFileRoute("/_household/dishes")({
-  ssr: false,
   component: DishesPage,
   loader: async ({ context }) => {
     await context.queryClient.ensureQueryData(getDishesOptions());
