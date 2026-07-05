@@ -24,6 +24,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService
     public DbSet<Tag> Tags => Set<Tag>();
     public DbSet<MealPlan> MealPlans => Set<MealPlan>();
     public DbSet<ShoppingItem> ShoppingItems => Set<ShoppingItem>();
+    public DbSet<StoredFile> StoredFiles => Set<StoredFile>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -130,6 +131,19 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService
                 .WithMany(h => h.ShoppingItems)
                 .HasForeignKey(s => s.HouseholdId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<StoredFile>(entity =>
+        {
+            entity.HasKey(i => i.Id);
+            entity.Property(i => i.Key).IsRequired().HasMaxLength(512);
+            entity.Property(i => i.Url).IsRequired().HasMaxLength(2048);
+            entity.Property(i => i.ContentType).IsRequired().HasMaxLength(100);
+            entity.Property(i => i.Status).HasConversion<string>().IsRequired();
+            entity.HasIndex(i => new { i.HouseholdId, i.Url });
+            entity.HasIndex(i => new { i.Status, i.CreatedAt });
+
+            entity.HasOne(i => i.Household).WithMany().HasForeignKey(i => i.HouseholdId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.ApplyHouseholdFilters(tenantService);

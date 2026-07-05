@@ -13,6 +13,7 @@ public interface IAppDbContext
     DbSet<Tag> Tags { get; }
     DbSet<MealPlan> MealPlans { get; }
     DbSet<ShoppingItem> ShoppingItems { get; }
+    DbSet<StoredFile> StoredFiles { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

@@ -46,7 +46,7 @@ public static class DishEndpoints
                     CancellationToken ct
                 ) =>
                 {
-                    var command = new UpdateDishCommand(id, body.Name, body.Description, body.ImageUrl);
+                    var command = new UpdateDishCommand(id, body.Name, body.Description, body.ImageUploadId, body.RemoveImage);
                     var result = await mediator.Send(command, ct);
                     return result is null ? TypedResults.NotFound() : TypedResults.Ok(result);
                 }
@@ -104,7 +104,7 @@ public static class DishEndpoints
     }
 }
 
-public sealed record UpdateDishRequest(string Name, string? Description, string? ImageUrl);
+public sealed record UpdateDishRequest(string Name, string? Description, Guid? ImageUploadId, bool RemoveImage = false);
 
 public sealed record SetIngredientsRequest(IReadOnlyList<IngredientInput> Ingredients);
 

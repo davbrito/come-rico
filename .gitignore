@@ -31,3 +31,4 @@ frontend/.env.*.local
 *.iml
 *.orig
 Thumbs.db
+.vercel

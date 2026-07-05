@@ -709,6 +709,58 @@
         }
       }
     },
+    "/api/images": {
+      "post": {
+        "tags": [
+          "Images"
+        ],
+        "summary": "Crea un ticket de subida: URL firmada de R2 + id del archivo",
+        "operationId": "CreateUpload",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUploadCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadTicketDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/images/cleanup": {
+      "get": {
+        "tags": [
+          "Images"
+        ],
+        "summary": "Elimina archivos huérfanos de R2 (invocado por Vercel Cron)",
+        "operationId": "CleanupOrphanedFiles",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CleanupFilesResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/roulette/spin": {
       "post": {
         "tags": [
@@ -1190,11 +1242,27 @@
           }
         }
       },
+      "CleanupFilesResponse": {
+        "required": [
+          "deleted"
+        ],
+        "type": "object",
+        "properties": {
+          "deleted": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "CreateDishCommand": {
         "required": [
           "name",
           "description",
-          "imageUrl"
+          "imageUploadId"
         ],
         "type": "object",
         "properties": {
@@ -1207,11 +1275,12 @@
               "string"
             ]
           },
-          "imageUrl": {
+          "imageUploadId": {
             "type": [
               "null",
               "string"
-            ]
+            ],
+            "format": "uuid"
           }
         }
       },
@@ -1287,6 +1356,34 @@
         "properties": {
           "name": {
             "type": "string"
+          }
+        }
+      },
+      "CreateUploadCommand": {
+        "required": [
+          "type",
+          "keyFolder",
+          "contentType",
+          "sizeBytes"
+        ],
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "keyFolder": {
+            "type": "string"
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
           }
         }
       },
@@ -1991,7 +2088,7 @@
         "required": [
           "name",
           "description",
-          "imageUrl"
+          "imageUploadId"
         ],
         "type": "object",
         "properties": {
@@ -2004,11 +2101,39 @@
               "string"
             ]
           },
-          "imageUrl": {
+          "imageUploadId": {
             "type": [
               "null",
               "string"
-            ]
+            ],
+            "format": "uuid"
+          },
+          "removeImage": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "UploadTicketDto": {
+        "required": [
+          "uploadId",
+          "uploadUrl",
+          "fields"
+        ],
+        "type": "object",
+        "properties": {
+          "uploadId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "uploadUrl": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
           }
         }
       },
@@ -2045,6 +2170,9 @@
     },
     {
       "name": "Dishes"
+    },
+    {
+      "name": "Images"
     },
     {
       "name": "Roulette"

@@ -92,6 +92,14 @@ dotnet sln add ComeRico.Api/ComeRico.Api.csproj
 - Enums serialize as strings (`ConfigureHttpJsonOptions` + `JsonStringEnumConverter`) so the Hey-API client emits string literal unions.
 - **EF gotcha:** entities with client-generated Guid keys discovered only through a navigation are tracked as `Modified`, not `Added` — always `Add`/`RemoveRange` child entities through their `DbSet` (see `SetDishIngredients`).
 
+### File Uploads (Cloudflare R2, presigned)
+- **Ticket flow:** `POST /api/images` (`RequiresHousehold`, JSON `{contentType, sizeBytes}`) creates a `StoredFile` row (`Pending`) and returns `{uploadId, uploadUrl, fields}` — a presigned POST (`CreatePresignedPostAsync`, 15 min) whose signed policy enforces `Content-Type` (`ExactMatchCondition`) and the size range (`ContentLengthRangeCondition`) **at the storage layer**. The browser submits multipart/form-data with all `fields` plus the file (last) **directly to R2** (no upload traffic through the API); the bucket needs a CORS rule allowing POST for that to work.
+- Create/UpdateDish receive `imageUploadId` (the `StoredFile` id, never a storage path — clients can't choose keys); the handler resolves it via `ResolveUploadAsync` (tenant-filtered, flips to `Active`, returns the public URL stored in `Dish.ImageUrl`). `UpdateDishRequest`: `imageUploadId` null keeps the current image, `removeImage: true` drops it.
+- `R2FileStorage` (`ComeRico.Api/Services`, implements `IFileStorage` from Core) configures `AmazonS3Client` with `ServiceURL` from config and checksums `WHEN_REQUIRED` (required for R2), per https://developers.cloudflare.com/r2/examples/aws/aws-sdk-net/.
+- Config lives in the `R2` section (`ServiceUrl` — the full `https://{accountId}.r2.cloudflarestorage.com` endpoint —, `AccessKeyId`, `SecretAccessKey`, `BucketName`, `PublicBaseUrl`); locally secrets live in dotnet user-secrets (mirroring the root `.env`), in production env vars (`R2__ServiceUrl`, …). `PublicBaseUrl` is the bucket's r2.dev subdomain or custom domain and must allow public reads.
+- Object keys are `dishes/{householdId}/{guid}.{ext}`; `CreateUploadCommand`'s validator enforces content type (JPG/PNG/WebP/AVIF/GIF) and the 5 MB limit (see `UploadRules`).
+- **Orphan GC (mark-and-sweep):** replacing/removing a dish image marks the old `StoredFile` `Orphaned`. `GET /api/images/cleanup` (invoked by Vercel Cron weekly, authenticated with `Authorization: Bearer {CRON_SECRET}` — not a user cookie; it runs cross-tenant with `IgnoreQueryFilters`) deletes blobs+rows that are `Orphaned` or `Pending` older than 2h (tickets never consumed). External/legacy image URLs have no `StoredFile` row and are ignored.
+
 ### SignalR Hub Design
 - `RouletteHub` is `[Authorize]`d; on connect it joins the socket to the `household-{id}` group resolved from the cookie's `household_id` claim (never a client-passed id).
 - Business logic (spinning, selecting winner) is a MediatR command in `Core`.

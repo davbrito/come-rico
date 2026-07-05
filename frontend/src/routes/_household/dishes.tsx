@@ -2,7 +2,8 @@ import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup } from "@base-ui/react/toggle-group";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useDropzone } from "react-dropzone";
 import { z } from "zod";
 
 import {
@@ -15,6 +16,7 @@ import {
   getTagsQueryKey,
   setDishIngredientsMutation,
   setDishTagsMutation,
+  createUploadMutation,
 } from "#/api/@tanstack/react-query.gen";
 import type { DishDto, MeasurementUnit } from "#/api/types.gen";
 import { useAppForm } from "#/components/form";
@@ -40,7 +42,92 @@ const dishNameSchema = z
 
 const dishDescriptionSchema = z.string().trim().max(300, "Máximo 300 caracteres");
 
-const dishImageUrlSchema = z.union([z.literal(""), z.url("URL de imagen inválida")]);
+const IMAGE_ACCEPT = {
+  "image/jpeg": [".jpg", ".jpeg"],
+  "image/png": [".png"],
+  "image/webp": [".webp"],
+  "image/avif": [".avif"],
+  "image/gif": [".gif"],
+};
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+
+function ImagePicker({
+  file,
+  onChange,
+}: {
+  file: File | null;
+  onChange: (file: File | null) => void;
+}) {
+  const [rejectionError, setRejectionError] = useState<string | null>(null);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    accept: IMAGE_ACCEPT,
+    maxSize: MAX_IMAGE_BYTES,
+    multiple: false,
+    onDropAccepted: (files) => {
+      setRejectionError(null);
+      onChange(files[0] ?? null);
+    },
+    onDropRejected: (rejections) => {
+      const code = rejections[0]?.errors[0]?.code;
+      setRejectionError(
+        code === "file-too-large"
+          ? "La imagen no puede superar 5 MB."
+          : "Formato no soportado. Usa JPG, PNG, WebP, AVIF o GIF.",
+      );
+    },
+  });
+
+  const previewUrl = file ? URL.createObjectURL(file) : null;
+  useEffect(() => {
+    if (!previewUrl) return;
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
+
+  return (
+    <div>
+      <span className="mb-1 block text-sm font-medium text-sea-ink">Imagen (opcional)</span>
+      <div
+        {...getRootProps({
+          className: `cursor-pointer rounded-xl border-2 border-dashed p-4 text-center transition ${
+            isDragActive
+              ? "border-orange-400 bg-orange-50 dark:bg-orange-900/20"
+              : "border-[var(--chip-line)] hover:border-orange-300"
+          }`,
+        })}
+      >
+        <input {...getInputProps()} />
+        {previewUrl ? (
+          <img
+            src={previewUrl}
+            alt="Vista previa"
+            className="mx-auto h-32 w-full rounded-lg object-cover"
+          />
+        ) : (
+          <p className="text-sm text-sea-ink-soft">
+            {isDragActive
+              ? "Suelta la imagen aquí…"
+              : "Arrastra una imagen o haz clic para elegirla"}
+          </p>
+        )}
+      </div>
+      {file && (
+        <div className="mt-1 flex items-center gap-2">
+          <span className="max-w-60 truncate text-xs text-sea-ink-soft">{file.name}</span>
+          <Button
+            variant="danger-ghost"
+            size="sm"
+            onClick={() => onChange(null)}
+            aria-label="Quitar imagen"
+          >
+            ✕
+          </Button>
+        </div>
+      )}
+      {rejectionError && <p className="mt-1 text-xs text-red-500">{rejectionError}</p>}
+    </div>
+  );
+}
 
 function DishesPage() {
   const qc = useQueryClient();
@@ -54,27 +141,60 @@ function DishesPage() {
 
   const createMut = useMutation({ ...createDishMutation(), onSuccess: invalidate });
   const deleteMut = useMutation({ ...deleteDishMutation(), onSuccess: invalidate });
+  const uploadMut = useMutation(createUploadMutation());
+
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const createForm = useAppForm({
-    defaultValues: { name: "", description: "", imageUrl: "" },
+    defaultValues: { name: "", description: "" },
     onSubmit: async ({ value, formApi }) => {
+      setUploadError(null);
+      let imageUploadId: string | null = null;
+      if (imageFile) {
+        // Ticket first (Pending row + presigned POST policy), then multipart
+        // POST straight to R2 so upload bytes never flow through the API. The
+        // signed policy enforces content type and size server-side; the file
+        // must be the last form field.
+        const ticket = await uploadMut.mutateAsync({
+          body: { type: "image", keyFolder: "dishes", contentType: imageFile.type, sizeBytes: imageFile.size },
+        });
+        const formData = new FormData();
+        for (const [name, value] of Object.entries(ticket.fields)) {
+          formData.append(name, value);
+        }
+        formData.append("file", imageFile);
+        const res = await fetch(ticket.uploadUrl, { method: "POST", body: formData }).catch(
+          () => null,
+        );
+        if (!res?.ok) {
+          setUploadError("No se pudo subir la imagen. Inténtalo de nuevo.");
+          return;
+        }
+        imageUploadId = ticket.uploadId;
+      }
       await createMut.mutateAsync({
         body: {
           name: value.name.trim(),
           description: value.description.trim() || null,
-          imageUrl: value.imageUrl.trim() || null,
+          imageUploadId,
         },
       });
       formApi.reset();
+      setImageFile(null);
       setShowForm(false);
     },
   });
 
-  const error = createMut.isError
-    ? getApiErrorMessage(createMut.error)
-    : deleteMut.isError
-      ? getApiErrorMessage(deleteMut.error)
-      : null;
+  const error =
+    uploadError ??
+    (createMut.isError
+      ? getApiErrorMessage(createMut.error)
+      : uploadMut.isError
+        ? getApiErrorMessage(uploadMut.error)
+        : deleteMut.isError
+          ? getApiErrorMessage(deleteMut.error)
+          : null);
 
   return (
     <main className="page-wrap px-4 pt-10 pb-8">
@@ -125,9 +245,7 @@ function DishesPage() {
               {(field) => <field.TextField label="Descripción (opcional)" />}
             </createForm.AppField>
 
-            <createForm.AppField name="imageUrl" validators={{ onChange: dishImageUrlSchema }}>
-              {(field) => <field.TextField label="URL de imagen (opcional)" />}
-            </createForm.AppField>
+            <ImagePicker file={imageFile} onChange={setImageFile} />
           </div>
           <div className="mt-4 flex gap-2">
             <createForm.AppForm>

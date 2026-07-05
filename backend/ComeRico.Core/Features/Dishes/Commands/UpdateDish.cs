@@ -1,4 +1,5 @@
 using ComeRico.Core.Features.Dishes.Queries;
+using ComeRico.Core.Features.Images;
 using ComeRico.Core.Interfaces;
 using FluentValidation;
 using MediatR;
@@ -6,7 +7,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ComeRico.Core.Features.Dishes.Commands;
 
-public sealed record UpdateDishCommand(Guid DishId, string Name, string? Description, string? ImageUrl) : IRequest<DishDto?>;
+/// <summary>
+/// ImageUploadId null keeps the current image; set RemoveImage to drop it.
+/// </summary>
+public sealed record UpdateDishCommand(Guid DishId, string Name, string? Description, Guid? ImageUploadId, bool RemoveImage)
+    : IRequest<DishDto?>;
 
 public sealed class UpdateDishCommandValidator : AbstractValidator<UpdateDishCommand>
 {
@@ -22,14 +27,11 @@ public sealed class UpdateDishCommandValidator : AbstractValidator<UpdateDishCom
             .MaximumLength(1000)
             .WithMessage("La descripción no puede superar los 1000 caracteres.")
             .When(x => x.Description is not null);
-        RuleFor(x => x.ImageUrl)
-            .MaximumLength(2048)
-            .WithMessage("La URL de imagen no puede superar los 2048 caracteres.")
-            .When(x => x.ImageUrl is not null);
     }
 }
 
-public sealed class UpdateDishCommandHandler(IAppDbContext dbContext) : IRequestHandler<UpdateDishCommand, DishDto?>
+public sealed class UpdateDishCommandHandler(IAppDbContext dbContext, IFileStorage storage)
+    : IRequestHandler<UpdateDishCommand, DishDto?>
 {
     public async Task<DishDto?> Handle(UpdateDishCommand request, CancellationToken cancellationToken)
     {
@@ -39,7 +41,21 @@ public sealed class UpdateDishCommandHandler(IAppDbContext dbContext) : IRequest
             .FirstOrDefaultAsync(d => d.Id == request.DishId, cancellationToken);
         if (dish is null)
             return null;
-        dish.Update(request.Name, request.Description, request.ImageUrl);
+
+        var imageUrl = dish.ImageUrl;
+        if (request.ImageUploadId is not null)
+        {
+            imageUrl = await dbContext.ResolveUploadAsync(storage, request.ImageUploadId, cancellationToken);
+        }
+        else if (request.RemoveImage)
+        {
+            imageUrl = null;
+        }
+
+        if (imageUrl != dish.ImageUrl)
+            await dbContext.StoredFiles.OrphanByUrlAsync(dish.ImageUrl, cancellationToken);
+
+        dish.Update(request.Name, request.Description, imageUrl);
         await dbContext.SaveChangesAsync(cancellationToken);
         return dish.ToDto();
     }

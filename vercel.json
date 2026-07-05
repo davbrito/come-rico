@@ -18,6 +18,7 @@
       "entrypoint": "Dockerfile.vercel"
     }
   },
+  "crons": [{ "path": "/api/images/cleanup", "schedule": "0 0 * * 0" }],
   "rewrites": [
     { "source": "/api/(.*)", "destination": { "service": "backend" } },
     { "source": "/hubs/(.*)", "destination": { "service": "backend" } },

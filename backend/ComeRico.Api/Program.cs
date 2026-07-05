@@ -17,7 +17,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // EF Core + PostgreSQL (DATABASE_URL from Neon/Vercel, or DefaultConnection locally)
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"), o => o.SetPostgresVersion(18, 0))
 );
 
 builder.Services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
@@ -56,10 +56,14 @@ builder.Services.AddDataProtection().SetApplicationName("ComeRico").PersistKeysT
 
 builder.Services.ConfigureApplicationCookie(options =>
 {
-    options.Cookie.Name = "__Host-comerico.auth";
+    // The __Host- prefix requires the Secure attribute unconditionally, which
+    // breaks the cookie over plain HTTP in local dev.
+    options.Cookie.Name = builder.Environment.IsDevelopment() ? "comerico.auth" : "__Host-comerico.auth";
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.Lax; // CSRF baseline: blocks cross-site POSTs
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+        ? CookieSecurePolicy.SameAsRequest
+        : CookieSecurePolicy.Always;
     options.ExpireTimeSpan = TimeSpan.FromDays(14);
     options.SlidingExpiration = true;
 
@@ -88,6 +92,10 @@ builder.Services.AddValidatorsFromAssemblyContaining<CreateHouseholdCommand>();
 
 // SignalR
 builder.Services.AddSignalR();
+
+// Cloudflare R2 (S3-compatible API) for image uploads
+builder.Services.AddOptions<R2Options>().BindConfiguration(R2Options.SectionName);
+builder.Services.AddSingleton<IFileStorage, R2FileStorage>();
 
 // Authorization: household-scoped endpoints require an authenticated user whose
 // cookie carries a household claim (i.e. they created or joined a household).
@@ -146,6 +154,7 @@ app.UseAuthorization();
 app.MapAuthEndpoints();
 app.MapHouseholdEndpoints();
 app.MapDishEndpoints();
+app.MapImageEndpoints();
 app.MapRouletteEndpoints();
 app.MapTagEndpoints();
 app.MapMealPlanEndpoints();

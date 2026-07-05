@@ -10,7 +10,7 @@ import type { CurrentUserDto } from "#/api/types.gen";
  */
 export const fetchCurrentUser = async (): Promise<CurrentUserDto | null> => {
   const res = await getCurrentUser({ throwOnError: false });
-  if (res.response?.status === 401) return null;
+  if (res.status === 401) return null;
   if (!res.data) {
     if (res.response) {
       console.error("Failed to fetch current user:", res.response.status, res.response.statusText);
