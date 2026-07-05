@@ -6,5 +6,7 @@
   "useTabs": false,
   "semi": true,
   "sortImports": true,
-  "sortTailwindcss": true
+  "sortTailwindcss": {
+    "functions": ["clsx", "cn"]
+  }
 }

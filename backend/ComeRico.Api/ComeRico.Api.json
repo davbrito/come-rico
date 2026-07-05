@@ -16,7 +16,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RegisterRequest"
+                "$ref": "#/components/schemas/UserRegisterRequest"
               }
             }
           },
@@ -33,12 +33,12 @@
               }
             }
           },
-          "422": {
-            "description": "Unprocessable Entity",
+          "400": {
+            "description": "Bad Request",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ValidationErrorBody"
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
                 }
               }
             }
@@ -49,10 +49,24 @@
     "/api/auth/login": {
       "post": {
         "tags": [
-          "Auth"
+          "ComeRico.Api"
         ],
-        "summary": "Inicia sesión con correo y contraseña",
-        "operationId": "Login",
+        "parameters": [
+          {
+            "name": "useCookies",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "useSessionCookies",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -69,10 +83,277 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CurrentUserDto"
+                  "$ref": "#/components/schemas/AccessTokenResponse"
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "tags": [
+          "ComeRico.Api"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessTokenResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/confirmEmail": {
+      "get": {
+        "tags": [
+          "ComeRico.Api"
+        ],
+        "operationId": "MapIdentityApi-/api/auth/confirmEmail",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "changedEmail",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/auth/resendConfirmationEmail": {
+      "post": {
+        "tags": [
+          "ComeRico.Api"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResendConfirmationEmailRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/auth/forgotPassword": {
+      "post": {
+        "tags": [
+          "ComeRico.Api"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/resetPassword": {
+      "post": {
+        "tags": [
+          "ComeRico.Api"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/manage/2fa": {
+      "post": {
+        "tags": [
+          "ComeRico.Api"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TwoFactorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwoFactorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/auth/manage/info": {
+      "get": {
+        "tags": [
+          "ComeRico.Api"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InfoResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "ComeRico.Api"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InfoRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InfoResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
           }
         }
       }
@@ -84,9 +365,17 @@
         ],
         "summary": "Cierra la sesión actual",
         "operationId": "Logout",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { }
+            }
+          },
+          "required": true
+        },
         "responses": {
-          "204": {
-            "description": "No Content"
+          "200": {
+            "description": "OK"
           }
         }
       }
@@ -374,6 +663,36 @@
   },
   "components": {
     "schemas": {
+      "AccessTokenResponse": {
+        "required": [
+          "accessToken",
+          "expiresIn",
+          "refreshToken"
+        ],
+        "type": "object",
+        "properties": {
+          "tokenType": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "accessToken": {
+            "type": "string"
+          },
+          "expiresIn": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int64"
+          },
+          "refreshToken": {
+            "type": "string"
+          }
+        }
+      },
       "CreateDishCommand": {
         "required": [
           "name",
@@ -500,17 +819,13 @@
           }
         }
       },
-      "FieldError": {
+      "ForgotPasswordRequest": {
         "required": [
-          "field",
-          "message"
+          "email"
         ],
         "type": "object",
         "properties": {
-          "field": {
-            "type": "string"
-          },
-          "message": {
+          "email": {
             "type": "string"
           }
         }
@@ -540,6 +855,91 @@
           }
         }
       },
+      "HttpValidationProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instance": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "errors": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "InfoRequest": {
+        "type": "object",
+        "properties": {
+          "newEmail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "newPassword": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "oldPassword": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "InfoResponse": {
+        "required": [
+          "email",
+          "isEmailConfirmed"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "isEmailConfirmed": {
+            "type": "boolean"
+          }
+        }
+      },
       "JoinHouseholdCommand": {
         "required": [
           "inviteCode"
@@ -563,24 +963,73 @@
           },
           "password": {
             "type": "string"
+          },
+          "twoFactorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "twoFactorRecoveryCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "RefreshRequest": {
+        "required": [
+          "refreshToken"
+        ],
+        "type": "object",
+        "properties": {
+          "refreshToken": {
+            "type": "string"
           }
         }
       },
       "RegisterRequest": {
         "required": [
-          "displayName",
           "email",
           "password"
         ],
         "type": "object",
         "properties": {
-          "displayName": {
-            "type": "string"
-          },
           "email": {
             "type": "string"
           },
           "password": {
+            "type": "string"
+          }
+        }
+      },
+      "ResendConfirmationEmailRequest": {
+        "required": [
+          "email"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          }
+        }
+      },
+      "ResetPasswordRequest": {
+        "required": [
+          "email",
+          "resetCode",
+          "newPassword"
+        ],
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "resetCode": {
+            "type": "string"
+          },
+          "newPassword": {
             "type": "string"
           }
         }
@@ -665,6 +1114,69 @@
           }
         }
       },
+      "TwoFactorRequest": {
+        "type": "object",
+        "properties": {
+          "enable": {
+            "type": [
+              "null",
+              "boolean"
+            ]
+          },
+          "twoFactorCode": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "resetSharedKey": {
+            "type": "boolean"
+          },
+          "resetRecoveryCodes": {
+            "type": "boolean"
+          },
+          "forgetMachine": {
+            "type": "boolean"
+          }
+        }
+      },
+      "TwoFactorResponse": {
+        "required": [
+          "sharedKey",
+          "recoveryCodesLeft",
+          "isTwoFactorEnabled",
+          "isMachineRemembered"
+        ],
+        "type": "object",
+        "properties": {
+          "sharedKey": {
+            "type": "string"
+          },
+          "recoveryCodesLeft": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "recoveryCodes": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "isTwoFactorEnabled": {
+            "type": "boolean"
+          },
+          "isMachineRemembered": {
+            "type": "boolean"
+          }
+        }
+      },
       "UpdateDishRequest": {
         "required": [
           "name",
@@ -690,23 +1202,31 @@
           }
         }
       },
-      "ValidationErrorBody": {
+      "UserRegisterRequest": {
         "required": [
-          "errors"
+          "displayName",
+          "email",
+          "password"
         ],
         "type": "object",
         "properties": {
-          "errors": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/FieldError"
-            }
+          "displayName": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
           }
         }
       }
     }
   },
   "tags": [
+    {
+      "name": "ComeRico.Api"
+    },
     {
       "name": "Auth"
     },

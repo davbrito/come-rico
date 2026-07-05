@@ -1,0 +1,22 @@
+{
+  "[csharp]": {
+    "editor.defaultFormatter": "csharpier.csharpier-vscode"
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "oxc.oxc-vscode"
+  },
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.format.oxc": "always",
+    "source.fixAll.oxc": "always"
+  }
+}

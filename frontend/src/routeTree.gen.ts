@@ -10,20 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as RouletteRouteImport } from './routes/roulette'
-import { Route as LoginRouteImport } from './routes/login'
 import { Route as HouseholdRouteImport } from './routes/household'
 import { Route as DishesRouteImport } from './routes/dishes'
 import { Route as AboutRouteImport } from './routes/about'
+import { Route as AuthRouteRouteImport } from './routes/_auth/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthRegisterRouteImport } from './routes/_auth/register'
+import { Route as AuthLoginRouteImport } from './routes/_auth/login'
 
 const RouletteRoute = RouletteRouteImport.update({
   id: '/roulette',
   path: '/roulette',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HouseholdRoute = HouseholdRouteImport.update({
@@ -41,10 +38,24 @@ const AboutRoute = AboutRouteImport.update({
   path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthRouteRoute = AuthRouteRouteImport.update({
+  id: '/_auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRegisterRoute = AuthRegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
+  getParentRoute: () => AuthRouteRoute,
+} as any)
+const AuthLoginRoute = AuthLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => AuthRouteRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -52,47 +63,67 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/dishes': typeof DishesRoute
   '/household': typeof HouseholdRoute
-  '/login': typeof LoginRoute
   '/roulette': typeof RouletteRoute
+  '/login': typeof AuthLoginRoute
+  '/register': typeof AuthRegisterRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/dishes': typeof DishesRoute
   '/household': typeof HouseholdRoute
-  '/login': typeof LoginRoute
   '/roulette': typeof RouletteRoute
+  '/login': typeof AuthLoginRoute
+  '/register': typeof AuthRegisterRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_auth': typeof AuthRouteRouteWithChildren
   '/about': typeof AboutRoute
   '/dishes': typeof DishesRoute
   '/household': typeof HouseholdRoute
-  '/login': typeof LoginRoute
   '/roulette': typeof RouletteRoute
+  '/_auth/login': typeof AuthLoginRoute
+  '/_auth/register': typeof AuthRegisterRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/dishes' | '/household' | '/login' | '/roulette'
-  fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/dishes' | '/household' | '/login' | '/roulette'
-  id:
-    | '__root__'
+  fullPaths:
     | '/'
     | '/about'
     | '/dishes'
     | '/household'
-    | '/login'
     | '/roulette'
+    | '/login'
+    | '/register'
+  fileRoutesByTo: FileRoutesByTo
+  to:
+    | '/'
+    | '/about'
+    | '/dishes'
+    | '/household'
+    | '/roulette'
+    | '/login'
+    | '/register'
+  id:
+    | '__root__'
+    | '/'
+    | '/_auth'
+    | '/about'
+    | '/dishes'
+    | '/household'
+    | '/roulette'
+    | '/_auth/login'
+    | '/_auth/register'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthRouteRoute: typeof AuthRouteRouteWithChildren
   AboutRoute: typeof AboutRoute
   DishesRoute: typeof DishesRoute
   HouseholdRoute: typeof HouseholdRoute
-  LoginRoute: typeof LoginRoute
   RouletteRoute: typeof RouletteRoute
 }
 
@@ -103,13 +134,6 @@ declare module '@tanstack/react-router' {
       path: '/roulette'
       fullPath: '/roulette'
       preLoaderRoute: typeof RouletteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/household': {
@@ -133,6 +157,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_auth': {
+      id: '/_auth'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -140,15 +171,43 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_auth/register': {
+      id: '/_auth/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof AuthRegisterRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
+    '/_auth/login': {
+      id: '/_auth/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof AuthLoginRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
   }
 }
 
+interface AuthRouteRouteChildren {
+  AuthLoginRoute: typeof AuthLoginRoute
+  AuthRegisterRoute: typeof AuthRegisterRoute
+}
+
+const AuthRouteRouteChildren: AuthRouteRouteChildren = {
+  AuthLoginRoute: AuthLoginRoute,
+  AuthRegisterRoute: AuthRegisterRoute,
+}
+
+const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
+  AuthRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthRouteRoute: AuthRouteRouteWithChildren,
   AboutRoute: AboutRoute,
   DishesRoute: DishesRoute,
   HouseholdRoute: HouseholdRoute,
-  LoginRoute: LoginRoute,
   RouletteRoute: RouletteRoute,
 }
 export const routeTree = rootRouteImport

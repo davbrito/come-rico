@@ -9,7 +9,6 @@ using ComeRico.Core.Interfaces;
 using ComeRico.Core.Persistence;
 using FluentValidation;
 using Microsoft.AspNetCore.DataProtection;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -18,11 +17,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 // EF Core + PostgreSQL (DATABASE_URL from Neon/Vercel, or DefaultConnection locally)
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(ConnectionStringResolver.Resolve(builder.Configuration))
-        // False positive: the tenant query filters capture a scoped service, which makes
-        // the runtime model never match the snapshot exactly. Migrations stay in sync via
-        // `dotnet ef migrations add` (which compiles a design-time model without the closure).
-        .ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning)));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"))
+);
 
 builder.Services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
 
@@ -30,11 +26,12 @@ builder.Services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbConte
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantService, ClaimsTenantService>();
 builder.Services.AddScoped<ICurrentUserService, HttpCurrentUserService>();
+builder.Services.AddAuthorization();
 
-// ASP.NET Core Identity — cookie-based auth (BFF pattern: the HttpOnly cookie is the
-// session; no tokens are ever exposed to the browser).
-builder.Services
-    .AddIdentityCore<AppUser>(options =>
+// ASP.NET Core Identity API — supports both HttpOnly cookie (BFF/SPA) and bearer
+// token (mobile/native) auth in a single setup.
+builder
+    .Services.AddIdentityApiEndpoints<AppUser>(options =>
     {
         options.User.RequireUniqueEmail = true;
         options.Password.RequiredLength = 8;
@@ -44,20 +41,12 @@ builder.Services
         options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
     })
     .AddEntityFrameworkStores<AppDbContext>()
-    .AddSignInManager()
-    .AddDefaultTokenProviders()
     .AddClaimsPrincipalFactory<AppUserClaimsPrincipalFactory>();
 
 // Persist Data Protection keys in the shared database so auth cookies remain
 // valid across container instances and restarts (in-memory keys caused random
 // session loss in production).
-builder.Services.AddDataProtection()
-    .SetApplicationName("ComeRico")
-    .PersistKeysToDbContext<AppDbContext>();
-
-builder.Services
-    .AddAuthentication(IdentityConstants.ApplicationScheme)
-    .AddIdentityCookies();
+builder.Services.AddDataProtection().SetApplicationName("ComeRico").PersistKeysToDbContext<AppDbContext>();
 
 builder.Services.ConfigureApplicationCookie(options =>
 {
@@ -96,10 +85,12 @@ builder.Services.AddSignalR();
 
 // Authorization: household-scoped endpoints require an authenticated user whose
 // cookie carries a household claim (i.e. they created or joined a household).
-builder.Services.AddAuthorizationBuilder()
-    .AddPolicy("RequiresHousehold", policy => policy
-        .RequireAuthenticatedUser()
-        .RequireClaim(AppClaimTypes.HouseholdId));
+builder
+    .Services.AddAuthorizationBuilder()
+    .AddPolicy(
+        "RequiresHousehold",
+        policy => policy.RequireAuthenticatedUser().RequireClaim(AppClaimTypes.HouseholdId)
+    );
 
 // OpenAPI
 builder.Services.AddOpenApi();
@@ -140,13 +131,20 @@ app.UseExceptionHandler(exceptionApp =>
         {
             context.Response.StatusCode = StatusCodes.Status500InternalServerError;
             context.Response.ContentType = "application/json";
-            await context.Response.WriteAsJsonAsync(new { message = "Ocurrió un error interno. Por favor inténtelo de nuevo." });
+            await context.Response.WriteAsJsonAsync(
+                new { message = "Ocurrió un error interno. Por favor inténtelo de nuevo." }
+            );
         }
     });
 });
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Built-in Identity API endpoints under /api/auth: /api/auth/login, /api/auth/refresh,
+// /api/auth/manage/info, etc. POST /api/auth/login accepts ?useCookies=true for
+// SPA cookie auth, or returns a bearer token by default for native/mobile clients.
+app.MapGroup("/api/auth").MapIdentityApi<AppUser>();
 
 // Map endpoints
 app.MapAuthEndpoints();
