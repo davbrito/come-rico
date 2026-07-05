@@ -14,7 +14,19 @@ export const fetchCurrentUser = createServerFn({ method: "GET" }).handler(
   async (): Promise<CurrentUserDto | null> => {
     const res = await getCurrentUser({ throwOnError: false });
     if (res.response?.status === 401) return null;
-    if (!res.data) throw new Error("Failed to fetch current user");
+    if (!res.data) {
+      if (res.response) {
+        console.error(
+          "Failed to fetch current user:",
+          res.response.status,
+          res.response.statusText,
+        );
+      }
+      if (res.error) {
+        console.error("Failed to fetch current user:", res.error);
+      }
+      throw new Error("Failed to fetch current user");
+    }
     return res.data;
   },
 );

@@ -50,10 +50,10 @@ builder.Services.AddDataProtection().SetApplicationName("ComeRico").PersistKeysT
 
 builder.Services.ConfigureApplicationCookie(options =>
 {
-    options.Cookie.Name = "comerico.auth";
+    options.Cookie.Name = "__Host-comerico.auth";
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.Lax; // CSRF baseline: blocks cross-site POSTs
-    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
     options.ExpireTimeSpan = TimeSpan.FromDays(14);
     options.SlidingExpiration = true;
 

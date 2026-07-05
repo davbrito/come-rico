@@ -1,15 +1,26 @@
 import { createIsomorphicFn } from "@tanstack/react-start";
+import { getRequestHeader } from "@tanstack/react-start/server";
 
+import type { ClientOptions, Config } from "#/api/client";
 import type { CreateClientConfig } from "#/api/client.gen";
 
-const getBaseUrl = createIsomorphicFn()
-  .client(() => undefined)
-  .server(() => process.env.BACKEND_URL ?? "http://localhost:5276");
+const getConfig = createIsomorphicFn()
+  .client((): Config<ClientOptions> => ({}))
+  .server((): Config<ClientOptions> => {
+    const cookie = getRequestHeader("cookie");
+    return {
+      baseUrl: process.env.BACKEND_URL ?? "http://localhost:5276",
+
+      headers: {
+        cookie: cookie,
+      },
+    };
+  });
 
 export const createClientConfig: CreateClientConfig = (config) => ({
   ...config,
-  baseUrl: getBaseUrl(),
   credentials: "same-origin",
+  ...getConfig(),
 });
 
 export function getApiErrorMessage(err: unknown): string {

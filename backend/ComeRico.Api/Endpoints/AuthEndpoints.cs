@@ -50,6 +50,8 @@ public static class AuthEndpoints
                         );
 
                     var user = new AppUser { DisplayName = request.DisplayName.Trim() };
+                    await userManager.SetUserNameAsync(user, request.Email);
+                    await userManager.SetEmailAsync(user, request.Email);
 
                     var result = await userManager.CreateAsync(user, request.Password);
                     if (!result.Succeeded)
@@ -60,8 +62,6 @@ public static class AuthEndpoints
                         return TypedResults.ValidationProblem(errors);
                     }
 
-                    await userManager.SetUserNameAsync(user, request.Email);
-                    await userManager.SetEmailAsync(user, request.Email);
                     await signInManager.SignInAsync(user, isPersistent: true);
 
                     return TypedResults.Ok(ToDto(user, null));
