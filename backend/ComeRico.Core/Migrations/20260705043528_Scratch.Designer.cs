@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace ComeRico.Core.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260704205410_AddDataProtectionKeys")]
-    partial class AddDataProtectionKeys
+    [Migration("20260705043528_Scratch")]
+    partial class Scratch
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
