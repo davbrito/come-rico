@@ -1,17 +1,22 @@
-import { Link, useNavigate, useRouteContext, useRouter } from '@tanstack/react-router'
-import { useMutation } from '@tanstack/react-query'
-import ThemeToggle from './ThemeToggle'
-import { logoutMutation } from '#/api/@tanstack/react-query.gen'
+import { useMutation } from "@tanstack/react-query";
+import { Link, useNavigate, useRouteContext, useRouter } from "@tanstack/react-router";
+
+import { logoutMutation } from "#/api/@tanstack/react-query.gen";
+
+import ThemeToggle from "./ThemeToggle";
 
 export default function Header() {
-  const { user } = useRouteContext({ from: '__root__' })
-  const router = useRouter()
-  const navigate = useNavigate()
+  const { user } = useRouteContext({ from: "__root__" });
+  const router = useRouter();
+  const navigate = useNavigate();
 
   const logoutMut = useMutation({
     ...logoutMutation(),
-    onSuccess: async () => { await router.invalidate(); navigate({ to: '/login' }) },
-  })
+    onSuccess: async () => {
+      await router.invalidate();
+      navigate({ to: "/login" });
+    },
+  });
 
   return (
     <header className="sticky top-0 z-50 border-b border-[var(--line)] bg-[var(--header-bg)] px-4 backdrop-blur-lg">
@@ -27,16 +32,24 @@ export default function Header() {
         </h2>
 
         <div className="order-3 flex w-full flex-wrap items-center gap-x-4 gap-y-1 pb-1 text-sm font-semibold sm:order-none sm:w-auto sm:flex-nowrap sm:pb-0">
-          <Link to="/" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
+          <Link to="/" className="nav-link" activeProps={{ className: "nav-link is-active" }}>
             Inicio
           </Link>
-          <Link to="/dishes" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
+          <Link to="/dishes" className="nav-link" activeProps={{ className: "nav-link is-active" }}>
             Platillos
           </Link>
-          <Link to="/roulette" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
+          <Link
+            to="/roulette"
+            className="nav-link"
+            activeProps={{ className: "nav-link is-active" }}
+          >
             Ruleta
           </Link>
-          <Link to="/household" className="nav-link" activeProps={{ className: 'nav-link is-active' }}>
+          <Link
+            to="/household"
+            className="nav-link"
+            activeProps={{ className: "nav-link is-active" }}
+          >
             Hogar
           </Link>
         </div>
@@ -67,5 +80,5 @@ export default function Header() {
         </div>
       </nav>
     </header>
-  )
+  );
 }

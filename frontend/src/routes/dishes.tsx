@@ -1,71 +1,78 @@
-import { createFileRoute, redirect } from '@tanstack/react-router'
-import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { useState } from "react";
+
 import {
-  getDishesOptions,
-  getDishesQueryKey,
   createDishMutation,
   deleteDishMutation,
-} from '#/api/@tanstack/react-query.gen'
-import { getApiErrorMessage } from '#/lib/api'
-import type { DishDto } from '#/api/types.gen'
+  getDishesOptions,
+  getDishesQueryKey,
+} from "#/api/@tanstack/react-query.gen";
+import type { DishDto } from "#/api/types.gen";
+import { getApiErrorMessage } from "#/lib/api";
 
-export const Route = createFileRoute('/dishes')({
+export const Route = createFileRoute("/dishes")({
   beforeLoad: ({ context }) => {
-    if (!context.user) throw redirect({ to: '/login' })
-    if (!context.user.householdId) throw redirect({ to: '/household' })
+    if (!context.user) throw redirect({ to: "/login" });
+    if (!context.user.householdId) throw redirect({ to: "/household" });
   },
   component: DishesPage,
-})
+});
 
 function DishesPage() {
-  const qc = useQueryClient()
-  const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ name: '', description: '', imageUrl: '' })
+  const qc = useQueryClient();
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ name: "", description: "", imageUrl: "" });
 
   const { data: dishes = [], isLoading } = useQuery({
     ...getDishesOptions(),
     select: (data) => data as DishDto[],
-  })
+  });
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: getDishesQueryKey() })
+  const invalidate = () => qc.invalidateQueries({ queryKey: getDishesQueryKey() });
 
   const createMut = useMutation({
     ...createDishMutation(),
     onSuccess: () => {
-      invalidate()
-      setForm({ name: '', description: '', imageUrl: '' })
-      setShowForm(false)
+      invalidate();
+      setForm({ name: "", description: "", imageUrl: "" });
+      setShowForm(false);
     },
-  })
+  });
 
-  const deleteMut = useMutation({ ...deleteDishMutation(), onSuccess: invalidate })
+  const deleteMut = useMutation({ ...deleteDishMutation(), onSuccess: invalidate });
 
   const handleCreate = (e: React.FormEvent) => {
-    e.preventDefault()
-    createMut.mutate({ body: { name: form.name, description: form.description || null, imageUrl: form.imageUrl || null } })
-  }
+    e.preventDefault();
+    createMut.mutate({
+      body: {
+        name: form.name,
+        description: form.description || null,
+        imageUrl: form.imageUrl || null,
+      },
+    });
+  };
 
   const handleDelete = (id: string) => {
-    if (!confirm('¿Eliminar este platillo?')) return
-    deleteMut.mutate({ path: { id } })
-  }
+    if (!confirm("¿Eliminar este platillo?")) return;
+    deleteMut.mutate({ path: { id } });
+  };
 
   const error = createMut.isError
     ? getApiErrorMessage(createMut.error)
     : deleteMut.isError
       ? getApiErrorMessage(deleteMut.error)
-      : null
+      : null;
 
   return (
-    <main className="page-wrap px-4 pb-8 pt-10">
+    <main className="page-wrap px-4 pt-10 pb-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-[var(--sea-ink)]">🍲 Platillos</h1>
         <button
           onClick={() => setShowForm((v) => !v)}
           className="rounded-full bg-orange-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-600"
         >
-          {showForm ? 'Cancelar' : '+ Agregar platillo'}
+          {showForm ? "Cancelar" : "+ Agregar platillo"}
         </button>
       </div>
 
@@ -105,7 +112,7 @@ function DishesPage() {
               disabled={createMut.isPending}
               className="rounded-full bg-orange-500 px-5 py-2 text-sm font-semibold text-white transition hover:bg-orange-600 disabled:opacity-60"
             >
-              {createMut.isPending ? 'Guardando…' : 'Guardar'}
+              {createMut.isPending ? "Guardando…" : "Guardar"}
             </button>
           </div>
         </form>
@@ -146,5 +153,5 @@ function DishesPage() {
         </ul>
       )}
     </main>
-  )
+  );
 }

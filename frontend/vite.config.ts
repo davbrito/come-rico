@@ -1,11 +1,12 @@
-import { defineConfig } from "vite";
-import { devtools } from "@tanstack/devtools-vite";
-import { nitro } from "nitro/vite";
+import { fileURLToPath } from "node:url";
+
 import { heyApiPlugin } from "@hey-api/vite-plugin";
+import tailwindcss from "@tailwindcss/vite";
+import { devtools } from "@tanstack/devtools-vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
-import tailwindcss from "@tailwindcss/vite";
-import { fileURLToPath } from "node:url";
+import { nitro } from "nitro/vite";
+import { defineConfig } from "vite";
 
 const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:5000";
 
@@ -17,9 +18,7 @@ const config = defineConfig({
     tanstackStart(),
     heyApiPlugin({
       config: {
-        input: fileURLToPath(
-          new URL("../backend/ComeRico.Api/ComeRico.Api.json", import.meta.url),
-        ),
+        input: fileURLToPath(new URL("../backend/ComeRico.Api/ComeRico.Api.json", import.meta.url)),
         output: "src/api",
         plugins: [
           {

@@ -1,6 +1,7 @@
+import { createServerFn } from "@tanstack/react-start";
+
 import { getCurrentUser } from "#/api";
 import type { CurrentUserDto } from "#/api/types.gen";
-import { createServerFn } from "@tanstack/react-start";
 
 /**
  * Reads the current session on the Start server (the BFF): forwards the
