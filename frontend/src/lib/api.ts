@@ -1,21 +1,22 @@
 import { createIsomorphicFn } from "@tanstack/react-start";
 import { getRequestHeader } from "@tanstack/react-start/server";
 
-import type { ClientOptions, Config } from "#/api/client";
-import type { CreateClientConfig } from "#/api/client.gen";
+import type { Config, CreateClientConfig } from "#/api/client";
 
 const getConfig = createIsomorphicFn()
-  .client((): Config<ClientOptions> => ({}))
-  .server((): Config<ClientOptions> => {
-    const cookie = getRequestHeader("cookie");
-    return {
+  .client(
+    (): Config => ({
+      baseUrl: window.location.origin,
+    }),
+  )
+  .server(
+    (): Config => ({
       baseUrl: process.env.BACKEND_URL ?? "http://localhost:5276",
-
       headers: {
-        cookie: cookie,
+        cookie: getRequestHeader("cookie"),
       },
-    };
-  });
+    }),
+  );
 
 export const createClientConfig: CreateClientConfig = (config) => ({
   ...config,

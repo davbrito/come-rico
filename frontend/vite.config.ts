@@ -1,5 +1,3 @@
-import { fileURLToPath } from "node:url";
-
 import { heyApiPlugin } from "@hey-api/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 import { devtools } from "@tanstack/devtools-vite";
@@ -16,19 +14,7 @@ const config = defineConfig({
     devtools(),
     tailwindcss(),
     tanstackStart(),
-    heyApiPlugin({
-      config: {
-        input: fileURLToPath(new URL("../backend/ComeRico.Api/ComeRico.Api.json", import.meta.url)),
-        output: "src/api",
-        plugins: [
-          {
-            name: "@hey-api/client-fetch",
-            runtimeConfigPath: "#/lib/api.ts",
-          },
-          "@tanstack/react-query",
-        ],
-      },
-    }),
+    heyApiPlugin(),
     nitro({
       devProxy: {
         "/api/**": { target: BACKEND_URL, changeOrigin: true },

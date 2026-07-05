@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 
 import {
@@ -8,15 +8,14 @@ import {
   getDishesOptions,
   getDishesQueryKey,
 } from "#/api/@tanstack/react-query.gen";
-import type { DishDto } from "#/api/types.gen";
 import { getApiErrorMessage } from "#/lib/api";
 
-export const Route = createFileRoute("/dishes")({
-  beforeLoad: ({ context }) => {
-    if (!context.user) throw redirect({ to: "/login" });
-    if (!context.user.householdId) throw redirect({ to: "/household" });
-  },
+export const Route = createFileRoute("/_household/dishes")({
+  ssr: false,
   component: DishesPage,
+  loader: async ({ context }) => {
+    await context.queryClient.ensureQueryData(getDishesOptions());
+  },
 });
 
 function DishesPage() {
@@ -24,10 +23,7 @@ function DishesPage() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ name: "", description: "", imageUrl: "" });
 
-  const { data: dishes = [], isLoading } = useQuery({
-    ...getDishesOptions(),
-    select: (data) => data as DishDto[],
-  });
+  const { data: dishes = [], isLoading } = useQuery(getDishesOptions());
 
   const invalidate = () => qc.invalidateQueries({ queryKey: getDishesQueryKey() });
 
@@ -42,7 +38,7 @@ function DishesPage() {
 
   const deleteMut = useMutation({ ...deleteDishMutation(), onSuccess: invalidate });
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = (e: React.SubmitEvent) => {
     e.preventDefault();
     createMut.mutate({
       body: {
