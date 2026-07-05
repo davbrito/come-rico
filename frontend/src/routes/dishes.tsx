@@ -1,6 +1,14 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
-import { dishesApi, type Dish } from '#/lib/api'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import {
+  getDishesOptions,
+  getDishesQueryKey,
+  createDishMutation,
+  deleteDishMutation,
+} from '#/api/@tanstack/react-query.gen'
+import { getApiErrorMessage } from '#/lib/api'
+import type { DishDto } from '#/api/types.gen'
 
 export const Route = createFileRoute('/dishes')({
   beforeLoad: ({ context }) => {
@@ -11,56 +19,43 @@ export const Route = createFileRoute('/dishes')({
 })
 
 function DishesPage() {
-  const [dishes, setDishes] = useState<Dish[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const qc = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ name: '', description: '', imageUrl: '' })
-  const [saving, setSaving] = useState(false)
 
-  const load = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const data = await dishesApi.getAll()
-      setDishes(data)
-    } catch (e) {
-      setError((e as Error).message)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const { data: dishes = [], isLoading } = useQuery({
+    ...getDishesOptions(),
+    select: (data) => data as DishDto[],
+  })
 
-  useEffect(() => { load() }, [])
+  const invalidate = () => qc.invalidateQueries({ queryKey: getDishesQueryKey() })
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSaving(true)
-    try {
-      const created = await dishesApi.create({
-        name: form.name,
-        description: form.description || undefined,
-        imageUrl: form.imageUrl || undefined,
-      })
-      setDishes((prev) => [...prev, created])
+  const createMut = useMutation({
+    ...createDishMutation(),
+    onSuccess: () => {
+      invalidate()
       setForm({ name: '', description: '', imageUrl: '' })
       setShowForm(false)
-    } catch (e) {
-      setError((e as Error).message)
-    } finally {
-      setSaving(false)
-    }
+    },
+  })
+
+  const deleteMut = useMutation({ ...deleteDishMutation(), onSuccess: invalidate })
+
+  const handleCreate = (e: React.FormEvent) => {
+    e.preventDefault()
+    createMut.mutate({ body: { name: form.name, description: form.description || null, imageUrl: form.imageUrl || null } })
   }
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
     if (!confirm('¿Eliminar este platillo?')) return
-    try {
-      await dishesApi.remove(id)
-      setDishes((prev) => prev.filter((d) => d.id !== id))
-    } catch (e) {
-      setError((e as Error).message)
-    }
+    deleteMut.mutate({ path: { id } })
   }
+
+  const error = createMut.isError
+    ? getApiErrorMessage(createMut.error)
+    : deleteMut.isError
+      ? getApiErrorMessage(deleteMut.error)
+      : null
 
   return (
     <main className="page-wrap px-4 pb-8 pt-10">
@@ -81,10 +76,7 @@ function DishesPage() {
       )}
 
       {showForm && (
-        <form
-          onSubmit={handleCreate}
-          className="island-shell mb-6 rounded-2xl p-6"
-        >
+        <form onSubmit={handleCreate} className="island-shell mb-6 rounded-2xl p-6">
           <h2 className="mb-4 text-base font-semibold text-[var(--sea-ink)]">Nuevo platillo</h2>
           <div className="space-y-3">
             <input
@@ -110,16 +102,16 @@ function DishesPage() {
           <div className="mt-4 flex gap-2">
             <button
               type="submit"
-              disabled={saving}
+              disabled={createMut.isPending}
               className="rounded-full bg-orange-500 px-5 py-2 text-sm font-semibold text-white transition hover:bg-orange-600 disabled:opacity-60"
             >
-              {saving ? 'Guardando…' : 'Guardar'}
+              {createMut.isPending ? 'Guardando…' : 'Guardar'}
             </button>
           </div>
         </form>
       )}
 
-      {loading ? (
+      {isLoading ? (
         <p className="text-sm text-[var(--sea-ink-soft)]">Cargando platillos…</p>
       ) : dishes.length === 0 ? (
         <div className="island-shell rounded-2xl p-8 text-center">

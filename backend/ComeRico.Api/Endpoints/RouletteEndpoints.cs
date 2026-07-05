@@ -2,6 +2,7 @@ using ComeRico.Api.Hubs;
 using ComeRico.Core.Features.Roulette.Commands;
 using ComeRico.Core.Features.Roulette.Queries;
 using MediatR;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 
@@ -15,7 +16,7 @@ public static class RouletteEndpoints
             .WithTags("Roulette")
             .RequireAuthorization("RequiresHousehold");
 
-        group.MapPost("/spin", async (
+        group.MapPost("/spin", async Task<Ok<SpinRouletteResult>> (
             ISender mediator,
             IHubContext<RouletteHub> hubContext,
             HttpContext httpContext,
@@ -27,15 +28,19 @@ public static class RouletteEndpoints
             var householdGroup = $"household-{result.HouseholdId}";
             await hubContext.Clients.Group(householdGroup).SendAsync("RouletteSpun", result, ct);
 
-            return Results.Ok(result);
+            return TypedResults.Ok(result);
         })
         .WithName("SpinRoulette")
         .WithSummary("Gira la ruleta y retorna el platillo ganador");
 
-        group.MapGet("/history", async ([FromQuery] int page, [FromQuery] int pageSize, ISender mediator, CancellationToken ct) =>
+        group.MapGet("/history", async Task<Ok<IReadOnlyList<RouletteSessionDto>>> (
+            [FromQuery] int page,
+            [FromQuery] int pageSize,
+            ISender mediator,
+            CancellationToken ct) =>
         {
             var result = await mediator.Send(new GetRouletteHistoryQuery(page <= 0 ? 1 : page, pageSize <= 0 ? 20 : pageSize), ct);
-            return Results.Ok(result);
+            return TypedResults.Ok(result);
         })
         .WithName("GetRouletteHistory")
         .WithSummary("Obtiene el historial de giros de la ruleta");

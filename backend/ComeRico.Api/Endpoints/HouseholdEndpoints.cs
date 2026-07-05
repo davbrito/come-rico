@@ -1,6 +1,7 @@
 using ComeRico.Core.Domain.Entities;
 using ComeRico.Core.Features.Households.Commands;
 using MediatR;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,7 +15,7 @@ public static class HouseholdEndpoints
             .WithTags("Households")
             .RequireAuthorization();
 
-        group.MapPost("/", async (
+        group.MapPost("/", async Task<Created<HouseholdDto>> (
             [FromBody] CreateHouseholdCommand command,
             ISender mediator,
             UserManager<AppUser> userManager,
@@ -24,12 +25,12 @@ public static class HouseholdEndpoints
         {
             var result = await mediator.Send(command, ct);
             await RefreshHouseholdClaimsAsync(userManager, signInManager, httpContext);
-            return Results.Created($"/api/households/{result.Id}", result);
+            return TypedResults.Created($"/api/households/{result.Id}", result);
         })
         .WithName("CreateHousehold")
         .WithSummary("Crea un nuevo hogar y asigna al usuario como administrador");
 
-        group.MapPost("/join", async (
+        group.MapPost("/join", async Task<Ok<HouseholdDto>> (
             [FromBody] JoinHouseholdCommand command,
             ISender mediator,
             UserManager<AppUser> userManager,
@@ -39,7 +40,7 @@ public static class HouseholdEndpoints
         {
             var result = await mediator.Send(command, ct);
             await RefreshHouseholdClaimsAsync(userManager, signInManager, httpContext);
-            return Results.Ok(result);
+            return TypedResults.Ok(result);
         })
         .WithName("JoinHousehold")
         .WithSummary("Une al usuario a un hogar mediante código de invitación");

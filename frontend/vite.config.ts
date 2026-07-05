@@ -1,13 +1,13 @@
-import { defineConfig } from 'vite'
-import { devtools } from '@tanstack/devtools-vite'
-import { nitro } from 'nitro/vite';
+import { defineConfig } from "vite";
+import { devtools } from "@tanstack/devtools-vite";
+import { nitro } from "nitro/vite";
+import { heyApiPlugin } from "@hey-api/vite-plugin";
+import { tanstackStart } from "@tanstack/react-start/plugin/vite";
+import viteReact from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+import { fileURLToPath } from "node:url";
 
-import { tanstackStart } from '@tanstack/react-start/plugin/vite'
-
-import viteReact from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
-
-const BACKEND_URL = process.env.BACKEND_URL ?? 'http://localhost:5000'
+const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:5000";
 
 const config = defineConfig({
   resolve: { tsconfigPaths: true },
@@ -15,13 +15,25 @@ const config = defineConfig({
     devtools(),
     tailwindcss(),
     tanstackStart(),
-    // The Nitro dev server handles requests before Vite's own `server.proxy`,
-    // so /api and /hubs must be proxied at the Nitro level. In production the
-    // vercel.json rewrites route these paths to the backend service instead.
+    heyApiPlugin({
+      config: {
+        input: fileURLToPath(
+          new URL("../backend/ComeRico.Api/ComeRico.Api.json", import.meta.url),
+        ),
+        output: "src/api",
+        plugins: [
+          {
+            name: "@hey-api/client-fetch",
+            runtimeConfigPath: "#/lib/api.ts",
+          },
+          "@tanstack/react-query",
+        ],
+      },
+    }),
     nitro({
       devProxy: {
-        '/api/**': { target: BACKEND_URL, changeOrigin: true },
-        '/hubs/**': { target: BACKEND_URL, changeOrigin: true, ws: true },
+        "/api/**": { target: BACKEND_URL, changeOrigin: true },
+        "/hubs/**": { target: BACKEND_URL, changeOrigin: true, ws: true },
       },
     }),
     viteReact(),
@@ -29,6 +41,6 @@ const config = defineConfig({
   server: {
     port: 3000,
   },
-})
+});
 
-export default config
+export default config;

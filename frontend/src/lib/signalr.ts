@@ -1,10 +1,10 @@
+import type { SpinRouletteResult } from '#/api'
 import {
   HubConnection,
   HubConnectionBuilder,
   HubConnectionState,
   LogLevel,
 } from '@microsoft/signalr'
-import type { SpinRouletteResult } from './api'
 
 let connection: HubConnection | null = null
 

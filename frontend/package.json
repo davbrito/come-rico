@@ -16,6 +16,7 @@
     "@microsoft/signalr": "^10.0.0",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-devtools": "latest",
+    "@tanstack/react-query": "^5.101.2",
     "@tanstack/react-router": "latest",
     "@tanstack/react-router-devtools": "latest",
     "@tanstack/react-router-ssr-query": "latest",
@@ -28,6 +29,8 @@
     "tailwindcss": "^4.1.18"
   },
   "devDependencies": {
+    "@hey-api/openapi-ts": "0.99.0",
+    "@hey-api/vite-plugin": "0.3.2",
     "@tailwindcss/typography": "^0.5.16",
     "@tanstack/devtools-vite": "latest",
     "@tanstack/router-cli": "^1.132.0",

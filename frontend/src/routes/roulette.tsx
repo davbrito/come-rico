@@ -1,6 +1,9 @@
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useEffect, useRef, useState } from 'react'
-import { rouletteApi, type RouletteSession, type SpinRouletteResult } from '#/lib/api'
+import { useQuery, useMutation } from '@tanstack/react-query'
+import { getRouletteHistoryOptions, spinRouletteMutation } from '#/api/@tanstack/react-query.gen'
+import { getApiErrorMessage } from '#/lib/api'
+import type { RouletteSessionDto, SpinRouletteResult } from '#/api/types.gen'
 import {
   onRouletteSpun,
   startRouletteConnection,
@@ -18,10 +21,18 @@ export const Route = createFileRoute('/roulette')({
 function RoulettePage() {
   const [spinning, setSpinning] = useState(false)
   const [winner, setWinner] = useState<SpinRouletteResult | null>(null)
-  const [history, setHistory] = useState<RouletteSession[]>([])
-  const [loadingHistory, setLoadingHistory] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const unsubRef = useRef<(() => void) | null>(null)
+
+  const { data: history = [] } = useQuery({
+    ...getRouletteHistoryOptions({ query: { page: 1, pageSize: 20 } }),
+    select: (data) => data as RouletteSessionDto[],
+  })
+
+  const spinMut = useMutation({
+    ...spinRouletteMutation(),
+    onMutate: () => { setSpinning(true); setWinner(null) },
+    onError: () => setSpinning(false),
+  })
 
   // Connect to SignalR and listen for real-time roulette events.
   // The auth cookie identifies the household — nothing to pass from the client.
@@ -39,35 +50,13 @@ function RoulettePage() {
     }
   }, [])
 
-  useEffect(() => {
-    rouletteApi
-      .getHistory()
-      .then(setHistory)
-      .catch((e) => setError((e as Error).message))
-      .finally(() => setLoadingHistory(false))
-  }, [])
-
-  const handleSpin = async () => {
-    setError(null)
-    setSpinning(true)
-    setWinner(null)
-    try {
-      // The REST call triggers the spin; SignalR broadcasts the result
-      await rouletteApi.spin()
-      // Winner is set via the SignalR subscription above
-    } catch (e) {
-      setError((e as Error).message)
-      setSpinning(false)
-    }
-  }
-
   return (
     <main className="page-wrap px-4 pb-8 pt-10">
       <h1 className="mb-6 text-2xl font-bold text-[var(--sea-ink)]">🎡 Ruleta</h1>
 
-      {error && (
+      {spinMut.isError && (
         <p className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
-          {error}
+          {getApiErrorMessage(spinMut.error)}
         </p>
       )}
 
@@ -96,7 +85,7 @@ function RoulettePage() {
         )}
 
         <button
-          onClick={handleSpin}
+          onClick={() => spinMut.mutate({})}
           disabled={spinning}
           className="rounded-full bg-orange-500 px-8 py-3 text-base font-semibold text-white shadow-md transition hover:-translate-y-0.5 hover:bg-orange-600 active:translate-y-0 disabled:opacity-50"
         >
@@ -107,9 +96,7 @@ function RoulettePage() {
       {/* History */}
       <section>
         <h2 className="mb-3 text-base font-semibold text-[var(--sea-ink)]">Historial</h2>
-        {loadingHistory ? (
-          <p className="text-sm text-[var(--sea-ink-soft)]">Cargando historial…</p>
-        ) : history.length === 0 ? (
+        {history.length === 0 ? (
           <p className="text-sm text-[var(--sea-ink-soft)]">No hay giros todavía.</p>
         ) : (
           <ul className="space-y-2">

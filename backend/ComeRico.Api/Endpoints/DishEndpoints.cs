@@ -1,6 +1,7 @@
 using ComeRico.Core.Features.Dishes.Commands;
 using ComeRico.Core.Features.Dishes.Queries;
 using MediatR;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ComeRico.Api.Endpoints;
@@ -13,35 +14,35 @@ public static class DishEndpoints
             .WithTags("Dishes")
             .RequireAuthorization("RequiresHousehold");
 
-        group.MapGet("/", async (ISender mediator, CancellationToken ct) =>
+        group.MapGet("/", async Task<Ok<IReadOnlyList<DishDto>>> (ISender mediator, CancellationToken ct) =>
         {
             var result = await mediator.Send(new GetDishesQuery(), ct);
-            return Results.Ok(result);
+            return TypedResults.Ok(result);
         })
         .WithName("GetDishes")
         .WithSummary("Obtiene los platillos del hogar");
 
-        group.MapPost("/", async ([FromBody] CreateDishCommand command, ISender mediator, CancellationToken ct) =>
+        group.MapPost("/", async Task<Created<DishDto>> ([FromBody] CreateDishCommand command, ISender mediator, CancellationToken ct) =>
         {
             var result = await mediator.Send(command, ct);
-            return Results.Created($"/api/dishes/{result.Id}", result);
+            return TypedResults.Created($"/api/dishes/{result.Id}", result);
         })
         .WithName("CreateDish")
         .WithSummary("Crea un nuevo platillo");
 
-        group.MapPut("/{id:guid}", async (Guid id, [FromBody] UpdateDishRequest body, ISender mediator, CancellationToken ct) =>
+        group.MapPut("/{id:guid}", async Task<Results<Ok<DishDto>, NotFound>> (Guid id, [FromBody] UpdateDishRequest body, ISender mediator, CancellationToken ct) =>
         {
             var command = new UpdateDishCommand(id, body.Name, body.Description, body.ImageUrl);
             var result = await mediator.Send(command, ct);
-            return result is null ? Results.NotFound() : Results.Ok(result);
+            return result is null ? TypedResults.NotFound() : TypedResults.Ok(result);
         })
         .WithName("UpdateDish")
         .WithSummary("Actualiza un platillo existente");
 
-        group.MapDelete("/{id:guid}", async (Guid id, ISender mediator, CancellationToken ct) =>
+        group.MapDelete("/{id:guid}", async Task<Results<NoContent, NotFound>> (Guid id, ISender mediator, CancellationToken ct) =>
         {
             var deleted = await mediator.Send(new DeleteDishCommand(id), ct);
-            return deleted ? Results.NoContent() : Results.NotFound();
+            return deleted ? TypedResults.NoContent() : TypedResults.NotFound();
         })
         .WithName("DeleteDish")
         .WithSummary("Elimina (desactiva) un platillo");

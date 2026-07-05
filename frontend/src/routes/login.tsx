@@ -1,6 +1,8 @@
+import { loginMutation, registerMutation } from '#/api/@tanstack/react-query.gen'
+import { getApiErrorMessage } from '#/lib/api'
+import { useMutation } from '@tanstack/react-query'
 import { createFileRoute, redirect, useNavigate, useRouter } from '@tanstack/react-router'
 import { useState } from 'react'
-import { authApi } from '#/lib/api'
 
 export const Route = createFileRoute('/login')({
   beforeLoad: ({ context }) => {
@@ -20,24 +22,23 @@ function LoginPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [form, setForm] = useState({ displayName: '', email: '', password: '' })
   const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
+
+  const loginMut = useMutation(loginMutation())
+  const registerMut = useMutation(registerMutation())
+  const busy = loginMut.isPending || registerMut.isPending
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
-    setBusy(true)
     try {
       const user =
         mode === 'login'
-          ? await authApi.login({ email: form.email, password: form.password })
-          : await authApi.register(form)
-      // Re-run beforeLoad so the router context picks up the new session
+          ? await loginMut.mutateAsync({ body: { email: form.email, password: form.password } })  
+          : await registerMut.mutateAsync({ body: form })
       await router.invalidate()
       navigate({ to: user.householdId ? '/' : '/household' })
     } catch (err) {
-      setError((err as Error).message)
-    } finally {
-      setBusy(false)
+      setError(getApiErrorMessage(err))
     }
   }
 

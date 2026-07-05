@@ -1,6 +1,8 @@
 import { createFileRoute, redirect, useNavigate, useRouter } from '@tanstack/react-router'
+import { useMutation } from '@tanstack/react-query'
 import { useState } from 'react'
-import { householdsApi } from '#/lib/api'
+import { createHouseholdMutation, joinHouseholdMutation } from '#/api/@tanstack/react-query.gen'
+import { getApiErrorMessage } from '#/lib/api'
 
 export const Route = createFileRoute('/household')({
   beforeLoad: ({ context }) => {
@@ -18,9 +20,25 @@ function HouseholdPage() {
   const navigate = useNavigate()
   const [name, setName] = useState('')
   const [inviteCode, setInviteCode] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState(false)
+
+  const createMut = useMutation({
+    ...createHouseholdMutation(),
+    onSuccess: async () => { await router.invalidate(); navigate({ to: '/' }) },
+  })
+
+  const joinMut = useMutation({
+    ...joinHouseholdMutation(),
+    onSuccess: async () => { await router.invalidate(); navigate({ to: '/' }) },
+  })
+
+  const error = createMut.isError
+    ? getApiErrorMessage(createMut.error)
+    : joinMut.isError
+      ? getApiErrorMessage(joinMut.error)
+      : null
+
+  const busy = createMut.isPending || joinMut.isPending
 
   // Already in a household: show its info + invite code
   if (user!.householdId) {
@@ -62,36 +80,6 @@ function HouseholdPage() {
     )
   }
 
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setBusy(true)
-    try {
-      await householdsApi.create(name)
-      await router.invalidate()
-      navigate({ to: '/' })
-    } catch (err) {
-      setError((err as Error).message)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const handleJoin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setBusy(true)
-    try {
-      await householdsApi.join(inviteCode)
-      await router.invalidate()
-      navigate({ to: '/' })
-    } catch (err) {
-      setError((err as Error).message)
-    } finally {
-      setBusy(false)
-    }
-  }
-
   return (
     <main className="page-wrap px-4 pb-8 pt-10">
       <div className="mx-auto max-w-md">
@@ -106,7 +94,10 @@ function HouseholdPage() {
           </p>
         )}
 
-        <form onSubmit={handleCreate} className="island-shell mb-4 rounded-2xl p-6">
+        <form
+          onSubmit={(e) => { e.preventDefault(); createMut.mutate({ body: { name } }) }}
+          className="island-shell mb-4 rounded-2xl p-6"
+        >
           <h2 className="mb-3 text-base font-semibold text-[var(--sea-ink)]">Crear un hogar</h2>
           <input
             required
@@ -120,11 +111,14 @@ function HouseholdPage() {
             disabled={busy}
             className="mt-4 w-full rounded-full bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-orange-600 disabled:opacity-60"
           >
-            {busy ? 'Un momento…' : 'Crear hogar'}
+            {createMut.isPending ? 'Un momento…' : 'Crear hogar'}
           </button>
         </form>
 
-        <form onSubmit={handleJoin} className="island-shell rounded-2xl p-6">
+        <form
+          onSubmit={(e) => { e.preventDefault(); joinMut.mutate({ body: { inviteCode } }) }}
+          className="island-shell rounded-2xl p-6"
+        >
           <h2 className="mb-3 text-base font-semibold text-[var(--sea-ink)]">Unirme a un hogar</h2>
           <input
             required
@@ -138,7 +132,7 @@ function HouseholdPage() {
             disabled={busy}
             className="mt-4 w-full rounded-full border border-orange-500 px-5 py-2.5 text-sm font-semibold text-orange-500 transition hover:bg-orange-50 disabled:opacity-60 dark:hover:bg-orange-900/20"
           >
-            {busy ? 'Un momento…' : 'Unirme'}
+            {joinMut.isPending ? 'Un momento…' : 'Unirme'}
           </button>
         </form>
       </div>

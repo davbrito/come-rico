@@ -1,6 +1,7 @@
 using ComeRico.Api.Auth;
 using ComeRico.Core.Domain.Entities;
 using ComeRico.Core.Persistence;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -19,19 +20,24 @@ public sealed record CurrentUserDto(
     string? InviteCode,
     string Role);
 
+public sealed record FieldError(string Field, string Message);
+public sealed record ValidationErrorBody(IEnumerable<FieldError> Errors);
+public sealed record MessageResponse(string Message);
+
 public static class AuthEndpoints
 {
     public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/auth").WithTags("Auth");
 
-        group.MapPost("/register", async (
+        group.MapPost("/register", async Task<Results<Ok<CurrentUserDto>, UnprocessableEntity<ValidationErrorBody>>> (
             [FromBody] RegisterRequest request,
             UserManager<AppUser> userManager,
             SignInManager<AppUser> signInManager) =>
         {
             if (string.IsNullOrWhiteSpace(request.DisplayName))
-                return Results.UnprocessableEntity(new { errors = new[] { new { field = "displayName", message = "El nombre es obligatorio." } } });
+                return TypedResults.UnprocessableEntity(
+                    new ValidationErrorBody([new FieldError("displayName", "El nombre es obligatorio.")]));
 
             var user = new AppUser
             {
@@ -44,19 +50,19 @@ public static class AuthEndpoints
             var result = await userManager.CreateAsync(user, request.Password);
             if (!result.Succeeded)
             {
-                var errors = result.Errors.Select(e => new { field = "password", message = e.Description });
-                return Results.UnprocessableEntity(new { errors });
+                var errors = result.Errors.Select(e => new FieldError("password", e.Description));
+                return TypedResults.UnprocessableEntity(new ValidationErrorBody(errors));
             }
 
             // BFF: the session lives in an HttpOnly cookie — no tokens ever reach the browser
             await signInManager.SignInAsync(user, isPersistent: true);
-            return Results.Ok(ToDto(user, null));
+            return TypedResults.Ok(ToDto(user, null));
         })
         .AllowAnonymous()
         .WithName("Register")
         .WithSummary("Registra un nuevo usuario e inicia sesión");
 
-        group.MapPost("/login", async (
+        group.MapPost("/login", async Task<Results<Ok<CurrentUserDto>, JsonHttpResult<MessageResponse>>> (
             [FromBody] LoginRequest request,
             UserManager<AppUser> userManager,
             SignInManager<AppUser> signInManager,
@@ -65,7 +71,9 @@ public static class AuthEndpoints
         {
             var user = await userManager.FindByEmailAsync(request.Email);
             if (user is null)
-                return Results.Json(new { message = "Correo o contraseña incorrectos." }, statusCode: StatusCodes.Status401Unauthorized);
+                return TypedResults.Json(
+                    new MessageResponse("Correo o contraseña incorrectos."),
+                    statusCode: StatusCodes.Status401Unauthorized);
 
             var result = await signInManager.PasswordSignInAsync(user, request.Password, isPersistent: true, lockoutOnFailure: true);
             if (!result.Succeeded)
@@ -73,26 +81,26 @@ public static class AuthEndpoints
                 var message = result.IsLockedOut
                     ? "La cuenta está bloqueada temporalmente. Inténtalo más tarde."
                     : "Correo o contraseña incorrectos.";
-                return Results.Json(new { message }, statusCode: StatusCodes.Status401Unauthorized);
+                return TypedResults.Json(new MessageResponse(message), statusCode: StatusCodes.Status401Unauthorized);
             }
 
             var household = await FindHouseholdAsync(dbContext, user.HouseholdId, ct);
-            return Results.Ok(ToDto(user, household));
+            return TypedResults.Ok(ToDto(user, household));
         })
         .AllowAnonymous()
         .WithName("Login")
         .WithSummary("Inicia sesión con correo y contraseña");
 
-        group.MapPost("/logout", async (SignInManager<AppUser> signInManager) =>
+        group.MapPost("/logout", async Task<NoContent> (SignInManager<AppUser> signInManager) =>
         {
             await signInManager.SignOutAsync();
-            return Results.NoContent();
+            return TypedResults.NoContent();
         })
         .RequireAuthorization()
         .WithName("Logout")
         .WithSummary("Cierra la sesión actual");
 
-        group.MapGet("/me", async (
+        group.MapGet("/me", async Task<Results<Ok<CurrentUserDto>, UnauthorizedHttpResult>> (
             UserManager<AppUser> userManager,
             AppDbContext dbContext,
             HttpContext httpContext,
@@ -100,10 +108,10 @@ public static class AuthEndpoints
         {
             var user = await userManager.GetUserAsync(httpContext.User);
             if (user is null)
-                return Results.Unauthorized();
+                return TypedResults.Unauthorized();
 
             var household = await FindHouseholdAsync(dbContext, user.HouseholdId, ct);
-            return Results.Ok(ToDto(user, household));
+            return TypedResults.Ok(ToDto(user, household));
         })
         .RequireAuthorization()
         .WithName("GetCurrentUser")
