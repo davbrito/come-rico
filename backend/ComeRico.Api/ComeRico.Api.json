@@ -619,6 +619,96 @@
         }
       }
     },
+    "/api/dishes/{id}/ingredients": {
+      "put": {
+        "tags": [
+          "Dishes"
+        ],
+        "summary": "Reemplaza los ingredientes de un platillo",
+        "operationId": "SetDishIngredients",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetIngredientsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DishDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/dishes/{id}/tags": {
+      "put": {
+        "tags": [
+          "Dishes"
+        ],
+        "summary": "Reemplaza las etiquetas de un platillo",
+        "operationId": "SetDishTags",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetTagsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DishDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/api/roulette/spin": {
       "post": {
         "tags": [
@@ -688,6 +778,348 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/tags": {
+      "get": {
+        "tags": [
+          "Tags"
+        ],
+        "summary": "Obtiene las etiquetas del hogar",
+        "operationId": "GetTags",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TagDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Tags"
+        ],
+        "summary": "Crea una nueva etiqueta",
+        "operationId": "CreateTag",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTagCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TagDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tags/{id}": {
+      "delete": {
+        "tags": [
+          "Tags"
+        ],
+        "summary": "Elimina una etiqueta",
+        "operationId": "DeleteTag",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/meal-plans": {
+      "get": {
+        "tags": [
+          "MealPlans"
+        ],
+        "summary": "Obtiene el plan de comidas del hogar en un rango de fechas",
+        "operationId": "GetMealPlans",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MealPlanDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "MealPlans"
+        ],
+        "summary": "Planifica un platillo para una fecha y comida",
+        "operationId": "CreateMealPlan",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMealPlanCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MealPlanDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/meal-plans/{id}": {
+      "delete": {
+        "tags": [
+          "MealPlans"
+        ],
+        "summary": "Elimina una entrada del plan de comidas",
+        "operationId": "DeleteMealPlan",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/shopping-items": {
+      "get": {
+        "tags": [
+          "Shopping"
+        ],
+        "summary": "Obtiene la lista de compras del hogar",
+        "operationId": "GetShoppingItems",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ShoppingItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Shopping"
+        ],
+        "summary": "Añade un artículo manual a la lista de compras",
+        "operationId": "CreateShoppingItem",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateShoppingItemCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShoppingItemDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/shopping-items/generate": {
+      "post": {
+        "tags": [
+          "Shopping"
+        ],
+        "summary": "Genera la lista de compras consolidando los ingredientes del plan semanal",
+        "operationId": "GenerateShoppingList",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateShoppingListCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ShoppingItemDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/shopping-items/{id}/purchased": {
+      "patch": {
+        "tags": [
+          "Shopping"
+        ],
+        "summary": "Marca o desmarca un artículo como comprado",
+        "operationId": "SetShoppingItemPurchased",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetPurchasedRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShoppingItemDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/shopping-items/{id}": {
+      "delete": {
+        "tags": [
+          "Shopping"
+        ],
+        "summary": "Elimina un artículo de la lista de compras",
+        "operationId": "DeleteShoppingItem",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
           }
         }
       }
@@ -761,6 +1193,70 @@
           }
         }
       },
+      "CreateMealPlanCommand": {
+        "required": [
+          "dishId",
+          "date",
+          "mealType"
+        ],
+        "type": "object",
+        "properties": {
+          "dishId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "mealType": {
+            "$ref": "#/components/schemas/MealType"
+          }
+        }
+      },
+      "CreateShoppingItemCommand": {
+        "required": [
+          "name",
+          "amount",
+          "unit"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "unit": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MeasurementUnit"
+              }
+            ]
+          }
+        }
+      },
+      "CreateTagCommand": {
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        }
+      },
       "CurrentUserDto": {
         "required": [
           "id",
@@ -815,7 +1311,9 @@
           "description",
           "imageUrl",
           "isActive",
-          "createdAt"
+          "createdAt",
+          "ingredients",
+          "tags"
         ],
         "type": "object",
         "properties": {
@@ -848,6 +1346,18 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "ingredients": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IngredientDto"
+            }
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TagDto"
+            }
           }
         }
       },
@@ -859,6 +1369,18 @@
         "properties": {
           "email": {
             "type": "string"
+          }
+        }
+      },
+      "GenerateShoppingListCommand": {
+        "required": [
+          "anyDateInWeek"
+        ],
+        "type": "object",
+        "properties": {
+          "anyDateInWeek": {
+            "type": "string",
+            "format": "date"
           }
         }
       },
@@ -972,6 +1494,59 @@
           }
         }
       },
+      "IngredientDto": {
+        "required": [
+          "id",
+          "name",
+          "amount",
+          "unit"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "unit": {
+            "$ref": "#/components/schemas/MeasurementUnit"
+          }
+        }
+      },
+      "IngredientInput": {
+        "required": [
+          "name",
+          "amount",
+          "unit"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "unit": {
+            "$ref": "#/components/schemas/MeasurementUnit"
+          }
+        }
+      },
       "JoinHouseholdCommand": {
         "required": [
           "inviteCode"
@@ -1009,6 +1584,62 @@
             ]
           }
         }
+      },
+      "MealPlanDto": {
+        "required": [
+          "id",
+          "date",
+          "mealType",
+          "dishId",
+          "dishName",
+          "dishImageUrl"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "mealType": {
+            "$ref": "#/components/schemas/MealType"
+          },
+          "dishId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "dishName": {
+            "type": "string"
+          },
+          "dishImageUrl": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "MealType": {
+        "enum": [
+          "Breakfast",
+          "Lunch",
+          "Dinner"
+        ]
+      },
+      "MeasurementUnit": {
+        "enum": [
+          "Piece",
+          "Gram",
+          "Kilogram",
+          "Milliliter",
+          "Liter",
+          "Cup",
+          "Tablespoon",
+          "Teaspoon"
+        ]
       },
       "RefreshRequest": {
         "required": [
@@ -1115,6 +1746,104 @@
           }
         }
       },
+      "SetIngredientsRequest": {
+        "required": [
+          "ingredients"
+        ],
+        "type": "object",
+        "properties": {
+          "ingredients": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IngredientInput"
+            }
+          }
+        }
+      },
+      "SetPurchasedRequest": {
+        "required": [
+          "isPurchased"
+        ],
+        "type": "object",
+        "properties": {
+          "isPurchased": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SetTagsRequest": {
+        "required": [
+          "tagIds"
+        ],
+        "type": "object",
+        "properties": {
+          "tagIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        }
+      },
+      "ShoppingItemDto": {
+        "required": [
+          "id",
+          "name",
+          "amount",
+          "unit",
+          "isPurchased",
+          "isAutoGenerated",
+          "generatedForWeekStart",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "unit": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MeasurementUnit"
+              }
+            ]
+          },
+          "isPurchased": {
+            "type": "boolean"
+          },
+          "isAutoGenerated": {
+            "type": "boolean"
+          },
+          "generatedForWeekStart": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "SpinRouletteResult": {
         "required": [
           "sessionId",
@@ -1143,6 +1872,22 @@
           "spunAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "TagDto": {
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
           }
         }
       },
@@ -1270,6 +2015,15 @@
     },
     {
       "name": "Roulette"
+    },
+    {
+      "name": "Tags"
+    },
+    {
+      "name": "MealPlans"
+    },
+    {
+      "name": "Shopping"
     }
   ]
 }

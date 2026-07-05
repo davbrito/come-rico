@@ -22,6 +22,12 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
 
+// Enums travel as strings over the wire (MealType, MeasurementUnit) so the
+// generated frontend client gets string literal unions instead of numbers.
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter())
+);
+
 // Current user + tenant resolution from the auth cookie's claims
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantService, ClaimsTenantService>();
@@ -87,10 +93,7 @@ builder.Services.AddSignalR();
 // cookie carries a household claim (i.e. they created or joined a household).
 builder
     .Services.AddAuthorizationBuilder()
-    .AddPolicy(
-        "RequiresHousehold",
-        policy => policy.RequireAuthenticatedUser().RequireClaim(AppClaimTypes.HouseholdId)
-    );
+    .AddPolicy("RequiresHousehold", policy => policy.RequireAuthenticatedUser().RequireClaim(AppClaimTypes.HouseholdId));
 
 // OpenAPI
 builder.Services.AddOpenApi();
@@ -131,9 +134,7 @@ app.UseExceptionHandler(exceptionApp =>
         {
             context.Response.StatusCode = StatusCodes.Status500InternalServerError;
             context.Response.ContentType = "application/json";
-            await context.Response.WriteAsJsonAsync(
-                new { message = "Ocurrió un error interno. Por favor inténtelo de nuevo." }
-            );
+            await context.Response.WriteAsJsonAsync(new { message = "Ocurrió un error interno. Por favor inténtelo de nuevo." });
         }
     });
 });
@@ -146,6 +147,9 @@ app.MapAuthEndpoints();
 app.MapHouseholdEndpoints();
 app.MapDishEndpoints();
 app.MapRouletteEndpoints();
+app.MapTagEndpoints();
+app.MapMealPlanEndpoints();
+app.MapShoppingEndpoints();
 
 // SignalR hub — decoupled broadcast only
 app.MapHub<RouletteHub>("/hubs/roulette");

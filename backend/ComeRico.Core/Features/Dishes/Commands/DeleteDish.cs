@@ -15,13 +15,13 @@ public sealed class DeleteDishCommandValidator : AbstractValidator<DeleteDishCom
     }
 }
 
-public sealed class DeleteDishCommandHandler(IAppDbContext dbContext)
-    : IRequestHandler<DeleteDishCommand, bool>
+public sealed class DeleteDishCommandHandler(IAppDbContext dbContext) : IRequestHandler<DeleteDishCommand, bool>
 {
     public async Task<bool> Handle(DeleteDishCommand request, CancellationToken cancellationToken)
     {
         var dish = await dbContext.Dishes.FirstOrDefaultAsync(d => d.Id == request.DishId, cancellationToken);
-        if (dish is null) return false;
+        if (dish is null)
+            return false;
         dish.Deactivate();
         await dbContext.SaveChangesAsync(cancellationToken);
         return true;

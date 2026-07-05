@@ -15,8 +15,10 @@ public sealed class CreateHouseholdCommandValidator : AbstractValidator<CreateHo
     public CreateHouseholdCommandValidator()
     {
         RuleFor(x => x.Name)
-            .NotEmpty().WithMessage("El nombre del hogar es obligatorio.")
-            .MaximumLength(200).WithMessage("El nombre no puede superar los 200 caracteres.");
+            .NotEmpty()
+            .WithMessage("El nombre del hogar es obligatorio.")
+            .MaximumLength(200)
+            .WithMessage("El nombre no puede superar los 200 caracteres.");
     }
 }
 
@@ -25,8 +27,8 @@ public sealed class CreateHouseholdCommandHandler(IAppDbContext dbContext, ICurr
 {
     public async Task<HouseholdDto> Handle(CreateHouseholdCommand request, CancellationToken cancellationToken)
     {
-        var user = await dbContext.Users
-            .FirstOrDefaultAsync(u => u.Id == currentUser.UserId, cancellationToken)
+        var user =
+            await dbContext.Users.FirstOrDefaultAsync(u => u.Id == currentUser.UserId, cancellationToken)
             ?? throw new InvalidOperationException("Usuario no encontrado.");
 
         if (user.HouseholdId is not null)

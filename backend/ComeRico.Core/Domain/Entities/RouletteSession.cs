@@ -31,5 +31,5 @@ public enum RouletteStatus
     Pending,
     Spinning,
     Completed,
-    Cancelled
+    Cancelled,
 }

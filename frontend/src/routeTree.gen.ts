@@ -15,6 +15,8 @@ import { Route as AboutRouteImport } from './routes/about'
 import { Route as HouseholdRouteRouteImport } from './routes/_household/route'
 import { Route as AuthRouteRouteImport } from './routes/_auth/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as HouseholdShoppingRouteImport } from './routes/_household/shopping'
+import { Route as HouseholdMealPlanRouteImport } from './routes/_household/meal-plan'
 import { Route as HouseholdDishesRouteImport } from './routes/_household/dishes'
 import { Route as AuthRegisterRouteImport } from './routes/_auth/register'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
@@ -47,6 +49,16 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HouseholdShoppingRoute = HouseholdShoppingRouteImport.update({
+  id: '/shopping',
+  path: '/shopping',
+  getParentRoute: () => HouseholdRouteRoute,
+} as any)
+const HouseholdMealPlanRoute = HouseholdMealPlanRouteImport.update({
+  id: '/meal-plan',
+  path: '/meal-plan',
+  getParentRoute: () => HouseholdRouteRoute,
+} as any)
 const HouseholdDishesRoute = HouseholdDishesRouteImport.update({
   id: '/dishes',
   path: '/dishes',
@@ -71,6 +83,8 @@ export interface FileRoutesByFullPath {
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
   '/dishes': typeof HouseholdDishesRoute
+  '/meal-plan': typeof HouseholdMealPlanRoute
+  '/shopping': typeof HouseholdShoppingRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -80,6 +94,8 @@ export interface FileRoutesByTo {
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
   '/dishes': typeof HouseholdDishesRoute
+  '/meal-plan': typeof HouseholdMealPlanRoute
+  '/shopping': typeof HouseholdShoppingRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -92,6 +108,8 @@ export interface FileRoutesById {
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/register': typeof AuthRegisterRoute
   '/_household/dishes': typeof HouseholdDishesRoute
+  '/_household/meal-plan': typeof HouseholdMealPlanRoute
+  '/_household/shopping': typeof HouseholdShoppingRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -103,6 +121,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/dishes'
+    | '/meal-plan'
+    | '/shopping'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -112,6 +132,8 @@ export interface FileRouteTypes {
     | '/login'
     | '/register'
     | '/dishes'
+    | '/meal-plan'
+    | '/shopping'
   id:
     | '__root__'
     | '/'
@@ -123,6 +145,8 @@ export interface FileRouteTypes {
     | '/_auth/login'
     | '/_auth/register'
     | '/_household/dishes'
+    | '/_household/meal-plan'
+    | '/_household/shopping'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -178,6 +202,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_household/shopping': {
+      id: '/_household/shopping'
+      path: '/shopping'
+      fullPath: '/shopping'
+      preLoaderRoute: typeof HouseholdShoppingRouteImport
+      parentRoute: typeof HouseholdRouteRoute
+    }
+    '/_household/meal-plan': {
+      id: '/_household/meal-plan'
+      path: '/meal-plan'
+      fullPath: '/meal-plan'
+      preLoaderRoute: typeof HouseholdMealPlanRouteImport
+      parentRoute: typeof HouseholdRouteRoute
+    }
     '/_household/dishes': {
       id: '/_household/dishes'
       path: '/dishes'
@@ -218,10 +256,14 @@ const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
 
 interface HouseholdRouteRouteChildren {
   HouseholdDishesRoute: typeof HouseholdDishesRoute
+  HouseholdMealPlanRoute: typeof HouseholdMealPlanRoute
+  HouseholdShoppingRoute: typeof HouseholdShoppingRoute
 }
 
 const HouseholdRouteRouteChildren: HouseholdRouteRouteChildren = {
   HouseholdDishesRoute: HouseholdDishesRoute,
+  HouseholdMealPlanRoute: HouseholdMealPlanRoute,
+  HouseholdShoppingRoute: HouseholdShoppingRoute,
 }
 
 const HouseholdRouteRouteWithChildren = HouseholdRouteRoute._addFileChildren(

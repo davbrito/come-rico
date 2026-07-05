@@ -19,12 +19,15 @@ public sealed record RouletteSessionDto(
 public sealed class GetRouletteHistoryQueryHandler(IAppDbContext dbContext)
     : IRequestHandler<GetRouletteHistoryQuery, IReadOnlyList<RouletteSessionDto>>
 {
-    public async Task<IReadOnlyList<RouletteSessionDto>> Handle(GetRouletteHistoryQuery request, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<RouletteSessionDto>> Handle(
+        GetRouletteHistoryQuery request,
+        CancellationToken cancellationToken
+    )
     {
         var skip = (request.Page - 1) * request.PageSize;
 
-        return await dbContext.RouletteSessions
-            .Include(r => r.WinnerDish)
+        return await dbContext
+            .RouletteSessions.Include(r => r.WinnerDish)
             .OrderByDescending(r => r.CreatedAt)
             .Skip(skip)
             .Take(request.PageSize)

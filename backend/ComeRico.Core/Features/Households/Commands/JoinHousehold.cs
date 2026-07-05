@@ -13,8 +13,10 @@ public sealed class JoinHouseholdCommandValidator : AbstractValidator<JoinHouseh
     public JoinHouseholdCommandValidator()
     {
         RuleFor(x => x.InviteCode)
-            .NotEmpty().WithMessage("El código de invitación es obligatorio.")
-            .MaximumLength(20).WithMessage("El código de invitación no es válido.");
+            .NotEmpty()
+            .WithMessage("El código de invitación es obligatorio.")
+            .MaximumLength(20)
+            .WithMessage("El código de invitación no es válido.");
     }
 }
 
@@ -23,16 +25,16 @@ public sealed class JoinHouseholdCommandHandler(IAppDbContext dbContext, ICurren
 {
     public async Task<HouseholdDto> Handle(JoinHouseholdCommand request, CancellationToken cancellationToken)
     {
-        var user = await dbContext.Users
-            .FirstOrDefaultAsync(u => u.Id == currentUser.UserId, cancellationToken)
+        var user =
+            await dbContext.Users.FirstOrDefaultAsync(u => u.Id == currentUser.UserId, cancellationToken)
             ?? throw new InvalidOperationException("Usuario no encontrado.");
 
         if (user.HouseholdId is not null)
             throw new InvalidOperationException("Ya perteneces a un hogar. Sal de él antes de unirte a otro.");
 
         var code = request.InviteCode.Trim().ToUpperInvariant();
-        var household = await dbContext.Households
-            .FirstOrDefaultAsync(h => h.InviteCode == code, cancellationToken)
+        var household =
+            await dbContext.Households.FirstOrDefaultAsync(h => h.InviteCode == code, cancellationToken)
             ?? throw new InvalidOperationException("No existe un hogar con ese código de invitación.");
 
         user.JoinHousehold(household.Id, HouseholdRole.Member);

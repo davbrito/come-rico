@@ -74,7 +74,7 @@ dotnet sln add ComeRico.Api/ComeRico.Api.csproj
 - **Frontend session (TanStack Start pattern):** `fetchCurrentUser` (`createServerFn` in `src/server/auth.ts`) forwards the request cookie to `/api/auth/me` on the Start server; the root route's `beforeLoad` puts the user into router context, and protected routes throw `redirect({ to: '/login' })` when missing. SSR, reloads, and client navigations all share the same auth state — never store the session in client-only React state.
 
 ### Multi-Tenancy (Household Isolation)
-- Global Query Filters on `Dish` and `RouletteSession` filter automatically by `HouseholdId`.
+- Global Query Filters are applied automatically to **every entity implementing `IHasHousehold`** (`Dish`, `RouletteSession`, `Ingredient`, `Tag`, `MealPlan`, `ShoppingItem`) via `ModelBuilderExtensions.ApplyHouseholdFilters` — new tenant-scoped entities only need to implement the interface.
 - `ITenantService` is resolved per HTTP request via `ClaimsTenantService` — it reads the `household_id` claim from the validated auth cookie (never client-supplied headers).
 - `RequiresHousehold` policy = authenticated user + `household_id` claim present.
 - Note: `PendingModelChangesWarning` is suppressed in `Program.cs` — the tenant query filters capture a scoped service, which makes the runtime model never match the snapshot exactly (false positive).
@@ -83,6 +83,14 @@ dotnet sln add ComeRico.Api/ComeRico.Api.csproj
 - All business logic lives in `ComeRico.Core/Features/**` as MediatR `IRequestHandler<,>`.
 - The API layer (`ComeRico.Api/Endpoints/`) maps HTTP routes → MediatR commands/queries.
 - Validation is enforced by `ValidationBehavior<,>` in the MediatR pipeline before any handler executes.
+
+### Meal Planning & Shopping (domain rules)
+- `Dish` owns `Ingredient`s (name + `decimal Amount` + `MeasurementUnit` enum — closed unit set so amounts can be summed) and has a many-to-many with `Tag` (unique per household by name).
+- `MealPlan` schedules a dish on a `DateOnly` + `MealType` (Breakfast/Lunch/Dinner).
+- `ShoppingItem` is either manual or auto-generated: `POST /api/shopping-items/generate` consolidates the week's planned ingredients (grouped case-insensitively by name + unit, Monday-based week stored in `GeneratedForWeekStart`); regeneration replaces only that week's auto items, never manual ones.
+- Roulette spins exclude dishes that won in the last 3 days unless no other dish remains.
+- Enums serialize as strings (`ConfigureHttpJsonOptions` + `JsonStringEnumConverter`) so the Hey-API client emits string literal unions.
+- **EF gotcha:** entities with client-generated Guid keys discovered only through a navigation are tracked as `Modified`, not `Added` — always `Add`/`RemoveRange` child entities through their `DbSet` (see `SetDishIngredients`).
 
 ### SignalR Hub Design
 - `RouletteHub` is `[Authorize]`d; on connect it joins the socket to the `household-{id}` group resolved from the cookie's `household_id` claim (never a client-passed id).

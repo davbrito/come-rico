@@ -113,11 +113,8 @@ public static class AuthEndpoints
         return app;
     }
 
-    private static async Task<Household?> FindHouseholdAsync(
-        AppDbContext dbContext,
-        Guid? householdId,
-        CancellationToken ct
-    ) => householdId is { } id ? await dbContext.Households.FirstOrDefaultAsync(h => h.Id == id, ct) : null;
+    private static async Task<Household?> FindHouseholdAsync(AppDbContext dbContext, Guid? householdId, CancellationToken ct) =>
+        householdId is { } id ? await dbContext.Households.FirstOrDefaultAsync(h => h.Id == id, ct) : null;
 
     private static CurrentUserDto ToDto(AppUser user, Household? household) =>
         new(

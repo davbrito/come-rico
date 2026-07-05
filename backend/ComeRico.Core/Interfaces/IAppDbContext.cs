@@ -9,6 +9,10 @@ public interface IAppDbContext
     DbSet<Household> Households { get; }
     DbSet<Dish> Dishes { get; }
     DbSet<RouletteSession> RouletteSessions { get; }
+    DbSet<Ingredient> Ingredients { get; }
+    DbSet<Tag> Tags { get; }
+    DbSet<MealPlan> MealPlans { get; }
+    DbSet<ShoppingItem> ShoppingItems { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

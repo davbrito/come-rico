@@ -46,6 +46,20 @@ export default function Header() {
             Ruleta
           </Link>
           <Link
+            to="/meal-plan"
+            className="nav-link"
+            activeProps={{ className: "nav-link is-active" }}
+          >
+            Plan
+          </Link>
+          <Link
+            to="/shopping"
+            className="nav-link"
+            activeProps={{ className: "nav-link is-active" }}
+          >
+            Compras
+          </Link>
+          <Link
             to="/household"
             className="nav-link"
             activeProps={{ className: "nav-link is-active" }}
@@ -61,7 +75,7 @@ export default function Header() {
                 {user.displayName}
               </span>
               <button
-                onClick={() => logoutMut.mutate({})}
+                onClick={() => logoutMut.mutate({ body: {} })}
                 disabled={logoutMut.isPending}
                 className="rounded-full border border-[var(--chip-line)] bg-[var(--chip-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--sea-ink)] transition hover:border-orange-400 disabled:opacity-60"
               >

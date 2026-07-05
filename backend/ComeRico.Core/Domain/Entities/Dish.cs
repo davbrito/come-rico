@@ -11,6 +11,8 @@ public class Dish : IHasHousehold
     public DateTime CreatedAt { get; private set; } = DateTime.UtcNow;
 
     public Household Household { get; private set; } = null!;
+    public ICollection<Ingredient> Ingredients { get; private set; } = [];
+    public ICollection<Tag> Tags { get; private set; } = [];
 
     private Dish() { }
 
@@ -20,7 +22,7 @@ public class Dish : IHasHousehold
             HouseholdId = householdId,
             Name = name,
             Description = description,
-            ImageUrl = imageUrl
+            ImageUrl = imageUrl,
         };
 
     public void Deactivate() => IsActive = false;
@@ -30,5 +32,12 @@ public class Dish : IHasHousehold
         Name = name;
         Description = description;
         ImageUrl = imageUrl;
+    }
+
+    public void ReplaceTags(IEnumerable<Tag> tags)
+    {
+        Tags.Clear();
+        foreach (var tag in tags)
+            Tags.Add(tag);
     }
 }

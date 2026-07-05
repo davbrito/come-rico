@@ -10,9 +10,7 @@ namespace ComeRico.Api.Auth;
 /// stored in the authentication cookie. The household claim is what the tenant
 /// service — and therefore every EF Core global query filter — relies on.
 /// </summary>
-public sealed class AppUserClaimsPrincipalFactory(
-    UserManager<AppUser> userManager,
-    IOptions<IdentityOptions> optionsAccessor)
+public sealed class AppUserClaimsPrincipalFactory(UserManager<AppUser> userManager, IOptions<IdentityOptions> optionsAccessor)
     : UserClaimsPrincipalFactory<AppUser>(userManager, optionsAccessor)
 {
     protected override async Task<ClaimsIdentity> GenerateClaimsAsync(AppUser user)

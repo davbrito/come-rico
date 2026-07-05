@@ -14,8 +14,7 @@ public sealed class ClaimsTenantService(IHttpContextAccessor httpContextAccessor
     private Guid? _householdId;
 
     public Guid HouseholdId =>
-        _householdId ??= TryResolve()
-            ?? throw new InvalidOperationException("El usuario no pertenece a ningún hogar.");
+        _householdId ??= TryResolve() ?? throw new InvalidOperationException("El usuario no pertenece a ningún hogar.");
 
     public bool IsResolved => (_householdId ??= TryResolve()).HasValue;
 

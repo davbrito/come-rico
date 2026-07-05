@@ -13,13 +13,17 @@ public sealed class CreateDishCommandValidator : AbstractValidator<CreateDishCom
     public CreateDishCommandValidator()
     {
         RuleFor(x => x.Name)
-            .NotEmpty().WithMessage("El nombre del platillo es obligatorio.")
-            .MaximumLength(200).WithMessage("El nombre no puede superar los 200 caracteres.");
+            .NotEmpty()
+            .WithMessage("El nombre del platillo es obligatorio.")
+            .MaximumLength(200)
+            .WithMessage("El nombre no puede superar los 200 caracteres.");
         RuleFor(x => x.Description)
-            .MaximumLength(1000).WithMessage("La descripción no puede superar los 1000 caracteres.")
+            .MaximumLength(1000)
+            .WithMessage("La descripción no puede superar los 1000 caracteres.")
             .When(x => x.Description is not null);
         RuleFor(x => x.ImageUrl)
-            .MaximumLength(2048).WithMessage("La URL de imagen no puede superar los 2048 caracteres.")
+            .MaximumLength(2048)
+            .WithMessage("La URL de imagen no puede superar los 2048 caracteres.")
             .When(x => x.ImageUrl is not null);
     }
 }
@@ -32,6 +36,6 @@ public sealed class CreateDishCommandHandler(IAppDbContext dbContext, ITenantSer
         var dish = Dish.Create(tenantService.HouseholdId, request.Name, request.Description, request.ImageUrl);
         dbContext.Dishes.Add(dish);
         await dbContext.SaveChangesAsync(cancellationToken);
-        return new DishDto(dish.Id, dish.HouseholdId, dish.Name, dish.Description, dish.ImageUrl, dish.IsActive, dish.CreatedAt);
+        return dish.ToDto();
     }
 }

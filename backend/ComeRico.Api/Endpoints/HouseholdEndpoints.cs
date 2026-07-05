@@ -11,39 +11,47 @@ public static class HouseholdEndpoints
 {
     public static IEndpointRouteBuilder MapHouseholdEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/households")
-            .WithTags("Households")
-            .RequireAuthorization();
+        var group = app.MapGroup("/api/households").WithTags("Households").RequireAuthorization();
 
-        group.MapPost("/", async Task<Created<HouseholdDto>> (
-            [FromBody] CreateHouseholdCommand command,
-            ISender mediator,
-            UserManager<AppUser> userManager,
-            SignInManager<AppUser> signInManager,
-            HttpContext httpContext,
-            CancellationToken ct) =>
-        {
-            var result = await mediator.Send(command, ct);
-            await RefreshHouseholdClaimsAsync(userManager, signInManager, httpContext);
-            return TypedResults.Created($"/api/households/{result.Id}", result);
-        })
-        .WithName("CreateHousehold")
-        .WithSummary("Crea un nuevo hogar y asigna al usuario como administrador");
+        group
+            .MapPost(
+                "/",
+                async Task<Created<HouseholdDto>> (
+                    [FromBody] CreateHouseholdCommand command,
+                    ISender mediator,
+                    UserManager<AppUser> userManager,
+                    SignInManager<AppUser> signInManager,
+                    HttpContext httpContext,
+                    CancellationToken ct
+                ) =>
+                {
+                    var result = await mediator.Send(command, ct);
+                    await RefreshHouseholdClaimsAsync(userManager, signInManager, httpContext);
+                    return TypedResults.Created($"/api/households/{result.Id}", result);
+                }
+            )
+            .WithName("CreateHousehold")
+            .WithSummary("Crea un nuevo hogar y asigna al usuario como administrador");
 
-        group.MapPost("/join", async Task<Ok<HouseholdDto>> (
-            [FromBody] JoinHouseholdCommand command,
-            ISender mediator,
-            UserManager<AppUser> userManager,
-            SignInManager<AppUser> signInManager,
-            HttpContext httpContext,
-            CancellationToken ct) =>
-        {
-            var result = await mediator.Send(command, ct);
-            await RefreshHouseholdClaimsAsync(userManager, signInManager, httpContext);
-            return TypedResults.Ok(result);
-        })
-        .WithName("JoinHousehold")
-        .WithSummary("Une al usuario a un hogar mediante código de invitación");
+        group
+            .MapPost(
+                "/join",
+                async Task<Ok<HouseholdDto>> (
+                    [FromBody] JoinHouseholdCommand command,
+                    ISender mediator,
+                    UserManager<AppUser> userManager,
+                    SignInManager<AppUser> signInManager,
+                    HttpContext httpContext,
+                    CancellationToken ct
+                ) =>
+                {
+                    var result = await mediator.Send(command, ct);
+                    await RefreshHouseholdClaimsAsync(userManager, signInManager, httpContext);
+                    return TypedResults.Ok(result);
+                }
+            )
+            .WithName("JoinHousehold")
+            .WithSummary("Une al usuario a un hogar mediante código de invitación");
 
         return app;
     }
@@ -56,7 +64,8 @@ public static class HouseholdEndpoints
     private static async Task RefreshHouseholdClaimsAsync(
         UserManager<AppUser> userManager,
         SignInManager<AppUser> signInManager,
-        HttpContext httpContext)
+        HttpContext httpContext
+    )
     {
         var user = await userManager.GetUserAsync(httpContext.User);
         if (user is not null)

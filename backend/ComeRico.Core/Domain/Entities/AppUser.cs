@@ -31,5 +31,5 @@ public class AppUser : IdentityUser<Guid>
 public enum HouseholdRole
 {
     Member,
-    Admin
+    Admin,
 }

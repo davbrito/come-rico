@@ -20,6 +20,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService
     public DbSet<Household> Households => Set<Household>();
     public DbSet<Dish> Dishes => Set<Dish>();
     public DbSet<RouletteSession> RouletteSessions => Set<RouletteSession>();
+    public DbSet<Ingredient> Ingredients => Set<Ingredient>();
+    public DbSet<Tag> Tags => Set<Tag>();
+    public DbSet<MealPlan> MealPlans => Set<MealPlan>();
+    public DbSet<ShoppingItem> ShoppingItems => Set<ShoppingItem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -70,11 +74,62 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService
             entity.HasKey(r => r.Id);
             entity.Property(r => r.Status).HasConversion<string>().IsRequired();
 
+            entity.HasOne(r => r.WinnerDish).WithMany().HasForeignKey(r => r.WinnerDishId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Ingredient>(entity =>
+        {
+            entity.HasKey(i => i.Id);
+            entity.Property(i => i.Name).IsRequired().HasMaxLength(200);
+            entity.Property(i => i.Amount).HasPrecision(10, 2);
+            entity.Property(i => i.Unit).HasConversion<string>().IsRequired();
+
+            entity.HasOne(i => i.Dish).WithMany(d => d.Ingredients).HasForeignKey(i => i.DishId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Tag>(entity =>
+        {
+            entity.HasKey(t => t.Id);
+            entity.Property(t => t.Name).IsRequired().HasMaxLength(50);
+            entity.HasIndex(t => new { t.HouseholdId, t.Name }).IsUnique();
+
             entity
-                .HasOne(r => r.WinnerDish)
-                .WithMany()
-                .HasForeignKey(r => r.WinnerDishId)
-                .OnDelete(DeleteBehavior.Restrict);
+                .HasOne(t => t.Household)
+                .WithMany(h => h.Tags)
+                .HasForeignKey(t => t.HouseholdId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(t => t.Dishes).WithMany(d => d.Tags).UsingEntity("DishTags");
+        });
+
+        modelBuilder.Entity<MealPlan>(entity =>
+        {
+            entity.HasKey(m => m.Id);
+            entity.Property(m => m.MealType).HasConversion<string>().IsRequired();
+            entity.HasIndex(m => new { m.HouseholdId, m.Date });
+
+            entity
+                .HasOne(m => m.Household)
+                .WithMany(h => h.MealPlans)
+                .HasForeignKey(m => m.HouseholdId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(m => m.Dish).WithMany().HasForeignKey(m => m.DishId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ShoppingItem>(entity =>
+        {
+            entity.HasKey(s => s.Id);
+            entity.Property(s => s.Name).IsRequired().HasMaxLength(200);
+            entity.Property(s => s.Amount).HasPrecision(10, 2);
+            entity.Property(s => s.Unit).HasConversion<string>();
+            entity.HasIndex(s => new { s.HouseholdId, s.GeneratedForWeekStart });
+
+            entity
+                .HasOne(s => s.Household)
+                .WithMany(h => h.ShoppingItems)
+                .HasForeignKey(s => s.HouseholdId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.ApplyHouseholdFilters(tenantService);

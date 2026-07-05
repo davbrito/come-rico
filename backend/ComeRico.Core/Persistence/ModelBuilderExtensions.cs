@@ -9,8 +9,9 @@ public static class ModelBuilderExtensions
 {
     public static ModelBuilder ApplyHouseholdFilters(this ModelBuilder modelBuilder, ITenantService tenantService)
     {
-        foreach (var entityType in modelBuilder.Model.GetEntityTypes()
-                     .Where(e => typeof(IHasHousehold).IsAssignableFrom(e.ClrType)))
+        foreach (
+            var entityType in modelBuilder.Model.GetEntityTypes().Where(e => typeof(IHasHousehold).IsAssignableFrom(e.ClrType))
+        )
         {
             var param = Expression.Parameter(entityType.ClrType, "e");
             var property = Expression.Property(param, nameof(IHasHousehold.HouseholdId));
