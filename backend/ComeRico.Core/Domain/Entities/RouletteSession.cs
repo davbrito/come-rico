@@ -1,6 +1,6 @@
 namespace ComeRico.Core.Domain.Entities;
 
-public class RouletteSession
+public class RouletteSession : IHasHousehold
 {
     public Guid Id { get; private set; } = Guid.NewGuid();
     public Guid HouseholdId { get; private set; }

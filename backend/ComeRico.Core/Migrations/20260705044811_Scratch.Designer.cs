@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace ComeRico.Core.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260705043528_Scratch")]
+    [Migration("20260705044811_Scratch")]
     partial class Scratch
     {
         /// <inheritdoc />

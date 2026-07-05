@@ -1,6 +1,6 @@
 namespace ComeRico.Core.Domain.Entities;
 
-public class Dish
+public class Dish : IHasHousehold
 {
     public Guid Id { get; private set; } = Guid.NewGuid();
     public Guid HouseholdId { get; private set; }
