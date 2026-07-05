@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
+import { z } from "zod";
 
 import {
   createShoppingItemMutation,
@@ -10,10 +11,9 @@ import {
   setShoppingItemPurchasedMutation,
 } from "#/api/@tanstack/react-query.gen";
 import type { MeasurementUnit, ShoppingItemDto } from "#/api/types.gen";
+import { useAppForm } from "#/components/form";
 import { Button } from "#/components/ui/Button";
 import { Checkbox } from "#/components/ui/Checkbox";
-import { Input } from "#/components/ui/Input";
-import { Select } from "#/components/ui/Select";
 import { getApiErrorMessage } from "#/lib/api";
 import { UNIT_LABELS, UNITS } from "#/lib/food";
 
@@ -35,37 +35,39 @@ const UNIT_ITEMS = [
   ...UNITS.map((unit) => ({ label: UNIT_LABELS[unit], value: unit as string })),
 ];
 
+const itemNameSchema = z.string().trim().min(1, "Requerido");
+const itemAmountSchema = z
+  .string()
+  .refine((v) => v.trim() === "" || (!Number.isNaN(Number(v)) && Number(v) > 0), {
+    message: "Debe ser mayor a 0",
+  });
+
 function ShoppingPage() {
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", amount: "", unit: "" });
 
   const { data: items = [], isLoading } = useQuery(getShoppingItemsOptions());
 
   const invalidate = () => qc.invalidateQueries({ queryKey: getShoppingItemsQueryKey() });
 
-  const createMut = useMutation({
-    ...createShoppingItemMutation(),
-    onSuccess: () => {
-      invalidate();
-      setForm({ name: "", amount: "", unit: "" });
-      setShowForm(false);
-    },
-  });
-
+  const createMut = useMutation({ ...createShoppingItemMutation(), onSuccess: invalidate });
   const toggleMut = useMutation({ ...setShoppingItemPurchasedMutation(), onSuccess: invalidate });
   const deleteMut = useMutation({ ...deleteShoppingItemMutation(), onSuccess: invalidate });
 
-  const handleCreate = (e: React.SubmitEvent) => {
-    e.preventDefault();
-    createMut.mutate({
-      body: {
-        name: form.name,
-        amount: form.amount ? Number(form.amount) : null,
-        unit: form.unit ? (form.unit as MeasurementUnit) : null,
-      },
-    });
-  };
+  const form = useAppForm({
+    defaultValues: { name: "", amount: "", unit: "" },
+    onSubmit: async ({ value, formApi }) => {
+      await createMut.mutateAsync({
+        body: {
+          name: value.name.trim(),
+          amount: value.amount ? Number(value.amount) : null,
+          unit: value.unit ? (value.unit as MeasurementUnit) : null,
+        },
+      });
+      formApi.reset();
+      setShowForm(false);
+    },
+  });
 
   const error =
     (createMut.isError && getApiErrorMessage(createMut.error)) ||
@@ -92,36 +94,38 @@ function ShoppingPage() {
       )}
 
       {showForm && (
-        <form onSubmit={handleCreate} className="island-shell mb-6 rounded-2xl p-6">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            form.handleSubmit();
+          }}
+          className="island-shell mb-6 rounded-2xl p-6"
+        >
           <h2 className="mb-4 text-base font-semibold text-[var(--sea-ink)]">Nuevo artículo</h2>
           <div className="flex flex-wrap gap-3">
-            <Input
-              required
-              placeholder="Nombre *"
-              value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              className="min-w-48 flex-1"
-            />
-            <Input
-              type="number"
-              min="0"
-              step="any"
-              placeholder="Cantidad"
-              value={form.amount}
-              onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
-              className="w-28"
-            />
-            <Select
-              items={UNIT_ITEMS}
-              value={form.unit}
-              onValueChange={(unit) => setForm((f) => ({ ...f, unit }))}
-              className="w-32"
-            />
+            <form.AppField name="name" validators={{ onChange: itemNameSchema }}>
+              {(field) => <field.TextField label="Nombre *" required className="min-w-48 flex-1" />}
+            </form.AppField>
+            <form.AppField name="amount" validators={{ onChange: itemAmountSchema }}>
+              {(field) => (
+                <field.TextField
+                  label="Cantidad"
+                  type="number"
+                  min="0"
+                  step="any"
+                  className="w-28"
+                />
+              )}
+            </form.AppField>
+            <form.AppField name="unit">
+              {(field) => <field.SelectField label="Unidad" items={UNIT_ITEMS} className="w-32" />}
+            </form.AppField>
           </div>
           <div className="mt-4">
-            <Button type="submit" disabled={createMut.isPending} className="px-5">
-              {createMut.isPending ? "Guardando…" : "Guardar"}
-            </Button>
+            <form.AppForm>
+              <form.SubmitButton className="px-5">Guardar</form.SubmitButton>
+            </form.AppForm>
           </div>
         </form>
       )}

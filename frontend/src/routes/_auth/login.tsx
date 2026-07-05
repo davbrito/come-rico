@@ -1,19 +1,21 @@
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { z } from "zod";
 
 import { postApiIdentityLoginMutation } from "#/api/@tanstack/react-query.gen";
+import { useAppForm } from "#/components/form";
 import { Button } from "#/components/ui/Button";
-import { Input } from "#/components/ui/Input";
 import { getApiErrorMessage } from "#/lib/api";
 
 export const Route = createFileRoute("/_auth/login")({
   component: LoginPage,
 });
 
+const emailSchema = z.email("Correo electrónico inválido");
+const passwordSchema = z.string().min(8, "Mínimo 8 caracteres");
+
 function LoginPage() {
   const navigate = Route.useNavigate();
-  const [form, setForm] = useState({ displayName: "", email: "", password: "" });
 
   const loginMut = useMutation({
     ...postApiIdentityLoginMutation(),
@@ -21,16 +23,17 @@ function LoginPage() {
       await navigate({ to: "/" });
     },
   });
-  const busy = loginMut.isPending;
   const error = loginMut.error ? getApiErrorMessage(loginMut.error) : null;
 
-  const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    await loginMut.mutateAsync({
-      body: { email: form.email, password: form.password },
-      query: { useCookies: true },
-    });
-  };
+  const form = useAppForm({
+    defaultValues: { email: "", password: "" },
+    onSubmit: async ({ value }) => {
+      await loginMut.mutateAsync({
+        body: { email: value.email, password: value.password },
+        query: { useCookies: true },
+      });
+    },
+  });
 
   return (
     <>
@@ -42,30 +45,42 @@ function LoginPage() {
         </p>
       )}
 
-      <form onSubmit={handleSubmit} className="island-shell rounded-2xl p-6">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          form.handleSubmit();
+        }}
+        className="island-shell rounded-2xl p-6"
+      >
         <div className="space-y-3">
-          <Input
-            required
-            type="email"
-            autoComplete="email"
-            placeholder="Correo electrónico *"
-            value={form.email}
-            onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
-          />
-          <Input
-            required
-            type="password"
-            minLength={8}
-            autoComplete="current-password"
-            placeholder="Contraseña *"
-            value={form.password}
-            onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-          />
+          <form.AppField name="email" validators={{ onChange: emailSchema }}>
+            {(field) => (
+              <field.TextField
+                label="Correo electrónico *"
+                type="email"
+                autoComplete="email"
+                required
+              />
+            )}
+          </form.AppField>
+          <form.AppField name="password" validators={{ onChange: passwordSchema }}>
+            {(field) => (
+              <field.TextField
+                label="Contraseña *"
+                type="password"
+                autoComplete="current-password"
+                required
+              />
+            )}
+          </form.AppField>
         </div>
 
-        <Button type="submit" disabled={busy} className="mt-5 w-full px-5 py-2.5">
-          {busy ? "Un momento…" : "Entrar"}
-        </Button>
+        <form.AppForm>
+          <form.SubmitButton pendingLabel="Un momento…" className="mt-5 w-full px-5 py-2.5">
+            Entrar
+          </form.SubmitButton>
+        </form.AppForm>
       </form>
 
       <p className="mt-4 text-center text-sm text-sea-ink-soft">

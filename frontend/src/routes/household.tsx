@@ -10,6 +10,7 @@ import { getApiErrorMessage } from "#/lib/api";
 export const Route = createFileRoute("/household")({
   beforeLoad: ({ context }) => {
     if (!context.user) throw redirect({ to: "/login" });
+    return { user: context.user };
   },
   component: HouseholdPage,
 });
@@ -47,17 +48,17 @@ function HouseholdPage() {
   const busy = createMut.isPending || joinMut.isPending;
 
   // Already in a household: show its info + invite code
-  if (user!.householdId) {
+  if (user.householdId) {
     return (
       <main className="page-wrap px-4 pt-10 pb-8">
         <div className="mx-auto max-w-md">
           <h1 className="mb-6 text-center text-2xl font-bold text-[var(--sea-ink)]">🏠 Tu hogar</h1>
           <div className="island-shell rounded-2xl p-6 text-center">
-            <p className="text-lg font-semibold text-[var(--sea-ink)]">{user!.householdName}</p>
+            <p className="text-lg font-semibold text-[var(--sea-ink)]">{user.householdName}</p>
             <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
-              Tu rol: {user!.role === "Admin" ? "Administrador" : "Miembro"}
+              Tu rol: {user.role === "Admin" ? "Administrador" : "Miembro"}
             </p>
-            {user!.inviteCode && (
+            {user.inviteCode && (
               <div className="mt-5">
                 <p className="text-xs font-semibold tracking-widest text-orange-500 uppercase">
                   Código de invitación
@@ -65,7 +66,7 @@ function HouseholdPage() {
                 <Button
                   variant="outline"
                   onClick={() => {
-                    navigator.clipboard?.writeText(user!.inviteCode!).then(() => {
+                    navigator.clipboard?.writeText(user.inviteCode!).then(() => {
                       setCopied(true);
                       setTimeout(() => setCopied(false), 2000);
                     });
@@ -73,7 +74,7 @@ function HouseholdPage() {
                   className="mt-2 rounded-xl border-dashed border-[var(--line)] px-6 py-3 font-mono text-xl font-bold tracking-[0.3em]"
                   title="Copiar código"
                 >
-                  {user!.inviteCode}
+                  {user.inviteCode}
                 </Button>
                 <p className="mt-2 text-xs text-[var(--sea-ink-soft)]">
                   {copied
