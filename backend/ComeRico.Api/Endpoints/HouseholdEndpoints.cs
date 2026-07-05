@@ -12,6 +12,8 @@ namespace ComeRico.Api.Endpoints;
 
 public sealed record HouseholdMemberDto(Guid Id, string DisplayName, string Role, DateTime CreatedAt);
 
+public sealed record RenameHouseholdRequest(string Name);
+
 public static class HouseholdEndpoints
 {
     public static IEndpointRouteBuilder MapHouseholdEndpoints(this IEndpointRouteBuilder app)
@@ -57,6 +59,37 @@ public static class HouseholdEndpoints
             )
             .WithName("JoinHousehold")
             .WithSummary("Une al usuario a un hogar mediante código de invitación");
+
+        group
+            .MapPatch(
+                "/name",
+                async Task<Results<Ok, NotFound, UnauthorizedHttpResult>> (
+                    [FromBody] RenameHouseholdRequest request,
+                    ITenantService tenantService,
+                    ICurrentUserService currentUserService,
+                    AppDbContext dbContext,
+                    CancellationToken ct
+                ) =>
+                {
+                    var household = await dbContext.Households.FirstOrDefaultAsync(h => h.Id == tenantService.HouseholdId, ct);
+
+                    if (household is null)
+                        return TypedResults.NotFound();
+
+                    var currentUser = await dbContext.Users.FirstOrDefaultAsync(u => u.Id == currentUserService.UserId, ct);
+
+                    if (currentUser is null || currentUser.Role != HouseholdRole.Admin)
+                        return TypedResults.Unauthorized();
+
+                    household.Rename(request.Name);
+                    await dbContext.SaveChangesAsync(ct);
+
+                    return TypedResults.Ok();
+                }
+            )
+            .RequireAuthorization("RequiresHousehold")
+            .WithName("RenameHousehold")
+            .WithSummary("Cambia el nombre del hogar (solo admin)");
 
         group
             .MapGet(

@@ -6,6 +6,7 @@ import {
   createHouseholdMutation,
   getHouseholdMembersOptions,
   joinHouseholdMutation,
+  renameHouseholdMutation,
 } from "#/api/@tanstack/react-query.gen";
 import { Button } from "#/components/ui/Button";
 import { Input } from "#/components/ui/Input";
@@ -55,15 +56,69 @@ function HouseholdPage() {
   if (user.householdId) {
     const { data: members } = useSuspenseQuery(getHouseholdMembersOptions());
 
+    const isAdmin = user.role === "Admin";
+    const [editing, setEditing] = useState(false);
+    const [editedName, setEditedName] = useState(user.householdName ?? "");
+
+    const renameMut = useMutation({
+      ...renameHouseholdMutation(),
+      onSuccess: async () => {
+        setEditing(false);
+        await router.invalidate();
+      },
+    });
+
     return (
       <main className="page-wrap px-4 pt-10 pb-8">
         <div className="mx-auto max-w-md">
           <h1 className="mb-6 text-center text-2xl font-bold text-[var(--sea-ink)]">🏠 Tu hogar</h1>
 
           <div className="island-shell rounded-2xl p-6 text-center">
-            <p className="text-lg font-semibold text-[var(--sea-ink)]">{user.householdName}</p>
+            {editing ? (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (editedName.trim()) {
+                    renameMut.mutate({ body: { name: editedName.trim() } });
+                  }
+                }}
+                className="flex items-center gap-2"
+              >
+                <Input
+                  value={editedName}
+                  onChange={(e) => setEditedName(e.target.value)}
+                  className="text-center text-lg font-semibold"
+                  autoFocus
+                  required
+                />
+                <Button type="submit" size="sm" disabled={renameMut.isPending}>
+                  {renameMut.isPending ? "…" : "✓"}
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setEditing(false)} type="button">
+                  ✕
+                </Button>
+              </form>
+            ) : (
+              <div className="flex items-center justify-center gap-2">
+                <p className="text-lg font-semibold text-[var(--sea-ink)]">{user.householdName}</p>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditedName(user.householdName ?? "");
+                      setEditing(true);
+                    }}
+                    className="text-xs text-[var(--sea-ink-soft)] transition-colors hover:text-[var(--sea-ink)]"
+                    title="Editar nombre"
+                  >
+                    ✏️
+                  </button>
+                )}
+              </div>
+            )}
+
             <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
-              Tu rol: {user.role === "Admin" ? "Administrador" : "Miembro"}
+              Tu rol: {isAdmin ? "Administrador" : "Miembro"}
             </p>
             {user.inviteCode && (
               <div className="mt-5">

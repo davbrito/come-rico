@@ -19,8 +19,10 @@ function HomePage() {
           <em>¿qué comemos?</em>
         </p>
         <div className="flex flex-wrap gap-3">
-          <Button render={<Link to="/roulette" />}>🎡 Girar la Ruleta</Button>
-          <Button variant="outline" render={<Link to="/dishes" />}>
+          <Button nativeButton={false} render={<Link to="/roulette" />}>
+            🎡 Girar la Ruleta
+          </Button>
+          <Button variant="outline" nativeButton={false} render={<Link to="/dishes" />}>
             🍲 Ver Platillos
           </Button>
         </div>

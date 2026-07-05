@@ -17,4 +17,6 @@ public class Household
     private Household() { }
 
     public static Household Create(string name) => new() { Name = name };
+
+    public void Rename(string newName) => Name = newName;
 }

@@ -83,7 +83,7 @@ export default function Header() {
               </Button>
             </>
           ) : (
-            <Button size="sm" render={<Link to="/login" />}>
+            <Button size="sm" nativeButton={false} render={<Link to="/login" />}>
               Entrar
             </Button>
           )}
