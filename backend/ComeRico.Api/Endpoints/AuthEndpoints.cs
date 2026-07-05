@@ -26,6 +26,11 @@ public static class AuthEndpoints
 {
     public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder app)
     {
+        // Built-in Identity API endpoints under /api/auth: /api/auth/login, /api/auth/refresh,
+        // /api/auth/manage/info, etc. POST /api/auth/login accepts ?useCookies=true for
+        // SPA cookie auth, or returns a bearer token by default for native/mobile clients.
+        app.MapGroup("/api/identity").MapIdentityApi<AppUser>();
+
         var group = app.MapGroup("/api/auth").WithTags("Auth");
 
         // Custom register: accepts DisplayName alongside email/password, which the
