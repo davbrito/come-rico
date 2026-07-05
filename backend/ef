@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PROJECT="ComeRico.Core"
+STARTUP="ComeRico.Api"
+CMD="${1:-help}"
+shift 2>/dev/null || true
+
+case "$CMD" in
+  add)
+    dotnet ef migrations add "$1" --project "$PROJECT" --startup-project "$STARTUP"
+    ;;
+  remove)
+    dotnet ef migrations remove --project "$PROJECT" --startup-project "$STARTUP"
+    ;;
+  update)
+    dotnet ef database update --project "$PROJECT" --startup-project "$STARTUP" "$@"
+    ;;
+  drop)
+    dotnet ef database drop --project "$PROJECT" --startup-project "$STARTUP" --force "$@"
+    ;;
+  list)
+    dotnet ef migrations list --project "$PROJECT" --startup-project "$STARTUP"
+    ;;
+  script)
+    dotnet ef migrations script --project "$PROJECT" --startup-project "$STARTUP" --output "$1" "$@"
+    ;;
+  reset)
+    "$0" drop
+    "$0" update
+    ;;
+  help|*)
+    echo "Usage: ef <command> [args]"
+    echo ""
+    echo "Commands:"
+    echo "  add <name>       Create a new migration"
+    echo "  remove           Remove the last migration"
+    echo "  update [name]    Apply migrations (default: latest)"
+    echo "  drop             Drop the database"
+    echo "  list             List migrations"
+    echo "  script [file]    Generate SQL script"
+    echo "  reset            Drop database + reapply all migrations"
+    ;;
+esac
