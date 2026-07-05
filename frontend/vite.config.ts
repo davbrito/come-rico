@@ -8,7 +8,7 @@ import viteReact from "@vitejs/plugin-react";
 import { nitro } from "nitro/vite";
 import { defineConfig } from "vite";
 
-const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:5000";
+const BACKEND_URL = process.env.BACKEND_URL ?? "http://localhost:5276";
 
 const config = defineConfig({
   resolve: { tsconfigPaths: true },

@@ -4,7 +4,7 @@ import type { CreateClientConfig } from "#/api/client.gen";
 
 const getBaseUrl = createIsomorphicFn()
   .client(() => undefined)
-  .server(() => process.env.BACKEND_URL ?? "http://localhost:5000");
+  .server(() => process.env.BACKEND_URL ?? "http://localhost:5276");
 
 export const createClientConfig: CreateClientConfig = (config) => ({
   ...config,

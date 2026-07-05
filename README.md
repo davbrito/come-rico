@@ -31,8 +31,8 @@ cd backend/ComeRico.Api
 # Set DB password via user secrets (recommended)
 dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Host=localhost;Port=5432;Database=comerico;Username=postgres;******"
 dotnet run
-# API: http://localhost:5000
-# OpenAPI: http://localhost:5000/openapi/v1.json
+# API: http://localhost:5276
+# OpenAPI: http://localhost:5276/openapi/v1.json
 ```
 
 > Never commit real credentials — set them via user secrets or the `ConnectionStrings__DefaultConnection` environment variable.
@@ -48,7 +48,7 @@ pnpm dev
 
 | Variable | Default | Description |
 |---|---|---|
-| `BACKEND_URL` | `http://localhost:5000` | .NET API base URL for the Vite dev proxy |
+| `BACKEND_URL` | `http://localhost:5276` | .NET API base URL for the Vite dev proxy |
 
 ## EF Core Migrations
 
