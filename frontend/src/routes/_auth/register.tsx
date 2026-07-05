@@ -3,7 +3,8 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { registerMutation } from "#/api/@tanstack/react-query.gen";
-import { LoginInput } from "#/components/auth/LoginInput";
+import { Button } from "#/components/ui/Button";
+import { Input } from "#/components/ui/Input";
 import { getApiErrorMessage } from "#/lib/api";
 
 export const Route = createFileRoute("/_auth/register")({
@@ -47,14 +48,14 @@ function LoginPage() {
       <form onSubmit={handleSubmit} className="island-shell rounded-2xl p-6">
         <div className="space-y-3">
           {mode === "register" && (
-            <LoginInput
+            <Input
               required
               placeholder="Tu nombre *"
               value={form.displayName}
               onChange={(e) => setForm((f) => ({ ...f, displayName: e.target.value }))}
             />
           )}
-          <LoginInput
+          <Input
             required
             type="email"
             autoComplete="email"
@@ -62,7 +63,7 @@ function LoginPage() {
             value={form.email}
             onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
           />
-          <LoginInput
+          <Input
             required
             type="password"
             minLength={8}
@@ -73,26 +74,22 @@ function LoginPage() {
           />
         </div>
 
-        <button
-          type="submit"
-          disabled={busy}
-          className="mt-5 w-full rounded-full bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-orange-600 disabled:opacity-60"
-        >
+        <Button type="submit" disabled={busy} className="mt-5 w-full px-5 py-2.5">
           {busy ? "Un momento…" : "Registrarme"}
-        </button>
+        </Button>
       </form>
 
       <p className="mt-4 text-center text-sm text-[var(--sea-ink-soft)]">
         {"¿Ya tienes cuenta?"}{" "}
-        <button
-          type="button"
+        <Button
+          variant="ghost"
           onClick={() => {
             navigate({ to: "/login" });
           }}
-          className="font-semibold text-orange-500 hover:underline"
+          className="hover:underline"
         >
           Inicia sesión
-        </button>
+        </Button>
       </p>
     </>
   );

@@ -1,30 +1,29 @@
 import { useMutation } from "@tanstack/react-query";
-import { Link, useNavigate, useRouteContext, useRouter } from "@tanstack/react-router";
+import { Link, useNavigate, useRouteContext } from "@tanstack/react-router";
 
 import { logoutMutation } from "#/api/@tanstack/react-query.gen";
+import { Button } from "#/components/ui/Button";
 
 import ThemeToggle from "./ThemeToggle";
 
 export default function Header() {
   const { user } = useRouteContext({ from: "__root__" });
-  const router = useRouter();
   const navigate = useNavigate();
 
   const logoutMut = useMutation({
     ...logoutMutation(),
     onSuccess: async () => {
-      await router.invalidate();
-      navigate({ to: "/login" });
+      await navigate({ to: "/login" });
     },
   });
 
   return (
-    <header className="sticky top-0 z-50 border-b border-[var(--line)] bg-[var(--header-bg)] px-4 backdrop-blur-lg">
+    <header className="sticky top-0 isolate z-50 border-b border-line bg-header-bg px-4 backdrop-blur-lg">
       <nav className="page-wrap flex flex-wrap items-center gap-x-3 gap-y-2 py-3 sm:py-4">
-        <h2 className="m-0 flex-shrink-0 text-base font-semibold tracking-tight">
+        <h2 className="m-0 shrink-0 text-base font-semibold tracking-tight">
           <Link
             to="/"
-            className="inline-flex items-center gap-2 rounded-full border border-[var(--chip-line)] bg-[var(--chip-bg)] px-3 py-1.5 text-sm text-[var(--sea-ink)] no-underline shadow-[0_8px_24px_rgba(30,90,72,0.08)] sm:px-4 sm:py-2"
+            className="inline-flex items-center gap-2 rounded-full border border-chip-line bg-chip-bg px-3 py-1.5 text-sm text-[var(--sea-ink)] no-underline shadow-[0_8px_24px_rgba(30,90,72,0.08)] sm:px-4 sm:py-2"
           >
             <span className="h-2 w-2 rounded-full bg-[linear-gradient(90deg,#f97316,#ef4444)]" />
             ComeRico 🍽️
@@ -74,13 +73,14 @@ export default function Header() {
               <span className="hidden text-sm font-medium text-[var(--sea-ink-soft)] sm:inline">
                 {user.displayName}
               </span>
-              <button
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => logoutMut.mutate({ body: {} })}
                 disabled={logoutMut.isPending}
-                className="rounded-full border border-[var(--chip-line)] bg-[var(--chip-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--sea-ink)] transition hover:border-orange-400 disabled:opacity-60"
               >
                 Salir
-              </button>
+              </Button>
             </>
           ) : (
             <Link

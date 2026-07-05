@@ -937,6 +937,39 @@
       }
     },
     "/api/meal-plans/{id}": {
+      "get": {
+        "tags": [
+          "MealPlans"
+        ],
+        "summary": "Obtiene un plan de comidas por su identificador",
+        "operationId": "GetMealPlan",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MealPlanDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      },
       "delete": {
         "tags": [
           "MealPlans"

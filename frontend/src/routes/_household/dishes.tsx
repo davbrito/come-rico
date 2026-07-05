@@ -1,3 +1,5 @@
+import { Toggle } from "@base-ui/react/toggle";
+import { ToggleGroup } from "@base-ui/react/toggle-group";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
@@ -14,6 +16,10 @@ import {
   setDishTagsMutation,
 } from "#/api/@tanstack/react-query.gen";
 import type { DishDto, MeasurementUnit } from "#/api/types.gen";
+import { Button } from "#/components/ui/Button";
+import { ConfirmDialog } from "#/components/ui/ConfirmDialog";
+import { Input } from "#/components/ui/Input";
+import { Select } from "#/components/ui/Select";
 import { getApiErrorMessage } from "#/lib/api";
 import { UNIT_LABELS, UNITS } from "#/lib/food";
 
@@ -24,10 +30,13 @@ export const Route = createFileRoute("/_household/dishes")({
   },
 });
 
+const UNIT_ITEMS = UNITS.map((unit) => ({ label: UNIT_LABELS[unit], value: unit }));
+
 function DishesPage() {
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [form, setForm] = useState({ name: "", description: "", imageUrl: "" });
 
   const { data: dishes = [], isLoading } = useQuery(getDishesOptions());
@@ -56,11 +65,6 @@ function DishesPage() {
     });
   };
 
-  const handleDelete = (id: string) => {
-    if (!confirm("¿Eliminar este platillo?")) return;
-    deleteMut.mutate({ path: { id } });
-  };
-
   const error = createMut.isError
     ? getApiErrorMessage(createMut.error)
     : deleteMut.isError
@@ -71,12 +75,9 @@ function DishesPage() {
     <main className="page-wrap px-4 pt-10 pb-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-[var(--sea-ink)]">🍲 Platillos</h1>
-        <button
-          onClick={() => setShowForm((v) => !v)}
-          className="rounded-full bg-orange-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-600"
-        >
+        <Button onClick={() => setShowForm((v) => !v)}>
           {showForm ? "Cancelar" : "+ Agregar platillo"}
-        </button>
+        </Button>
       </div>
 
       {error && (
@@ -89,34 +90,27 @@ function DishesPage() {
         <form onSubmit={handleCreate} className="island-shell mb-6 rounded-2xl p-6">
           <h2 className="mb-4 text-base font-semibold text-[var(--sea-ink)]">Nuevo platillo</h2>
           <div className="space-y-3">
-            <input
+            <Input
               required
               placeholder="Nombre *"
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              className="w-full rounded-xl border border-[var(--line)] bg-[var(--chip-bg)] px-4 py-2.5 text-sm text-[var(--sea-ink)] outline-none focus:border-orange-400"
             />
-            <input
+            <Input
               placeholder="Descripción (opcional)"
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-              className="w-full rounded-xl border border-[var(--line)] bg-[var(--chip-bg)] px-4 py-2.5 text-sm text-[var(--sea-ink)] outline-none focus:border-orange-400"
             />
-            <input
+            <Input
               placeholder="URL de imagen (opcional)"
               value={form.imageUrl}
               onChange={(e) => setForm((f) => ({ ...f, imageUrl: e.target.value }))}
-              className="w-full rounded-xl border border-[var(--line)] bg-[var(--chip-bg)] px-4 py-2.5 text-sm text-[var(--sea-ink)] outline-none focus:border-orange-400"
             />
           </div>
           <div className="mt-4 flex gap-2">
-            <button
-              type="submit"
-              disabled={createMut.isPending}
-              className="rounded-full bg-orange-500 px-5 py-2 text-sm font-semibold text-white transition hover:bg-orange-600 disabled:opacity-60"
-            >
+            <Button type="submit" disabled={createMut.isPending} className="px-5">
               {createMut.isPending ? "Guardando…" : "Guardar"}
-            </button>
+            </Button>
           </div>
         </form>
       )}
@@ -163,24 +157,42 @@ function DishesPage() {
                 </p>
               )}
               <div className="mt-auto flex gap-2 pt-2">
-                <button
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => setEditingId((id) => (id === dish.id ? null : dish.id))}
-                  className="rounded-full border border-[var(--chip-line)] px-3 py-1 text-xs font-medium text-[var(--sea-ink)] transition hover:border-orange-400"
+                  className="py-1 font-medium"
                 >
                   {editingId === dish.id ? "Cerrar" : "Ingredientes y etiquetas"}
-                </button>
-                <button
-                  onClick={() => handleDelete(dish.id)}
-                  className="rounded-full border border-red-200 px-3 py-1 text-xs font-medium text-red-500 transition hover:bg-red-50 dark:border-red-800 dark:hover:bg-red-900/20"
+                </Button>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() => setDeletingId(dish.id)}
+                  className="py-1"
                 >
                   Eliminar
-                </button>
+                </Button>
               </div>
               {editingId === dish.id && <DishEditor dish={dish} onSaved={invalidate} />}
             </li>
           ))}
         </ul>
       )}
+
+      <ConfirmDialog
+        open={deletingId !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeletingId(null);
+        }}
+        title="¿Eliminar este platillo?"
+        description="El platillo se eliminará de forma permanente."
+        confirmLabel="Eliminar"
+        onConfirm={() => {
+          if (deletingId) deleteMut.mutate({ path: { id: deletingId } });
+          setDeletingId(null);
+        }}
+      />
     </main>
   );
 }
@@ -209,11 +221,6 @@ function DishEditor({ dish, onSaved }: { dish: DishDto; onSaved: () => void }) {
     },
   });
 
-  const toggleTag = (tagId: string) =>
-    setSelectedTagIds((ids) =>
-      ids.includes(tagId) ? ids.filter((id) => id !== tagId) : [...ids, tagId],
-    );
-
   const updateRow = (index: number, patch: Partial<IngredientRow>) =>
     setRows((rs) => rs.map((row, i) => (i === index ? { ...row, ...patch } : row)));
 
@@ -239,46 +246,52 @@ function DishEditor({ dish, onSaved }: { dish: DishDto; onSaved: () => void }) {
 
       <div>
         <h4 className="mb-2 text-xs font-bold text-[var(--sea-ink-soft)] uppercase">Etiquetas</h4>
-        <div className="flex flex-wrap gap-1.5">
+        <ToggleGroup
+          multiple
+          value={selectedTagIds}
+          onValueChange={(ids) => setSelectedTagIds(ids as string[])}
+          aria-label="Etiquetas del platillo"
+          className="flex flex-wrap gap-1.5"
+        >
           {allTags.map((tag) => (
-            <button
+            <Toggle
               key={tag.id}
-              onClick={() => toggleTag(tag.id)}
-              className={`rounded-full border px-2.5 py-1 text-xs font-medium transition ${
-                selectedTagIds.includes(tag.id)
-                  ? "border-orange-400 bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300"
-                  : "border-[var(--chip-line)] text-[var(--sea-ink-soft)] hover:border-orange-300"
-              }`}
+              value={tag.id}
+              className="rounded-full border border-[var(--chip-line)] px-2.5 py-1 text-xs font-medium text-[var(--sea-ink-soft)] transition hover:border-orange-300 data-[pressed]:border-orange-400 data-[pressed]:bg-orange-100 data-[pressed]:text-orange-700 dark:data-[pressed]:bg-orange-900/30 dark:data-[pressed]:text-orange-300"
             >
               #{tag.name}
-            </button>
+            </Toggle>
           ))}
-        </div>
+        </ToggleGroup>
         <div className="mt-2 flex gap-2">
-          <input
+          <Input
+            size="sm"
             placeholder="Nueva etiqueta"
             value={newTagName}
             onChange={(e) => setNewTagName(e.target.value)}
-            className="flex-1 rounded-lg border border-[var(--line)] bg-transparent px-3 py-1.5 text-xs text-[var(--sea-ink)] outline-none focus:border-orange-400"
+            className="flex-1"
           />
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() =>
               newTagName.trim() && createTagMut.mutate({ body: { name: newTagName.trim() } })
             }
             disabled={createTagMut.isPending || !newTagName.trim()}
-            className="rounded-lg border border-[var(--chip-line)] px-3 py-1.5 text-xs font-semibold text-[var(--sea-ink)] transition hover:border-orange-400 disabled:opacity-50"
+            className="rounded-lg bg-transparent disabled:opacity-50"
           >
             Crear
-          </button>
-          <button
+          </Button>
+          <Button
+            size="sm"
             onClick={() =>
               saveTagsMut.mutate({ path: { id: dish.id }, body: { tagIds: selectedTagIds } })
             }
             disabled={saveTagsMut.isPending}
-            className="rounded-lg bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-orange-600 disabled:opacity-60"
+            className="rounded-lg"
           >
             {saveTagsMut.isPending ? "…" : "Guardar etiquetas"}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -289,56 +302,58 @@ function DishEditor({ dish, onSaved }: { dish: DishDto; onSaved: () => void }) {
         <div className="space-y-2">
           {rows.map((row, index) => (
             <div key={index} className="flex items-center gap-2">
-              <input
+              <Input
+                size="sm"
                 placeholder="Ingrediente"
                 value={row.name}
                 onChange={(e) => updateRow(index, { name: e.target.value })}
-                className="min-w-0 flex-1 rounded-lg border border-[var(--line)] bg-transparent px-3 py-1.5 text-xs text-[var(--sea-ink)] outline-none focus:border-orange-400"
+                className="min-w-0 flex-1"
               />
-              <input
+              <Input
+                size="sm"
                 type="number"
                 min="0"
                 step="any"
                 placeholder="Cant."
                 value={row.amount}
                 onChange={(e) => updateRow(index, { amount: e.target.value })}
-                className="w-16 rounded-lg border border-[var(--line)] bg-transparent px-2 py-1.5 text-xs text-[var(--sea-ink)] outline-none focus:border-orange-400"
+                className="w-16 px-2"
               />
-              <select
+              <Select
+                size="sm"
+                items={UNIT_ITEMS}
                 value={row.unit}
-                onChange={(e) => updateRow(index, { unit: e.target.value as MeasurementUnit })}
-                className="w-20 rounded-lg border border-[var(--line)] bg-transparent px-1 py-1.5 text-xs text-[var(--sea-ink)]"
-              >
-                {UNITS.map((unit) => (
-                  <option key={unit} value={unit}>
-                    {UNIT_LABELS[unit]}
-                  </option>
-                ))}
-              </select>
-              <button
+                onValueChange={(unit) => updateRow(index, { unit })}
+                className="w-20"
+              />
+              <Button
+                variant="danger-ghost"
+                size="sm"
                 onClick={() => setRows((rs) => rs.filter((_, i) => i !== index))}
-                className="text-xs text-red-400 hover:text-red-600"
                 aria-label="Quitar ingrediente"
               >
                 ✕
-              </button>
+              </Button>
             </div>
           ))}
         </div>
         <div className="mt-2 flex gap-2">
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setRows((rs) => [...rs, { name: "", amount: "", unit: "Piece" }])}
-            className="rounded-lg border border-[var(--chip-line)] px-3 py-1.5 text-xs font-semibold text-[var(--sea-ink)] transition hover:border-orange-400"
+            className="rounded-lg bg-transparent"
           >
             + Ingrediente
-          </button>
-          <button
+          </Button>
+          <Button
+            size="sm"
             onClick={saveIngredients}
             disabled={saveIngredientsMut.isPending}
-            className="rounded-lg bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-orange-600 disabled:opacity-60"
+            className="rounded-lg"
           >
             {saveIngredientsMut.isPending ? "…" : "Guardar ingredientes"}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { getRouletteHistoryOptions, spinRouletteMutation } from "#/api/@tanstack/react-query.gen";
 import type { RouletteSessionDto, SpinRouletteResult } from "#/api/types.gen";
+import { Button } from "#/components/ui/Button";
 import { getApiErrorMessage } from "#/lib/api";
 import { onRouletteSpun, startRouletteConnection, stopRouletteConnection } from "#/lib/signalr";
 
@@ -82,13 +83,14 @@ function RoulettePage() {
           </div>
         )}
 
-        <button
+        <Button
+          size="lg"
           onClick={() => spinMut.mutate({})}
           disabled={spinning}
-          className="rounded-full bg-orange-500 px-8 py-3 text-base font-semibold text-white shadow-md transition hover:-translate-y-0.5 hover:bg-orange-600 active:translate-y-0 disabled:opacity-50"
+          className="shadow-md hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50"
         >
           {spinning ? "Girando…" : "¡Girar!"}
-        </button>
+        </Button>
       </section>
 
       {/* History */}

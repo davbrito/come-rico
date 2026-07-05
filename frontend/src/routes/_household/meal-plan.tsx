@@ -12,6 +12,8 @@ import {
   getShoppingItemsQueryKey,
 } from "#/api/@tanstack/react-query.gen";
 import type { MealType } from "#/api/types.gen";
+import { Button } from "#/components/ui/Button";
+import { Select } from "#/components/ui/Select";
 import { getApiErrorMessage } from "#/lib/api";
 import { addDays, formatDayLabel, getMonday, MEAL_LABELS, MEAL_TYPES, toDateKey } from "#/lib/food";
 
@@ -56,30 +58,22 @@ function MealPlanPage() {
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const todayKey = toDateKey(new Date());
+  const dishItems = dishes.map((dish) => ({ label: dish.name, value: dish.id }));
 
   return (
     <main className="page-wrap px-4 pt-10 pb-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-sea-ink">📅 Plan de comidas</h1>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setWeekStart((w) => addDays(w, -7))}
-            className="rounded-full border border-chip-line bg-chip-bg px-3 py-1.5 text-xs font-semibold text-[var(--sea-ink)] transition hover:border-orange-400"
-          >
+          <Button variant="outline" size="sm" onClick={() => setWeekStart((w) => addDays(w, -7))}>
             ← Anterior
-          </button>
-          <button
-            onClick={() => setWeekStart(getMonday(new Date()))}
-            className="rounded-full border border-chip-line bg-chip-bg px-3 py-1.5 text-xs font-semibold text-[var(--sea-ink)] transition hover:border-orange-400"
-          >
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setWeekStart(getMonday(new Date()))}>
             Hoy
-          </button>
-          <button
-            onClick={() => setWeekStart((w) => addDays(w, 7))}
-            className="rounded-full border border-[var(--chip-line)] bg-[var(--chip-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--sea-ink)] transition hover:border-orange-400"
-          >
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setWeekStart((w) => addDays(w, 7))}>
             Siguiente →
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -96,13 +90,12 @@ function MealPlanPage() {
       )}
 
       <div className="mb-6 flex justify-end">
-        <button
+        <Button
           onClick={() => generateMut.mutate({ body: { anyDateInWeek: from } })}
           disabled={generateMut.isPending}
-          className="rounded-full bg-orange-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-600 disabled:opacity-60"
         >
           {generateMut.isPending ? "Generando…" : "🛒 Generar lista de compras de esta semana"}
-        </button>
+        </Button>
       </div>
 
       {isLoading ? (
@@ -136,12 +129,13 @@ function MealPlanPage() {
                           <span className="text-xs font-semibold text-[var(--sea-ink-soft)]">
                             {MEAL_LABELS[mealType]}
                           </span>
-                          <button
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => setAdding(isAdding ? null : { date: dayKey, mealType })}
-                            className="text-xs font-semibold text-orange-500 hover:text-orange-600"
                           >
                             {isAdding ? "Cancelar" : "+ Añadir"}
-                          </button>
+                          </Button>
                         </div>
                         {entries.map((entry) => (
                           <div
@@ -149,36 +143,28 @@ function MealPlanPage() {
                             className="mt-1 flex items-center justify-between gap-2"
                           >
                             <span className="text-sm text-[var(--sea-ink)]">{entry.dishName}</span>
-                            <button
+                            <Button
+                              variant="danger-ghost"
+                              size="sm"
                               onClick={() => deleteMut.mutate({ path: { id: entry.id } })}
-                              className="text-xs text-red-400 hover:text-red-600"
                               aria-label={`Quitar ${entry.dishName}`}
                             >
                               ✕
-                            </button>
+                            </Button>
                           </div>
                         ))}
                         {isAdding && (
-                          <select
-                            autoFocus
-                            defaultValue=""
-                            onChange={(e) => {
-                              if (!e.target.value) return;
+                          <Select
+                            items={dishItems}
+                            value={null}
+                            onValueChange={(dishId) =>
                               createMut.mutate({
-                                body: { dishId: e.target.value, date: dayKey, mealType },
-                              });
-                            }}
-                            className="mt-2 w-full rounded-lg border border-[var(--line)] bg-[var(--card-bg,transparent)] px-2 py-1.5 text-sm text-[var(--sea-ink)]"
-                          >
-                            <option value="" disabled>
-                              Elige un platillo…
-                            </option>
-                            {dishes.map((dish) => (
-                              <option key={dish.id} value={dish.id}>
-                                {dish.name}
-                              </option>
-                            ))}
-                          </select>
+                                body: { dishId, date: dayKey, mealType },
+                              })
+                            }
+                            placeholder="Elige un platillo…"
+                            className="mt-2 w-full rounded-lg bg-[var(--card-bg,transparent)] px-2 py-1.5"
+                          />
                         )}
                       </div>
                     );

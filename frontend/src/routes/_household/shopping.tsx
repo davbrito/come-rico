@@ -10,6 +10,10 @@ import {
   setShoppingItemPurchasedMutation,
 } from "#/api/@tanstack/react-query.gen";
 import type { MeasurementUnit, ShoppingItemDto } from "#/api/types.gen";
+import { Button } from "#/components/ui/Button";
+import { Checkbox } from "#/components/ui/Checkbox";
+import { Input } from "#/components/ui/Input";
+import { Select } from "#/components/ui/Select";
 import { getApiErrorMessage } from "#/lib/api";
 import { UNIT_LABELS, UNITS } from "#/lib/food";
 
@@ -25,6 +29,11 @@ function formatAmount(item: ShoppingItemDto): string | null {
   const unit = item.unit ? ` ${UNIT_LABELS[item.unit]}` : "";
   return `${item.amount}${unit}`;
 }
+
+const UNIT_ITEMS = [
+  { label: "Sin unidad", value: "" },
+  ...UNITS.map((unit) => ({ label: UNIT_LABELS[unit], value: unit as string })),
+];
 
 function ShoppingPage() {
   const qc = useQueryClient();
@@ -71,12 +80,9 @@ function ShoppingPage() {
     <main className="page-wrap px-4 pt-10 pb-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-[var(--sea-ink)]">🛒 Lista de compras</h1>
-        <button
-          onClick={() => setShowForm((v) => !v)}
-          className="rounded-full bg-orange-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-600"
-        >
+        <Button onClick={() => setShowForm((v) => !v)}>
           {showForm ? "Cancelar" : "+ Agregar artículo"}
-        </button>
+        </Button>
       </div>
 
       {error && (
@@ -89,43 +95,33 @@ function ShoppingPage() {
         <form onSubmit={handleCreate} className="island-shell mb-6 rounded-2xl p-6">
           <h2 className="mb-4 text-base font-semibold text-[var(--sea-ink)]">Nuevo artículo</h2>
           <div className="flex flex-wrap gap-3">
-            <input
+            <Input
               required
               placeholder="Nombre *"
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              className="min-w-48 flex-1 rounded-xl border border-[var(--line)] bg-[var(--chip-bg)] px-4 py-2.5 text-sm text-[var(--sea-ink)] outline-none focus:border-orange-400"
+              className="min-w-48 flex-1"
             />
-            <input
+            <Input
               type="number"
               min="0"
               step="any"
               placeholder="Cantidad"
               value={form.amount}
               onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
-              className="w-28 rounded-xl border border-[var(--line)] bg-[var(--chip-bg)] px-4 py-2.5 text-sm text-[var(--sea-ink)] outline-none focus:border-orange-400"
+              className="w-28"
             />
-            <select
+            <Select
+              items={UNIT_ITEMS}
               value={form.unit}
-              onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
-              className="w-32 rounded-xl border border-[var(--line)] bg-[var(--chip-bg)] px-3 py-2.5 text-sm text-[var(--sea-ink)] outline-none focus:border-orange-400"
-            >
-              <option value="">Sin unidad</option>
-              {UNITS.map((unit) => (
-                <option key={unit} value={unit}>
-                  {UNIT_LABELS[unit]}
-                </option>
-              ))}
-            </select>
+              onValueChange={(unit) => setForm((f) => ({ ...f, unit }))}
+              className="w-32"
+            />
           </div>
           <div className="mt-4">
-            <button
-              type="submit"
-              disabled={createMut.isPending}
-              className="rounded-full bg-orange-500 px-5 py-2 text-sm font-semibold text-white transition hover:bg-orange-600 disabled:opacity-60"
-            >
+            <Button type="submit" disabled={createMut.isPending} className="px-5">
               {createMut.isPending ? "Guardando…" : "Guardar"}
-            </button>
+            </Button>
           </div>
         </form>
       )}
@@ -185,11 +181,9 @@ function ShoppingSection({
       <ul className="island-shell divide-y divide-[var(--line)] rounded-2xl">
         {items.map((item) => (
           <li key={item.id} className="flex items-center gap-3 px-4 py-3">
-            <input
-              type="checkbox"
+            <Checkbox
               checked={item.isPurchased}
-              onChange={() => onToggle(item)}
-              className="h-5 w-5 accent-orange-500"
+              onCheckedChange={() => onToggle(item)}
               aria-label={`Marcar ${item.name} como ${item.isPurchased ? "pendiente" : "comprado"}`}
             />
             <div className="flex-1">
@@ -209,13 +203,14 @@ function ShoppingSection({
                 </span>
               )}
             </div>
-            <button
+            <Button
+              variant="danger-ghost"
+              size="sm"
               onClick={() => onDelete(item)}
-              className="text-xs text-red-400 hover:text-red-600"
               aria-label={`Eliminar ${item.name}`}
             >
               ✕
-            </button>
+            </Button>
           </li>
         ))}
       </ul>

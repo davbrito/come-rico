@@ -1,5 +1,3 @@
-import { createServerFn } from "@tanstack/react-start";
-
 import { getCurrentUser } from "#/api";
 import type { CurrentUserDto } from "#/api/types.gen";
 
@@ -10,23 +8,19 @@ import type { CurrentUserDto } from "#/api/types.gen";
  * Because this runs in `beforeLoad`, both SSR and client-side navigations
  * see the same auth state — the session never "disappears" on reload.
  */
-export const fetchCurrentUser = createServerFn({ method: "GET" }).handler(
-  async (): Promise<CurrentUserDto | null> => {
-    const res = await getCurrentUser({ throwOnError: false });
-    if (res.response?.status === 401) return null;
-    if (!res.data) {
-      if (res.response) {
-        console.error(
-          "Failed to fetch current user:",
-          res.response.status,
-          res.response.statusText,
-        );
-      }
-      if (res.error) {
-        console.error("Failed to fetch current user:", res.error);
-      }
-      throw new Error("Failed to fetch current user");
+export const fetchCurrentUser = async (): Promise<CurrentUserDto | null> => {
+  const res = await getCurrentUser({ throwOnError: false });
+  if (res.response?.status === 401) return null;
+  if (!res.data) {
+    if (res.response) {
+      console.error("Failed to fetch current user:", res.response.status, res.response.statusText);
     }
-    return res.data;
-  },
-);
+    if (res.error) {
+      console.error("Failed to fetch current user:", res.error);
+      throw new Error(`Failed to fetch current user: ${res.error}`);
+    }
+    console.error("response:", res);
+    throw new Error("Failed to fetch current user: no data or error returned");
+  }
+  return res.data;
+};

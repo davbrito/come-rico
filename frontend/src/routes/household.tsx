@@ -3,6 +3,8 @@ import { createFileRoute, redirect, useNavigate, useRouter } from "@tanstack/rea
 import { useState } from "react";
 
 import { createHouseholdMutation, joinHouseholdMutation } from "#/api/@tanstack/react-query.gen";
+import { Button } from "#/components/ui/Button";
+import { Input } from "#/components/ui/Input";
 import { getApiErrorMessage } from "#/lib/api";
 
 export const Route = createFileRoute("/household")({
@@ -11,9 +13,6 @@ export const Route = createFileRoute("/household")({
   },
   component: HouseholdPage,
 });
-
-const inputClass =
-  "w-full rounded-xl border border-[var(--line)] bg-[var(--chip-bg)] px-4 py-2.5 text-sm text-[var(--sea-ink)] outline-none focus:border-orange-400";
 
 function HouseholdPage() {
   const { user } = Route.useRouteContext();
@@ -63,19 +62,19 @@ function HouseholdPage() {
                 <p className="text-xs font-semibold tracking-widest text-orange-500 uppercase">
                   Código de invitación
                 </p>
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
                   onClick={() => {
                     navigator.clipboard?.writeText(user!.inviteCode!).then(() => {
                       setCopied(true);
                       setTimeout(() => setCopied(false), 2000);
                     });
                   }}
-                  className="mt-2 rounded-xl border border-dashed border-[var(--line)] bg-[var(--chip-bg)] px-6 py-3 font-mono text-xl font-bold tracking-[0.3em] text-[var(--sea-ink)] transition hover:border-orange-400"
+                  className="mt-2 rounded-xl border-dashed border-[var(--line)] px-6 py-3 font-mono text-xl font-bold tracking-[0.3em]"
                   title="Copiar código"
                 >
                   {user!.inviteCode}
-                </button>
+                </Button>
                 <p className="mt-2 text-xs text-[var(--sea-ink-soft)]">
                   {copied
                     ? "¡Copiado!"
@@ -111,20 +110,15 @@ function HouseholdPage() {
           className="island-shell mb-4 rounded-2xl p-6"
         >
           <h2 className="mb-3 text-base font-semibold text-[var(--sea-ink)]">Crear un hogar</h2>
-          <input
+          <Input
             required
             placeholder="Nombre del hogar (ej. Los Brito Navas) *"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className={inputClass}
           />
-          <button
-            type="submit"
-            disabled={busy}
-            className="mt-4 w-full rounded-full bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-orange-600 disabled:opacity-60"
-          >
+          <Button type="submit" disabled={busy} className="mt-4 w-full px-5 py-2.5">
             {createMut.isPending ? "Un momento…" : "Crear hogar"}
-          </button>
+          </Button>
         </form>
 
         <form
@@ -135,20 +129,21 @@ function HouseholdPage() {
           className="island-shell rounded-2xl p-6"
         >
           <h2 className="mb-3 text-base font-semibold text-[var(--sea-ink)]">Unirme a un hogar</h2>
-          <input
+          <Input
             required
             placeholder="Código de invitación *"
             value={inviteCode}
             onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
-            className={`${inputClass} font-mono tracking-widest uppercase`}
+            className="font-mono tracking-widest uppercase"
           />
-          <button
+          <Button
             type="submit"
+            variant="accent-outline"
             disabled={busy}
-            className="mt-4 w-full rounded-full border border-orange-500 px-5 py-2.5 text-sm font-semibold text-orange-500 transition hover:bg-orange-50 disabled:opacity-60 dark:hover:bg-orange-900/20"
+            className="mt-4 w-full px-5 py-2.5"
           >
             {joinMut.isPending ? "Un momento…" : "Unirme"}
-          </button>
+          </Button>
         </form>
       </div>
     </main>
