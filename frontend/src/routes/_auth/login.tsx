@@ -1,5 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import axios from "axios";
 import { z } from "zod";
 
 import { postApiIdentityLoginMutation } from "#/api/@tanstack/react-query.gen";
@@ -23,7 +24,11 @@ function LoginPage() {
       await navigate({ to: "/" });
     },
   });
-  const error = loginMut.error ? getApiErrorMessage(loginMut.error) : null;
+  const error = loginMut.error
+    ? loginMut.error.response?.status === 401
+      ? "Credenciales inválidas"
+      : getApiErrorMessage(loginMut.error)
+    : null;
 
   const form = useAppForm({
     defaultValues: { email: "", password: "" },
@@ -51,7 +56,7 @@ function LoginPage() {
           e.stopPropagation();
           form.handleSubmit();
         }}
-        className="island-shell rounded-2xl p-6"
+        className="island-shell space-y-5 rounded-2xl p-6"
       >
         <div className="space-y-3">
           <form.AppField name="email" validators={{ onChange: emailSchema }}>
@@ -77,7 +82,7 @@ function LoginPage() {
         </div>
 
         <form.AppForm>
-          <form.SubmitButton pendingLabel="Un momento…" className="mt-5 w-full px-5 py-2.5">
+          <form.SubmitButton pendingLabel="Un momento…" className="w-full">
             Entrar
           </form.SubmitButton>
         </form.AppForm>
@@ -86,11 +91,10 @@ function LoginPage() {
       <p className="mt-4 text-center text-sm text-sea-ink-soft">
         ¿No tienes cuenta?{" "}
         <Button
-          variant="ghost"
+          variant="link"
           onClick={() => {
             navigate({ to: "/register" });
           }}
-          className="hover:underline"
         >
           Regístrate
         </Button>

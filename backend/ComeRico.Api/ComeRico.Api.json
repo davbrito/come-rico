@@ -495,6 +495,30 @@
         }
       }
     },
+    "/api/households/members": {
+      "get": {
+        "tags": [
+          "Households"
+        ],
+        "summary": "Obtiene los miembros del hogar del usuario autenticado",
+        "operationId": "GetHouseholdMembers",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HouseholdMemberDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/dishes": {
       "get": {
         "tags": [
@@ -1531,6 +1555,31 @@
             "type": "string"
           },
           "inviteCode": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "HouseholdMemberDto": {
+        "required": [
+          "id",
+          "displayName",
+          "role",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "role": {
             "type": "string"
           },
           "createdAt": {

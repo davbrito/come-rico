@@ -1,3 +1,4 @@
+import { Monitor, Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "#/components/ui/Button";
@@ -69,15 +70,14 @@ export default function ThemeToggle() {
       : `Theme mode: ${mode}. Click to switch mode.`;
 
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={toggleMode}
-      aria-label={label}
-      title={label}
-      className="text-sm shadow-[0_8px_22px_rgba(30,90,72,0.08)] hover:-translate-y-0.5 hover:border-[var(--chip-line)]"
-    >
-      {mode === "auto" ? "Auto" : mode === "dark" ? "Dark" : "Light"}
+    <Button variant="outline" size="sm" onClick={toggleMode} aria-label={label} title={label}>
+      {mode === "auto" ? (
+        <Monitor size={16} />
+      ) : mode === "dark" ? (
+        <Moon size={16} />
+      ) : (
+        <Sun size={16} />
+      )}
     </Button>
   );
 }

@@ -70,7 +70,7 @@ export default function Header() {
         <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
           {user ? (
             <>
-              <span className="hidden text-sm font-medium text-[var(--sea-ink-soft)] sm:inline">
+              <span className="hidden text-sm font-medium text-sea-ink-soft sm:inline">
                 {user.displayName}
               </span>
               <Button
@@ -83,12 +83,9 @@ export default function Header() {
               </Button>
             </>
           ) : (
-            <Link
-              to="/login"
-              className="rounded-full bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white no-underline transition hover:bg-orange-600"
-            >
+            <Button size="sm" render={<Link to="/login" />}>
               Entrar
-            </Link>
+            </Button>
           )}
           <ThemeToggle />
         </div>

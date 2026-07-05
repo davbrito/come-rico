@@ -18,5 +18,6 @@
   "editor.codeActionsOnSave": {
     "source.format.oxc": "always",
     "source.fixAll.oxc": "always"
-  }
+  },
+  "tailwindCSS.classFunctions": ["cn", "cva"]
 }

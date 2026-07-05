@@ -14,7 +14,8 @@
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "format": "oxfmt",
-    "format:fix": "oxfmt --fix"
+    "format:fix": "oxfmt --fix",
+    "clear": "rm -r .tanstack .output"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
@@ -30,6 +31,7 @@
     "@tanstack/react-start": "latest",
     "@tanstack/router-plugin": "^1.132.0",
     "axios": "^1.18.1",
+    "class-variance-authority": "^0.7.1",
     "cnfast": "^0.0.8",
     "lucide-react": "^1.23.0",
     "nitro": "3.0.260610-beta",

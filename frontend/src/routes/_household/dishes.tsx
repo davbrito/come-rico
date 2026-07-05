@@ -157,7 +157,12 @@ function DishesPage() {
         // signed policy enforces content type and size server-side; the file
         // must be the last form field.
         const ticket = await uploadMut.mutateAsync({
-          body: { type: "image", keyFolder: "dishes", contentType: imageFile.type, sizeBytes: imageFile.size },
+          body: {
+            type: "image",
+            keyFolder: "dishes",
+            contentType: imageFile.type,
+            sizeBytes: imageFile.size,
+          },
         });
         const formData = new FormData();
         for (const [name, value] of Object.entries(ticket.fields)) {

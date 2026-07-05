@@ -1,8 +1,12 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect, useNavigate, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 
-import { createHouseholdMutation, joinHouseholdMutation } from "#/api/@tanstack/react-query.gen";
+import {
+  createHouseholdMutation,
+  getHouseholdMembersOptions,
+  joinHouseholdMutation,
+} from "#/api/@tanstack/react-query.gen";
 import { Button } from "#/components/ui/Button";
 import { Input } from "#/components/ui/Input";
 import { getApiErrorMessage } from "#/lib/api";
@@ -47,12 +51,15 @@ function HouseholdPage() {
 
   const busy = createMut.isPending || joinMut.isPending;
 
-  // Already in a household: show its info + invite code
+  // Already in a household: show its info + members + invite code
   if (user.householdId) {
+    const { data: members } = useSuspenseQuery(getHouseholdMembersOptions());
+
     return (
       <main className="page-wrap px-4 pt-10 pb-8">
         <div className="mx-auto max-w-md">
           <h1 className="mb-6 text-center text-2xl font-bold text-[var(--sea-ink)]">🏠 Tu hogar</h1>
+
           <div className="island-shell rounded-2xl p-6 text-center">
             <p className="text-lg font-semibold text-[var(--sea-ink)]">{user.householdName}</p>
             <p className="mt-1 text-xs text-[var(--sea-ink-soft)]">
@@ -83,6 +90,32 @@ function HouseholdPage() {
                 </p>
               </div>
             )}
+          </div>
+
+          <div className="island-shell mt-4 rounded-2xl p-6">
+            <h2 className="mb-3 text-base font-semibold text-[var(--sea-ink)]">
+              Miembros ({members.length})
+            </h2>
+            <ul className="space-y-2">
+              {members.map((m) => (
+                <li
+                  key={m.id}
+                  className="flex items-center justify-between rounded-xl bg-[var(--card-bg)] px-4 py-2.5"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--sea-ink)]/10 text-sm font-bold text-[var(--sea-ink)]">
+                      {m.displayName.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-medium text-[var(--sea-ink)]">{m.displayName}</p>
+                      <p className="text-xs text-[var(--sea-ink-soft)]">
+                        {m.role === "Admin" ? "Administrador" : "Miembro"}
+                      </p>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </main>

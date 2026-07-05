@@ -1,11 +1,16 @@
 using ComeRico.Core.Domain.Entities;
 using ComeRico.Core.Features.Households.Commands;
+using ComeRico.Core.Interfaces;
+using ComeRico.Core.Persistence;
 using MediatR;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace ComeRico.Api.Endpoints;
+
+public sealed record HouseholdMemberDto(Guid Id, string DisplayName, string Role, DateTime CreatedAt);
 
 public static class HouseholdEndpoints
 {
@@ -52,6 +57,29 @@ public static class HouseholdEndpoints
             )
             .WithName("JoinHousehold")
             .WithSummary("Une al usuario a un hogar mediante código de invitación");
+
+        group
+            .MapGet(
+                "/members",
+                async Task<Ok<List<HouseholdMemberDto>>> (
+                    ITenantService tenantService,
+                    AppDbContext dbContext,
+                    CancellationToken ct
+                ) =>
+                {
+                    var members = await dbContext
+                        .Users.AsNoTracking()
+                        .Where(u => u.HouseholdId == tenantService.HouseholdId)
+                        .OrderBy(u => u.CreatedAt)
+                        .Select(u => new HouseholdMemberDto(u.Id, u.DisplayName, u.Role.ToString(), u.CreatedAt))
+                        .ToListAsync(ct);
+
+                    return TypedResults.Ok(members);
+                }
+            )
+            .RequireAuthorization("RequiresHousehold")
+            .WithName("GetHouseholdMembers")
+            .WithSummary("Obtiene los miembros del hogar del usuario autenticado");
 
         return app;
     }

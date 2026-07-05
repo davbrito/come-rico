@@ -1,34 +1,28 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 
+import { Button } from "#/components/ui/Button";
+
 export const Route = createFileRoute("/")({ component: HomePage });
 
 function HomePage() {
   return (
     <main className="page-wrap px-4 pt-14 pb-8">
-      <section className="island-shell rise-in relative overflow-hidden rounded-[2rem] px-6 py-10 sm:px-10 sm:py-14">
+      <section className="island-shell rise-in relative overflow-hidden rounded-4xl px-6 py-10 sm:px-10 sm:py-14">
         <div className="pointer-events-none absolute -top-24 -left-20 h-56 w-56 rounded-full bg-[radial-gradient(circle,rgba(249,115,22,0.22),transparent_66%)]" />
         <div className="pointer-events-none absolute -right-20 -bottom-20 h-56 w-56 rounded-full bg-[radial-gradient(circle,rgba(239,68,68,0.12),transparent_66%)]" />
         <p className="island-kicker mb-3">¡Bienvenido a ComeRico!</p>
-        <h1 className="display-title mb-5 max-w-3xl text-4xl leading-[1.02] font-bold tracking-tight text-[var(--sea-ink)] sm:text-6xl">
+        <h1 className="display-title mb-5 max-w-3xl text-4xl leading-[1.02] font-bold tracking-tight text-sea-ink sm:text-6xl">
           ¿Qué vamos a comer hoy? 🍽️
         </h1>
-        <p className="mb-8 max-w-2xl text-base text-[var(--sea-ink-soft)] sm:text-lg">
+        <p className="mb-8 max-w-2xl text-base text-sea-ink-soft sm:text-lg">
           Organiza los platillos de tu hogar y deja que la ruleta resuelva la eterna pregunta:{" "}
           <em>¿qué comemos?</em>
         </p>
         <div className="flex flex-wrap gap-3">
-          <Link
-            to="/roulette"
-            className="rounded-full border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.14)] px-5 py-2.5 text-sm font-semibold text-orange-700 no-underline transition hover:-translate-y-0.5 hover:bg-[rgba(249,115,22,0.24)] dark:text-orange-400"
-          >
-            🎡 Girar la Ruleta
-          </Link>
-          <Link
-            to="/dishes"
-            className="rounded-full border border-[rgba(23,58,64,0.2)] bg-white/50 px-5 py-2.5 text-sm font-semibold text-[var(--sea-ink)] no-underline transition hover:-translate-y-0.5 hover:border-[rgba(23,58,64,0.35)]"
-          >
+          <Button render={<Link to="/roulette" />}>🎡 Girar la Ruleta</Button>
+          <Button variant="outline" render={<Link to="/dishes" />}>
             🍲 Ver Platillos
-          </Link>
+          </Button>
         </div>
       </section>
 
@@ -58,8 +52,8 @@ function HomePage() {
             style={{ animationDelay: `${i * 90 + 80}ms` }}
           >
             <div className="mb-2 text-2xl">{icon}</div>
-            <h2 className="mb-2 text-base font-semibold text-[var(--sea-ink)]">{title}</h2>
-            <p className="m-0 text-sm text-[var(--sea-ink-soft)]">{desc}</p>
+            <h2 className="mb-2 text-base font-semibold text-sea-ink">{title}</h2>
+            <p className="m-0 text-sm text-sea-ink-soft">{desc}</p>
           </article>
         ))}
       </section>
