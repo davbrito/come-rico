@@ -136,7 +136,7 @@ namespace ComeRico.Core.Migrations
 
                     b.HasIndex("HouseholdId");
 
-                    b.ToTable("Dishes", (string)null);
+                    b.ToTable("Dishes");
                 });
 
             modelBuilder.Entity("ComeRico.Core.Domain.Entities.Household", b =>
@@ -163,7 +163,7 @@ namespace ComeRico.Core.Migrations
                     b.HasIndex("InviteCode")
                         .IsUnique();
 
-                    b.ToTable("Households", (string)null);
+                    b.ToTable("Households");
                 });
 
             modelBuilder.Entity("ComeRico.Core.Domain.Entities.Ingredient", b =>
@@ -195,7 +195,7 @@ namespace ComeRico.Core.Migrations
 
                     b.HasIndex("DishId");
 
-                    b.ToTable("Ingredients", (string)null);
+                    b.ToTable("Ingredients");
                 });
 
             modelBuilder.Entity("ComeRico.Core.Domain.Entities.MealPlan", b =>
@@ -226,7 +226,7 @@ namespace ComeRico.Core.Migrations
 
                     b.HasIndex("HouseholdId", "Date");
 
-                    b.ToTable("MealPlans", (string)null);
+                    b.ToTable("MealPlans");
                 });
 
             modelBuilder.Entity("ComeRico.Core.Domain.Entities.RouletteSession", b =>
@@ -257,7 +257,7 @@ namespace ComeRico.Core.Migrations
 
                     b.HasIndex("WinnerDishId");
 
-                    b.ToTable("RouletteSessions", (string)null);
+                    b.ToTable("RouletteSessions");
                 });
 
             modelBuilder.Entity("ComeRico.Core.Domain.Entities.ShoppingItem", b =>
@@ -297,7 +297,7 @@ namespace ComeRico.Core.Migrations
 
                     b.HasIndex("HouseholdId", "GeneratedForWeekStart");
 
-                    b.ToTable("ShoppingItems", (string)null);
+                    b.ToTable("ShoppingItems");
                 });
 
             modelBuilder.Entity("ComeRico.Core.Domain.Entities.StoredFile", b =>
@@ -337,7 +337,7 @@ namespace ComeRico.Core.Migrations
 
                     b.HasIndex("Status", "CreatedAt");
 
-                    b.ToTable("StoredFiles", (string)null);
+                    b.ToTable("StoredFiles");
                 });
 
             modelBuilder.Entity("ComeRico.Core.Domain.Entities.Tag", b =>
@@ -362,7 +362,7 @@ namespace ComeRico.Core.Migrations
                     b.HasIndex("HouseholdId", "Name")
                         .IsUnique();
 
-                    b.ToTable("Tags", (string)null);
+                    b.ToTable("Tags");
                 });
 
             modelBuilder.Entity("DishTags", b =>
@@ -377,7 +377,7 @@ namespace ComeRico.Core.Migrations
 
                     b.HasIndex("TagsId");
 
-                    b.ToTable("DishTags", (string)null);
+                    b.ToTable("DishTags");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.DataProtectionKey", b =>
@@ -396,7 +396,7 @@ namespace ComeRico.Core.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("DataProtectionKeys", (string)null);
+                    b.ToTable("DataProtectionKeys");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>
