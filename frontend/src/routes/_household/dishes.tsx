@@ -262,14 +262,18 @@ function DishEditor({ dish, onSaved }: { dish: DishDto; onSaved: () => void }) {
             className="flex-1 rounded-lg border border-[var(--line)] bg-transparent px-3 py-1.5 text-xs text-[var(--sea-ink)] outline-none focus:border-orange-400"
           />
           <button
-            onClick={() => newTagName.trim() && createTagMut.mutate({ body: { name: newTagName.trim() } })}
+            onClick={() =>
+              newTagName.trim() && createTagMut.mutate({ body: { name: newTagName.trim() } })
+            }
             disabled={createTagMut.isPending || !newTagName.trim()}
             className="rounded-lg border border-[var(--chip-line)] px-3 py-1.5 text-xs font-semibold text-[var(--sea-ink)] transition hover:border-orange-400 disabled:opacity-50"
           >
             Crear
           </button>
           <button
-            onClick={() => saveTagsMut.mutate({ path: { id: dish.id }, body: { tagIds: selectedTagIds } })}
+            onClick={() =>
+              saveTagsMut.mutate({ path: { id: dish.id }, body: { tagIds: selectedTagIds } })
+            }
             disabled={saveTagsMut.isPending}
             className="rounded-lg bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-orange-600 disabled:opacity-60"
           >
@@ -279,7 +283,9 @@ function DishEditor({ dish, onSaved }: { dish: DishDto; onSaved: () => void }) {
       </div>
 
       <div>
-        <h4 className="mb-2 text-xs font-bold text-[var(--sea-ink-soft)] uppercase">Ingredientes</h4>
+        <h4 className="mb-2 text-xs font-bold text-[var(--sea-ink-soft)] uppercase">
+          Ingredientes
+        </h4>
         <div className="space-y-2">
           {rows.map((row, index) => (
             <div key={index} className="flex items-center gap-2">

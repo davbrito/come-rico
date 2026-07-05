@@ -60,15 +60,24 @@ function MealPlanPage() {
   return (
     <main className="page-wrap px-4 pt-10 pb-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-[var(--sea-ink)]">📅 Plan de comidas</h1>
+        <h1 className="text-2xl font-bold text-sea-ink">📅 Plan de comidas</h1>
         <div className="flex items-center gap-2">
-          <button onClick={() => setWeekStart((w) => addDays(w, -7))} className="rounded-full border border-[var(--chip-line)] bg-[var(--chip-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--sea-ink)] transition hover:border-orange-400">
+          <button
+            onClick={() => setWeekStart((w) => addDays(w, -7))}
+            className="rounded-full border border-chip-line bg-chip-bg px-3 py-1.5 text-xs font-semibold text-[var(--sea-ink)] transition hover:border-orange-400"
+          >
             ← Anterior
           </button>
-          <button onClick={() => setWeekStart(getMonday(new Date()))} className="rounded-full border border-[var(--chip-line)] bg-[var(--chip-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--sea-ink)] transition hover:border-orange-400">
+          <button
+            onClick={() => setWeekStart(getMonday(new Date()))}
+            className="rounded-full border border-chip-line bg-chip-bg px-3 py-1.5 text-xs font-semibold text-[var(--sea-ink)] transition hover:border-orange-400"
+          >
             Hoy
           </button>
-          <button onClick={() => setWeekStart((w) => addDays(w, 7))} className="rounded-full border border-[var(--chip-line)] bg-[var(--chip-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--sea-ink)] transition hover:border-orange-400">
+          <button
+            onClick={() => setWeekStart((w) => addDays(w, 7))}
+            className="rounded-full border border-[var(--chip-line)] bg-[var(--chip-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--sea-ink)] transition hover:border-orange-400"
+          >
             Siguiente →
           </button>
         </div>
@@ -117,7 +126,9 @@ function MealPlanPage() {
                 </h2>
                 <div className="space-y-2">
                   {MEAL_TYPES.map((mealType) => {
-                    const entries = plans.filter((p) => p.date === dayKey && p.mealType === mealType);
+                    const entries = plans.filter(
+                      (p) => p.date === dayKey && p.mealType === mealType,
+                    );
                     const isAdding = adding?.date === dayKey && adding.mealType === mealType;
                     return (
                       <div key={mealType} className="rounded-xl bg-[var(--chip-bg)] px-3 py-2">
@@ -133,7 +144,10 @@ function MealPlanPage() {
                           </button>
                         </div>
                         {entries.map((entry) => (
-                          <div key={entry.id} className="mt-1 flex items-center justify-between gap-2">
+                          <div
+                            key={entry.id}
+                            className="mt-1 flex items-center justify-between gap-2"
+                          >
                             <span className="text-sm text-[var(--sea-ink)]">{entry.dishName}</span>
                             <button
                               onClick={() => deleteMut.mutate({ path: { id: entry.id } })}
