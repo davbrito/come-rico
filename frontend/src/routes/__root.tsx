@@ -1,6 +1,11 @@
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import type { QueryClient } from "@tanstack/react-query";
-import { HeadContent, Scripts, createRootRouteWithContext } from "@tanstack/react-router";
+import {
+  HeadContent,
+  Scripts,
+  createRootRouteWithContext,
+  type ErrorComponentProps,
+} from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 
 import Header from "../components/Header";
@@ -25,8 +30,21 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [{ rel: "stylesheet", href: appCss }],
   }),
+  errorComponent: RootErrorComponent,
   shellComponent: RootDocument,
 });
+
+function RootErrorComponent({ error }: ErrorComponentProps) {
+  console.error("Error in root route:", error);
+  return (
+    <div className="mx-auto flex max-w-lg flex-col items-center gap-4 px-4 py-16 text-center">
+      <h1 className="text-xl font-semibold">Algo salió mal</h1>
+      <p className="text-muted-foreground text-sm">
+        {error instanceof Error ? error.message : "Ocurrió un error inesperado."}
+      </p>
+    </div>
+  );
+}
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
