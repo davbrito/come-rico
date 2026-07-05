@@ -3,6 +3,8 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Restore dependencies (layer-cache friendly)
+COPY Directory.Build.props .
+COPY Directory.Packages.props .
 COPY ComeRico.Core/ComeRico.Core.csproj ComeRico.Core/
 COPY ComeRico.Api/ComeRico.Api.csproj  ComeRico.Api/
 RUN dotnet restore ComeRico.Api/ComeRico.Api.csproj
