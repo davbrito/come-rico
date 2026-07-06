@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { produce } from "immer";
 import { useState } from "react";
 import { z } from "zod";
 
@@ -7,7 +8,6 @@ import {
   createShoppingItemMutation,
   deleteShoppingItemMutation,
   getShoppingItemsOptions,
-  getShoppingItemsQueryKey,
   setShoppingItemPurchasedMutation,
 } from "#/api/@tanstack/react-query.gen";
 import type { MeasurementUnit, ShoppingItemDto } from "#/api/types.gen";
@@ -46,22 +46,47 @@ function ShoppingPage() {
   const qc = useQueryClient();
   const [showForm, setShowForm] = useState(false);
 
-  const { data: items = [], isLoading } = useQuery(getShoppingItemsOptions());
+  const shoppingItemsOps = getShoppingItemsOptions();
+  const { data: items = [], isLoading } = useQuery(shoppingItemsOps);
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: getShoppingItemsQueryKey() });
+  const invalidate = () => qc.invalidateQueries({ queryKey: shoppingItemsOps.queryKey });
 
   const createMut = useMutation({ ...createShoppingItemMutation(), onSuccess: invalidate });
-  const toggleMut = useMutation({ ...setShoppingItemPurchasedMutation(), onSuccess: invalidate });
   const deleteMut = useMutation({ ...deleteShoppingItemMutation(), onSuccess: invalidate });
 
+  const toggleMut = useMutation({
+    ...setShoppingItemPurchasedMutation(),
+    onMutate: async (variables) => {
+      await qc.cancelQueries({ queryKey: shoppingItemsOps.queryKey });
+      const previous = qc.getQueryData(shoppingItemsOps.queryKey);
+      if (previous) {
+        qc.setQueryData(shoppingItemsOps.queryKey, (previous) =>
+          produce(previous, (draft) => {
+            const item = draft?.find((i) => i.id === variables.path.id);
+            if (item) item.isPurchased = variables.body.isPurchased;
+          }),
+        );
+      }
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        qc.setQueryData(shoppingItemsOps.queryKey, context.previous);
+      }
+    },
+    onSettled: () => {
+      invalidate();
+    },
+  });
+
   const form = useAppForm({
-    defaultValues: { name: "", amount: "", unit: "" },
+    defaultValues: { name: "", amount: "", unit: null as MeasurementUnit | null },
     onSubmit: async ({ value, formApi }) => {
       await createMut.mutateAsync({
         body: {
           name: value.name.trim(),
           amount: value.amount ? Number(value.amount) : null,
-          unit: value.unit ? (value.unit as MeasurementUnit) : null,
+          unit: value.unit,
         },
       });
       formApi.reset();
@@ -81,7 +106,7 @@ function ShoppingPage() {
   return (
     <main className="page-wrap px-4 pt-10 pb-8">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-[var(--sea-ink)]">🛒 Lista de compras</h1>
+        <h1 className="text-2xl font-bold text-sea-ink">🛒 Lista de compras</h1>
         <Button onClick={() => setShowForm((v) => !v)}>
           {showForm ? "Cancelar" : "+ Agregar artículo"}
         </Button>
@@ -102,7 +127,7 @@ function ShoppingPage() {
           }}
           className="island-shell mb-6 rounded-2xl p-6"
         >
-          <h2 className="mb-4 text-base font-semibold text-[var(--sea-ink)]">Nuevo artículo</h2>
+          <h2 className="mb-4 text-base font-semibold text-sea-ink">Nuevo artículo</h2>
           <div className="flex flex-wrap gap-3">
             <form.AppField name="name" validators={{ onChange: itemNameSchema }}>
               {(field) => <field.TextField label="Nombre *" required className="min-w-48 flex-1" />}
@@ -131,11 +156,11 @@ function ShoppingPage() {
       )}
 
       {isLoading ? (
-        <p className="text-sm text-[var(--sea-ink-soft)]">Cargando lista…</p>
+        <p className="text-sm text-sea-ink-soft">Cargando lista…</p>
       ) : items.length === 0 ? (
         <div className="island-shell rounded-2xl p-8 text-center">
           <p className="text-4xl">🧺</p>
-          <p className="mt-2 text-sm text-[var(--sea-ink-soft)]">
+          <p className="mt-2 text-sm text-sea-ink-soft">
             La lista está vacía. Agrega artículos o genérala desde el plan de comidas.
           </p>
         </div>

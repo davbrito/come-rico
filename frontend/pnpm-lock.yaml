@@ -53,6 +53,9 @@ importers:
       cnfast:
         specifier: ^0.0.8
         version: 0.0.8
+      immer:
+        specifier: ^11.1.11
+        version: 11.1.11
       lucide-react:
         specifier: ^1.23.0
         version: 1.23.0(react@19.2.7)
@@ -1825,6 +1828,9 @@ packages:
 
   httpxy@0.5.4:
     resolution: {integrity: sha512-URfeibL0kTH6VuIxxaJDXWQWEk8fKr+9L8MGv6CuAiNy0fGnoVhWbXBvJR1mkdsvCDUxvhX9cW60k2AhtH5s6w==}
+
+  immer@11.1.11:
+    resolution: {integrity: sha512-qzXuyXAkPySAGYkfsAwodDPWT8Zm7/Uo5BNt4BjhMhG5WlWyZZ4wQqnWwdS8kjlQ1Cwu6gjw3A6+0gTQwlyYtw==}
 
   is-docker@3.0.0:
     resolution: {integrity: sha512-eljcgEDlEns/7AXFosB5K/2nCM4P7FQPkGc/DWLy5rmFEWvZayGrik1d9/QIY5nJ4f9YsVvBkA6kJpHn9rISdQ==}
@@ -4217,6 +4223,8 @@ snapshots:
       - supports-color
 
   httpxy@0.5.4: {}
+
+  immer@11.1.11: {}
 
   is-docker@3.0.0: {}
 
