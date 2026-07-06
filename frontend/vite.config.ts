@@ -21,6 +21,9 @@ const config = defineConfig({
         "/api/**": { target: BACKEND_URL, changeOrigin: true },
         "/hubs/**": { target: BACKEND_URL, changeOrigin: true, ws: true },
       },
+      features: {
+        websocket: true,
+      },
     }),
     viteReact(),
   ],
