@@ -1,5 +1,7 @@
 {
     "recommendations": [
-        "oxc.oxc-vscode"
+        "oxc.oxc-vscode",
+        "ms-dotnettools.csdevkit",
+        "csharpier.csharpier-vscode"
     ]
 }

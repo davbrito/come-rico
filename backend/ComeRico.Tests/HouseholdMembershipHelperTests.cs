@@ -29,7 +29,7 @@ public class HouseholdMembershipHelperTests
     public async Task DoesNothing_WhenLeavingUserIsNotAdmin()
     {
         await using var db = CreateContext();
-        var householdId = Guid.NewGuid();
+        var householdId = Guid.CreateVersion7();
         var leavingUser = CreateMember(householdId, HouseholdRole.Member, DateTime.UtcNow);
         var otherMember = CreateMember(householdId, HouseholdRole.Member, DateTime.UtcNow);
         db.Users.AddRange(leavingUser, otherMember);
@@ -57,7 +57,7 @@ public class HouseholdMembershipHelperTests
     public async Task DoesNothing_WhenAnotherAdminAlreadyExists()
     {
         await using var db = CreateContext();
-        var householdId = Guid.NewGuid();
+        var householdId = Guid.CreateVersion7();
         var leavingUser = CreateMember(householdId, HouseholdRole.Admin, DateTime.UtcNow);
         var otherAdmin = CreateMember(householdId, HouseholdRole.Admin, DateTime.UtcNow);
         var member = CreateMember(householdId, HouseholdRole.Member, DateTime.UtcNow);
@@ -74,7 +74,7 @@ public class HouseholdMembershipHelperTests
     public async Task DoesNothing_WhenLeavingUserIsSoleMemberOfHousehold()
     {
         await using var db = CreateContext();
-        var householdId = Guid.NewGuid();
+        var householdId = Guid.CreateVersion7();
         var leavingUser = CreateMember(householdId, HouseholdRole.Admin, DateTime.UtcNow);
         db.Users.Add(leavingUser);
         await db.SaveChangesAsync(TestContext.Current.CancellationToken);
@@ -88,7 +88,7 @@ public class HouseholdMembershipHelperTests
     public async Task PromotesLongestStandingMember_WhenNoOtherAdminExists()
     {
         await using var db = CreateContext();
-        var householdId = Guid.NewGuid();
+        var householdId = Guid.CreateVersion7();
         var now = DateTime.UtcNow;
         var leavingUser = CreateMember(householdId, HouseholdRole.Admin, now);
         var oldestMember = CreateMember(householdId, HouseholdRole.Member, now.AddDays(-2));
