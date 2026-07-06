@@ -99,8 +99,8 @@ function SvgPlate({ detailed = true }: { detailed?: boolean }) {
           <stop offset="1" stopColor="#c2410c" />
         </linearGradient>
         <linearGradient id="platano" x1="14" y1="47" x2="51" y2="53" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#ff9a3c" />
-          <stop offset="1" stopColor="#e0631a" />
+          <stop offset="0" stopColor="#ffd23f" />
+          <stop offset="1" stopColor="#f5a300" />
         </linearGradient>
       </defs>
     </svg>
