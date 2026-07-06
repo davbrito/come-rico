@@ -1,6 +1,6 @@
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, redirect, useNavigate, useRouter } from "@tanstack/react-router";
-import { Check, Pencil, X } from "lucide-react";
+import { Check, Pencil, RefreshCw, X } from "lucide-react";
 import { useState } from "react";
 
 import {
@@ -9,6 +9,7 @@ import {
   joinHouseholdMutation,
   leaveHouseholdMutation,
   renameHouseholdMutation,
+  rotateInviteCodeMutation,
 } from "#/api/@tanstack/react-query.gen";
 import { Button } from "#/components/ui/Button";
 import { Input } from "#/components/ui/Input";
@@ -163,6 +164,13 @@ function HouseholdDetails({
     },
   });
 
+  const rotateCodeMut = useMutation({
+    ...rotateInviteCodeMutation(),
+    onSuccess: async () => {
+      await router.invalidate();
+    },
+  });
+
   const leaveMut = useMutation({
     ...leaveHouseholdMutation(),
     onSuccess: async () => {
@@ -236,23 +244,40 @@ function HouseholdDetails({
             <p className="text-xs font-semibold tracking-widest text-orange-500 uppercase">
               Código de invitación
             </p>
-            <Button
-              variant="outline"
-              onClick={() => {
-                navigator.clipboard?.writeText(user.inviteCode!).then(() => {
-                  setCopied(true);
-                  setTimeout(() => setCopied(false), 2000);
-                });
-              }}
-              className="mt-2 rounded-xl border-dashed border-line px-6 py-3 font-mono text-xl font-bold tracking-[0.3em]"
-              title="Copiar código"
-            >
-              {user.inviteCode}
-            </Button>
+            <div className="mt-2 flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  navigator.clipboard?.writeText(user.inviteCode!).then(() => {
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  });
+                }}
+                className="flex-1 rounded-xl border-dashed border-line px-6 py-3 font-mono text-xl font-bold tracking-[0.3em]"
+                title="Copiar código"
+              >
+                {user.inviteCode}
+              </Button>
+              {isAdmin && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => rotateCodeMut.mutate({})}
+                  disabled={rotateCodeMut.isPending}
+                  title="Rotar código"
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 ${rotateCodeMut.isPending ? "animate-spin" : ""}`}
+                  />
+                </Button>
+              )}
+            </div>
             <p className="mt-2 text-xs text-sea-ink-soft">
               {copied
                 ? "¡Copiado!"
-                : "Compártelo con tu familia para que se unan. Toca para copiar."}
+                : isAdmin
+                  ? "Compártelo con tu familia. Toca para copiar o rota el código."
+                  : "Compártelo con tu familia para que se unan. Toca para copiar."}
             </p>
           </div>
         )}
