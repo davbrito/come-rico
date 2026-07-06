@@ -114,23 +114,15 @@ public static class HouseholdEndpoints
         group
             .MapPost(
                 "/leave",
-                async Task<Results<Ok, UnauthorizedHttpResult>> (
-                    ICurrentUserService currentUserService,
+                async Task<Ok> (
+                    ISender mediator,
                     UserManager<AppUser> userManager,
                     SignInManager<AppUser> signInManager,
-                    AppDbContext dbContext,
                     HttpContext httpContext,
                     CancellationToken ct
                 ) =>
                 {
-                    var currentUser = await dbContext.Users.FirstOrDefaultAsync(u => u.Id == currentUserService.UserId, ct);
-                    if (currentUser is null)
-                        return TypedResults.Unauthorized();
-
-                    await HouseholdMembershipHelper.PromoteFallbackAdminIfNeededAsync(dbContext, currentUser, ct);
-
-                    currentUser.LeaveHousehold();
-                    await dbContext.SaveChangesAsync(ct);
+                    await mediator.Send(new LeaveHouseholdCommand(), ct);
                     await RefreshHouseholdClaimsAsync(userManager, signInManager, httpContext);
 
                     return TypedResults.Ok();

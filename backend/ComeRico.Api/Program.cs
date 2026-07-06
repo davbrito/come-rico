@@ -4,6 +4,7 @@ using ComeRico.Api.Hubs;
 using ComeRico.Core.Auth;
 using ComeRico.Core.Behaviors;
 using ComeRico.Core.Domain.Entities;
+using ComeRico.Core.Features.Households;
 using ComeRico.Core.Features.Households.Commands;
 using ComeRico.Core.Interfaces;
 using ComeRico.Infrastructure.Persistence;
@@ -33,6 +34,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ITenantService, ClaimsTenantService>();
 builder.Services.AddScoped<ICurrentUserService, HttpCurrentUserService>();
+builder.Services.AddScoped<IHouseholdMembershipService, HouseholdMembershipService>();
 builder.Services.AddAuthorization();
 
 // ASP.NET Core Identity API — supports both HttpOnly cookie (BFF/SPA) and bearer

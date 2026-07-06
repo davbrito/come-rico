@@ -1,4 +1,5 @@
 using ComeRico.Core.Domain.Entities;
+using ComeRico.Core.Features.Households;
 using ComeRico.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
@@ -149,6 +150,7 @@ public static class AuthEndpoints
                     UserManager<AppUser> userManager,
                     SignInManager<AppUser> signInManager,
                     AppDbContext dbContext,
+                    IHouseholdMembershipService membershipService,
                     HttpContext httpContext,
                     CancellationToken ct
                 ) =>
@@ -157,7 +159,11 @@ public static class AuthEndpoints
                     if (user is null)
                         return TypedResults.Unauthorized();
 
-                    await HouseholdMembershipHelper.PromoteFallbackAdminIfNeededAsync(dbContext, user, ct);
+                    // Exception to the "endpoints only dispatch MediatR requests" rule: account
+                    // deletion goes through ASP.NET Identity's UserManager, not a command handler,
+                    // so the fallback-admin promotion has to be invoked and saved here directly.
+                    await membershipService.PromoteFallbackAdminIfNeededAsync(user, ct);
+                    await dbContext.SaveChangesAsync(ct);
 
                     await signInManager.SignOutAsync();
                     await userManager.DeleteAsync(user);
