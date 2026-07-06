@@ -34,7 +34,7 @@ export default function ThemeToggle() {
       : `Theme mode: ${mode}. Click to switch mode.`;
 
   return (
-    <Button variant="outline" size="sm" onClick={toggleMode} aria-label={label} title={label}>
+    <Button variant="outline" size="icon-sm" onClick={toggleMode} aria-label={label} title={label}>
       {mode === "dark" ? (
         <Moon size={16} />
       ) : mode === "light" ? (

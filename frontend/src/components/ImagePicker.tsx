@@ -81,6 +81,7 @@ export function ImagePicker({
           <Button
             variant="danger-ghost"
             size="sm"
+            className="p-2 sm:px-0 sm:py-0"
             onClick={() => onChange(null)}
             aria-label="Quitar imagen"
           >

@@ -22,7 +22,7 @@ const buttonVariants = cva(
         sm: "px-3 py-1.5 text-xs",
         md: "px-4 py-2 text-sm",
         lg: "px-8 py-3 text-base",
-        "icon-sm": "p-1.5",
+        "icon-sm": "p-2.5 sm:p-1.5",
       },
     },
     compoundVariants: [

@@ -126,7 +126,7 @@ function MealPlanPage() {
                     return (
                       <div key={mealType} className="rounded-xl bg-[var(--chip-bg)] px-3 py-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-xs font-semibold text-[var(--sea-ink-soft)]">
+                          <span className="text-sm font-semibold text-[var(--sea-ink-soft)] sm:text-xs">
                             {MEAL_LABELS[mealType]}
                           </span>
                           <Button
