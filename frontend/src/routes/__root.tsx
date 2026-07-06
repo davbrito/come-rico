@@ -10,13 +10,17 @@ import {
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 
 import { Toaster } from "#/components/ui/Toaster";
+import { getInitialThemeMode } from "#/lib/theme";
 
 import Header from "../components/Header";
 import { fetchCurrentUser } from "../server/auth";
 
 import appCss from "../styles.css?url";
 
-const THEME_INIT_SCRIPT = `(function(){try{var stored=window.localStorage.getItem('theme');var mode=(stored==='light'||stored==='dark'||stored==='auto')?stored:'auto';var prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches;var resolved=mode==='auto'?(prefersDark?'dark':'light'):mode;var root=document.documentElement;root.classList.remove('light','dark');root.classList.add(resolved);if(mode==='auto'){root.removeAttribute('data-theme')}else{root.setAttribute('data-theme',mode)}root.style.colorScheme=resolved;}catch(e){}})();`;
+// The server can't know the client's OS color-scheme preference, so "auto"
+// falls back to "light" for the initial SSR paint; this script corrects it
+// (and keeps light/dark accurate) before the page is visible.
+const THEME_INIT_SCRIPT = `(function(){try{var match=document.cookie.match(/(?:^|; )theme=([^;]*)/);var stored=match?decodeURIComponent(match[1]):undefined;var mode=(stored==='light'||stored==='dark'||stored==='auto')?stored:'auto';var prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches;var resolved=mode==='auto'?(prefersDark?'dark':'light'):mode;var root=document.documentElement;root.classList.remove('light','dark');root.classList.add(resolved);if(mode==='auto'){root.removeAttribute('data-theme')}else{root.setAttribute('data-theme',mode)}root.style.colorScheme=resolved;}catch(e){}})();`;
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   // The session is read server-side and flows into the router context, so
@@ -49,8 +53,17 @@ function RootErrorComponent({ error }: ErrorComponentProps) {
 }
 
 function RootDocument({ children }: { children: React.ReactNode }) {
+  const mode = getInitialThemeMode();
+  const resolved = mode === "auto" ? "light" : mode;
+
   return (
-    <html lang="es" suppressHydrationWarning>
+    <html
+      lang="es"
+      className={resolved}
+      data-theme={mode === "auto" ? undefined : mode}
+      style={{ colorScheme: resolved }}
+      suppressHydrationWarning
+    >
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <HeadContent />

@@ -2,40 +2,10 @@ import { Monitor, Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "#/components/ui/Button";
-
-type ThemeMode = "light" | "dark" | "auto";
-
-function getInitialMode(): ThemeMode {
-  if (typeof window === "undefined") {
-    return "auto";
-  }
-
-  const stored = window.localStorage.getItem("theme");
-  if (stored === "light" || stored === "dark" || stored === "auto") {
-    return stored;
-  }
-
-  return "auto";
-}
-
-function applyThemeMode(mode: ThemeMode) {
-  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  const resolved = mode === "auto" ? (prefersDark ? "dark" : "light") : mode;
-
-  document.documentElement.classList.remove("light", "dark");
-  document.documentElement.classList.add(resolved);
-
-  if (mode === "auto") {
-    document.documentElement.removeAttribute("data-theme");
-  } else {
-    document.documentElement.setAttribute("data-theme", mode);
-  }
-
-  document.documentElement.style.colorScheme = resolved;
-}
+import { applyThemeMode, getInitialThemeMode, persistThemeMode, type ThemeMode } from "#/lib/theme";
 
 export default function ThemeToggle() {
-  const [mode, setMode] = useState<ThemeMode>(getInitialMode);
+  const [mode, setMode] = useState<ThemeMode>(getInitialThemeMode);
 
   useEffect(() => {
     if (mode !== "auto") {
@@ -55,7 +25,7 @@ export default function ThemeToggle() {
     const nextMode: ThemeMode = mode === "light" ? "dark" : mode === "dark" ? "auto" : "light";
     setMode(nextMode);
     applyThemeMode(nextMode);
-    window.localStorage.setItem("theme", nextMode);
+    persistThemeMode(nextMode);
   }
 
   const label =
@@ -65,12 +35,12 @@ export default function ThemeToggle() {
 
   return (
     <Button variant="outline" size="sm" onClick={toggleMode} aria-label={label} title={label}>
-      {mode === "auto" ? (
-        <Monitor size={16} />
-      ) : mode === "dark" ? (
+      {mode === "dark" ? (
         <Moon size={16} />
-      ) : (
+      ) : mode === "light" ? (
         <Sun size={16} />
+      ) : (
+        <Monitor size={16} />
       )}
     </Button>
   );
