@@ -19,6 +19,11 @@ export const Route = createFileRoute("/household")({
     if (!context.user) throw redirect({ to: "/login" });
     return { user: context.user };
   },
+  loader: async ({ context }) => {
+    if (context.user.householdId) {
+      await context.queryClient.ensureQueryData(getHouseholdMembersOptions());
+    }
+  },
   component: HouseholdPage,
 });
 

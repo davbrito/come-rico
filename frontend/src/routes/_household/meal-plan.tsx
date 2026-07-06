@@ -19,6 +19,14 @@ import { getApiErrorMessage } from "#/lib/api";
 import { addDays, formatDayLabel, getMonday, MEAL_LABELS, MEAL_TYPES, toDateKey } from "#/lib/food";
 
 export const Route = createFileRoute("/_household/meal-plan")({
+  loader: async ({ context }) => {
+    const weekStart = getMonday(new Date());
+    const query = { query: { from: toDateKey(weekStart), to: toDateKey(addDays(weekStart, 6)) } };
+    await Promise.all([
+      context.queryClient.ensureQueryData(getMealPlansOptions(query)),
+      context.queryClient.ensureQueryData(getDishesOptions()),
+    ]);
+  },
   component: MealPlanPage,
 });
 
