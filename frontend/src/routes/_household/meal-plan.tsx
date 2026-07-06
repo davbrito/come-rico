@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useState } from "react";
 
 import {
@@ -65,14 +66,26 @@ function MealPlanPage() {
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-sea-ink">📅 Plan de comidas</h1>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setWeekStart((w) => addDays(w, -7))}>
-            ← Anterior
+          <Button
+            variant="outline"
+            size="sm"
+            className="inline-flex items-center gap-1"
+            onClick={() => setWeekStart((w) => addDays(w, -7))}
+          >
+            <ChevronLeft size={16} />
+            Anterior
           </Button>
           <Button variant="outline" size="sm" onClick={() => setWeekStart(getMonday(new Date()))}>
             Hoy
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setWeekStart((w) => addDays(w, 7))}>
-            Siguiente →
+          <Button
+            variant="outline"
+            size="sm"
+            className="inline-flex items-center gap-1"
+            onClick={() => setWeekStart((w) => addDays(w, 7))}
+          >
+            Siguiente
+            <ChevronRight size={16} />
           </Button>
         </div>
       </div>
