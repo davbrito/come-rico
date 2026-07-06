@@ -28,35 +28,35 @@ jobs:
       - name: Test
         run: dotnet test --project ComeRico.Tests/ComeRico.Tests.csproj --no-restore --configuration Release
 
-  # frontend:
-  #   runs-on: ubuntu-latest
+  frontend:
+    runs-on: ubuntu-latest
 
-  #   defaults:
-  #     run:
-  #       working-directory: frontend
+    defaults:
+      run:
+        working-directory: frontend
 
-  #   steps:
-  #     - uses: actions/checkout@v6
+    steps:
+      - uses: actions/checkout@v6
 
-  #     - uses: pnpm/action-setup@v6
+      - uses: pnpm/action-setup@v6
 
-  #     - uses: actions/setup-node@v6
-  #       with:
-  #         node-version-file: .node-version
-  #         cache: pnpm
-  #         cache-dependency-path: pnpm-lock.yaml
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
-  #     - name: Install dependencies
-  #       run: pnpm install --frozen-lockfile
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-  #     - name: Lint
-  #       run: pnpm lint
+      - name: Lint
+        run: pnpm lint
 
-  #     - name: Typecheck
-  #       run: pnpm exec tsc --noEmit -p .
+      - name: Typecheck
+        run: pnpm exec tsc --noEmit -p .
 
-  #     - name: Test
-  #       run: pnpm test
+      # - name: Test
+      #   run: pnpm test
 
-  #     - name: Build
-  #       run: pnpm build
+      # - name: Build
+      #   run: pnpm build
