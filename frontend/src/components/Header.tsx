@@ -34,37 +34,47 @@ export default function Header() {
           <Link to="/" className="nav-link" activeProps={{ className: "nav-link is-active" }}>
             Inicio
           </Link>
-          <Link to="/dishes" className="nav-link" activeProps={{ className: "nav-link is-active" }}>
-            Platillos
-          </Link>
-          <Link
-            to="/roulette"
-            className="nav-link"
-            activeProps={{ className: "nav-link is-active" }}
-          >
-            Ruleta
-          </Link>
-          <Link
-            to="/meal-plan"
-            className="nav-link"
-            activeProps={{ className: "nav-link is-active" }}
-          >
-            Plan
-          </Link>
-          <Link
-            to="/shopping"
-            className="nav-link"
-            activeProps={{ className: "nav-link is-active" }}
-          >
-            Compras
-          </Link>
-          <Link
-            to="/household"
-            className="nav-link"
-            activeProps={{ className: "nav-link is-active" }}
-          >
-            Hogar
-          </Link>
+          {user?.householdId && (
+            <>
+              <Link
+                to="/dishes"
+                className="nav-link"
+                activeProps={{ className: "nav-link is-active" }}
+              >
+                Platillos
+              </Link>
+              <Link
+                to="/roulette"
+                className="nav-link"
+                activeProps={{ className: "nav-link is-active" }}
+              >
+                Ruleta
+              </Link>
+              <Link
+                to="/meal-plan"
+                className="nav-link"
+                activeProps={{ className: "nav-link is-active" }}
+              >
+                Plan
+              </Link>
+              <Link
+                to="/shopping"
+                className="nav-link"
+                activeProps={{ className: "nav-link is-active" }}
+              >
+                Compras
+              </Link>
+            </>
+          )}
+          {user && (
+            <Link
+              to="/household"
+              className="nav-link"
+              activeProps={{ className: "nav-link is-active" }}
+            >
+              Hogar
+            </Link>
+          )}
         </div>
 
         <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
