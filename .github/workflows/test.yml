@@ -26,7 +26,7 @@ jobs:
         run: dotnet build --no-restore --configuration Release
 
       - name: Test
-        run: dotnet test --project ComeRico.Tests/ComeRico.Tests.csproj --no-restore --configuration Release
+        run: dotnet test --no-restore --configuration Release
 
   frontend:
     runs-on: ubuntu-latest
@@ -59,6 +59,9 @@ jobs:
       - name: Typecheck
         run: pnpm exec tsc --noEmit -p .
 
+      # Vitest currently fails to boot in this repo (Nitro/TanStack Start
+      # plugins aren't compatible with its dev server) and there are no
+      # test files yet — re-enable once that's fixed.
       # - name: Test
       #   run: pnpm test
 

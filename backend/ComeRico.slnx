@@ -1,4 +1,5 @@
 <Solution>
   <Project Path="ComeRico.Api/ComeRico.Api.csproj" />
   <Project Path="ComeRico.Core/ComeRico.Core.csproj" />
+  <Project Path="ComeRico.Tests/ComeRico.Tests.csproj" />
 </Solution>
