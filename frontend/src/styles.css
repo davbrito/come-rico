@@ -1,9 +1,10 @@
-@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap");
+@import "@fontsource-variable/manrope";
+@import "@fontsource-variable/fraunces/standard.css";
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
 @theme inline {
-  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Manrope Variable", ui-sans-serif, system-ui, sans-serif;
   --color-sea-ink: var(--sea-ink);
   --color-sea-ink-soft: var(--sea-ink-soft);
   --color-lagoon: var(--lagoon);
@@ -150,17 +151,6 @@ body::after {
   mask-image: radial-gradient(circle at 50% 30%, black, transparent 78%);
 }
 
-a {
-  color: var(--lagoon-deep);
-  text-decoration-color: rgba(50, 143, 151, 0.4);
-  text-decoration-thickness: 1px;
-  text-underline-offset: 2px;
-}
-
-a:hover:not([class]) {
-  color: #246f76;
-}
-
 code {
   font-size: 0.9em;
   border: 1px solid var(--line);
@@ -190,7 +180,7 @@ pre code {
 }
 
 .display-title {
-  font-family: "Fraunces", Georgia, serif;
+  font-family: "Fraunces Variable", Georgia, serif;
 }
 
 .island-shell {

@@ -20,6 +20,8 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
+    "@fontsource-variable/fraunces": "^5.2.9",
+    "@fontsource-variable/manrope": "^5.2.8",
     "@microsoft/signalr": "^10.0.0",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-devtools": "latest",

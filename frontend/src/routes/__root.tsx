@@ -34,6 +34,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "ComeRico — ¿Qué vamos a comer?" },
+      {
+        name: "description",
+        content:
+          "Organiza los platillos de tu hogar, gira la ruleta para decidir qué comer y genera tu lista de compras automáticamente.",
+      },
     ],
     links: [{ rel: "stylesheet", href: appCss }],
   }),
