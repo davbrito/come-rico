@@ -6,6 +6,7 @@ WORKDIR /src
 COPY Directory.Build.props .
 COPY Directory.Packages.props .
 COPY ComeRico.Core/ComeRico.Core.csproj ComeRico.Core/
+COPY ComeRico.Infrastructure/ComeRico.Infrastructure.csproj ComeRico.Infrastructure/
 COPY ComeRico.Api/ComeRico.Api.csproj  ComeRico.Api/
 RUN dotnet restore ComeRico.Api/ComeRico.Api.csproj
 
