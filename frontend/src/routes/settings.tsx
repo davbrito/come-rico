@@ -143,11 +143,7 @@ function PasswordSection() {
         </form.AppField>
         <form.AppField name="newPassword" validators={{ onChange: passwordSchema }}>
           {(field) => (
-            <field.PasswordField
-              label="Nueva contraseña *"
-              autoComplete="new-password"
-              required
-            />
+            <field.PasswordField label="Nueva contraseña *" autoComplete="new-password" required />
           )}
         </form.AppField>
       </div>

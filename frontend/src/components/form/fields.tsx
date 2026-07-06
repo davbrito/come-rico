@@ -47,8 +47,10 @@ export function TextField({ label, ...props }: TextFieldProps) {
   );
 }
 
-export interface PasswordFieldProps
-  extends Omit<InputProps, "value" | "onChange" | "onBlur" | "name" | "type"> {
+export interface PasswordFieldProps extends Omit<
+  InputProps,
+  "value" | "onChange" | "onBlur" | "name" | "type"
+> {
   label: string;
 }
 

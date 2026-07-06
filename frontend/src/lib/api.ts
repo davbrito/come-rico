@@ -51,9 +51,7 @@ export function extractErrorMetadata(err: unknown): ErrorMetadata {
         ? (data.errors as Record<string, string[]>)
         : undefined;
 
-    const detailsMessage = details
-      ? Object.values(details).flat().join(" ")
-      : undefined;
+    const detailsMessage = details ? Object.values(details).flat().join(" ") : undefined;
 
     const message =
       detailsMessage ||

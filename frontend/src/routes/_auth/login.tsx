@@ -71,11 +71,7 @@ function LoginPage() {
           </form.AppField>
           <form.AppField name="password" validators={{ onChange: passwordSchema }}>
             {(field) => (
-              <field.PasswordField
-                label="Contraseña *"
-                autoComplete="current-password"
-                required
-              />
+              <field.PasswordField label="Contraseña *" autoComplete="current-password" required />
             )}
           </form.AppField>
         </div>

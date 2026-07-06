@@ -3,9 +3,15 @@
   "plugins": ["typescript", "unicorn", "oxc", "react", "import"],
   "ignorePatterns": ["src/api"],
   "categories": {
-    "correctness": "error"
+    "correctness": "error",
+    "nursery": "warn"
   },
   "env": {
-    "builtin": true
+    "builtin": true,
+    "node": true,
+    "browser": true
+  },
+  "rules": {
+    "react/react-compiler": "error"
   }
 }
