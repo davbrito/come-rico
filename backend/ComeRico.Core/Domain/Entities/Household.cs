@@ -2,10 +2,10 @@ namespace ComeRico.Core.Domain.Entities;
 
 public class Household
 {
-    public Guid Id { get; private set; } = Guid.NewGuid();
+    public Guid Id { get; private set; }
     public string Name { get; private set; } = string.Empty;
-    public string InviteCode { get; private set; } = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
-    public DateTime CreatedAt { get; private set; } = DateTime.UtcNow;
+    public string InviteCode { get; private set; } = string.Empty;
+    public DateTime CreatedAt { get; private set; }
 
     public ICollection<AppUser> Members { get; private set; } = [];
     public ICollection<Dish> Dishes { get; private set; } = [];
@@ -16,7 +16,18 @@ public class Household
 
     private Household() { }
 
-    public static Household Create(string name) => new() { Name = name };
+    public static Household Create(string name)
+    {
+        var now = DateTime.UtcNow;
+        var id = Guid.CreateVersion7(now);
+        return new()
+        {
+            Id = id,
+            Name = name,
+            InviteCode = id.ToString("N")[..8].ToUpperInvariant(),
+            CreatedAt = now,
+        };
+    }
 
     public void Rename(string newName) => Name = newName;
 }

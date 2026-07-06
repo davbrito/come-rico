@@ -2,7 +2,7 @@ namespace ComeRico.Core.Domain.Entities;
 
 public class Ingredient : IHasHousehold
 {
-    public Guid Id { get; private set; } = Guid.NewGuid();
+    public Guid Id { get; private set; }
     public Guid HouseholdId { get; private set; }
     public Guid DishId { get; private set; }
     public string Name { get; private set; } = string.Empty;
@@ -16,6 +16,7 @@ public class Ingredient : IHasHousehold
     public static Ingredient Create(Guid householdId, Guid dishId, string name, decimal amount, MeasurementUnit unit) =>
         new()
         {
+            Id = Guid.CreateVersion7(),
             HouseholdId = householdId,
             DishId = dishId,
             Name = name,

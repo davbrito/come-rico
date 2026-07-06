@@ -2,11 +2,11 @@ namespace ComeRico.Core.Domain.Entities;
 
 public class RouletteSession : IHasHousehold
 {
-    public Guid Id { get; private set; } = Guid.NewGuid();
+    public Guid Id { get; private set; }
     public Guid HouseholdId { get; private set; }
     public RouletteStatus Status { get; private set; } = RouletteStatus.Pending;
     public Guid? WinnerDishId { get; private set; }
-    public DateTime CreatedAt { get; private set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; private set; }
     public DateTime? SpunAt { get; private set; }
 
     public Household Household { get; private set; } = null!;
@@ -14,7 +14,16 @@ public class RouletteSession : IHasHousehold
 
     private RouletteSession() { }
 
-    public static RouletteSession Create(Guid householdId) => new() { HouseholdId = householdId };
+    public static RouletteSession Create(Guid householdId)
+    {
+        var now = DateTime.UtcNow;
+        return new()
+        {
+            Id = Guid.CreateVersion7(now),
+            CreatedAt = now,
+            HouseholdId = householdId,
+        };
+    }
 
     public void SetWinner(Guid winnerDishId)
     {

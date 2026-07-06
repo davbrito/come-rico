@@ -21,24 +21,29 @@ public enum StoredFileStatus
 /// </summary>
 public class StoredFile : IHasHousehold
 {
-    public Guid Id { get; private set; } = Guid.CreateVersion7();
+    public Guid Id { get; private set; }
     public Guid HouseholdId { get; private set; }
     public string Key { get; private set; } = string.Empty;
     public string ContentType { get; private set; } = string.Empty;
     public StoredFileStatus Status { get; private set; } = StoredFileStatus.Pending;
-    public DateTime CreatedAt { get; private set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; private set; }
 
     public Household Household { get; private set; } = null!;
 
     private StoredFile() { }
 
-    public static StoredFile Create(Guid householdId, string key, string contentType) =>
-        new()
+    public static StoredFile Create(Guid householdId, string key, string contentType)
+    {
+        var now = DateTime.UtcNow;
+        return new()
         {
+            Id = Guid.CreateVersion7(now),
+            CreatedAt = now,
             HouseholdId = householdId,
             Key = key,
             ContentType = contentType,
         };
+    }
 
     public void Activate(string? key = null)
     {
