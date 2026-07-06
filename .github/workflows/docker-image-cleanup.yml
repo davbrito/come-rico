@@ -1,0 +1,81 @@
+name: docker-image-cleanup
+
+# Vercel's Hobby plan caps Vercel Container Registry (VCR) storage at 50
+# images per project. The "backend"/"frontend" services build a new image
+# on every deploy (see vercel.json), so the cap is eventually hit and
+# deploys start failing. This prunes old images, keeping only the N most
+# recent per repository.
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      keep:
+        description: "Number of most recent images to keep per repository"
+        required: false
+        default: "10"
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      KEEP: ${{ github.event.inputs.keep || '10' }}
+    steps:
+      - name: Prune old Vercel Container Registry images
+        run: |
+          set -euo pipefail
+
+          api() {
+            curl -sS --fail-with-body \
+              -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+              "$@"
+          }
+
+          # List every repository for the project (paginated).
+          repos="[]"
+          cursor=""
+          while :; do
+            url="https://api.vercel.com/v1/vcr/repository?projectId=${VERCEL_PROJECT_ID}&teamId=${VERCEL_TEAM_ID}&limit=100"
+            [ -n "$cursor" ] && url="${url}&cursor=${cursor}"
+            page="$(api "$url")"
+            repos="$(jq -n --argjson a "$repos" --argjson b "$(echo "$page" | jq '.repositories')" '$a + $b')"
+            cursor="$(echo "$page" | jq -r '.nextCursor // empty')"
+            [ -z "$cursor" ] && break
+          done
+
+          repo_count="$(echo "$repos" | jq 'length')"
+          echo "Found ${repo_count} repositories"
+
+          echo "$repos" | jq -c '.[]' | while read -r repo; do
+            repo_id="$(echo "$repo" | jq -r '.id')"
+            repo_name="$(echo "$repo" | jq -r '.name')"
+
+            # List every image for this repository (paginated).
+            images="[]"
+            cursor=""
+            while :; do
+              url="https://api.vercel.com/v1/vcr/repository/${repo_id}/images?projectId=${VERCEL_PROJECT_ID}&teamId=${VERCEL_TEAM_ID}&limit=100"
+              [ -n "$cursor" ] && url="${url}&cursor=${cursor}"
+              page="$(api "$url")"
+              images="$(jq -n --argjson a "$images" --argjson b "$(echo "$page" | jq '.images')" '$a + $b')"
+              cursor="$(echo "$page" | jq -r '.nextCursor // empty')"
+              [ -z "$cursor" ] && break
+            done
+
+            total="$(echo "$images" | jq 'length')"
+            to_delete="$(echo "$images" | jq --argjson keep "$KEEP" '
+              sort_by(.createdAt) | reverse | .[$keep:] | map(.id)
+            ')"
+            delete_count="$(echo "$to_delete" | jq 'length')"
+
+            echo "Repository '${repo_name}' (${repo_id}): ${total} images, deleting ${delete_count}, keeping ${KEEP}"
+
+            echo "$to_delete" | jq -r '.[]' | while read -r image_id; do
+              [ -z "$image_id" ] && continue
+              echo "  Deleting image ${image_id}"
+              api -X DELETE "https://api.vercel.com/v1/vcr/repository/${repo_id}/images/${image_id}?projectId=${VERCEL_PROJECT_ID}&teamId=${VERCEL_TEAM_ID}" >/dev/null
+            done
+          done
