@@ -2,29 +2,23 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
-# Native AOT compilation needs clang + libc dev headers on the build image.
-RUN apt-get update && apt-get install -y clang zlib1g-dev && rm -rf /var/lib/apt/lists/*
-
 # Restore dependencies (layer-cache friendly)
 COPY Directory.Build.props .
 COPY Directory.Packages.props .
 COPY ComeRico.Core/ComeRico.Core.csproj ComeRico.Core/
 COPY ComeRico.Infrastructure/ComeRico.Infrastructure.csproj ComeRico.Infrastructure/
 COPY ComeRico.Api/ComeRico.Api.csproj  ComeRico.Api/
-RUN dotnet restore ComeRico.Api/ComeRico.Api.csproj -r linux-x64
+RUN dotnet restore ComeRico.Api/ComeRico.Api.csproj
 
-# Copy source and publish as a self-contained native executable
+# Copy source and publish
 COPY . .
 RUN dotnet publish ComeRico.Api/ComeRico.Api.csproj \
       -c Release \
-      -r linux-x64 \
       -o /app/publish \
       --no-restore
 
 # ---------- Runtime stage ----------
-# No dotnet runtime needed: the AOT output is a native executable, so we
-# only need the OS-level native dependencies (libicu, openssl, etc.).
-FROM mcr.microsoft.com/dotnet/runtime-deps:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 
 COPY --from=build /app/publish .
@@ -33,4 +27,4 @@ EXPOSE 8080
 
 # Vercel injects $PORT at runtime; resolve it in a shell wrapper so
 # ASPNETCORE_URLS is set correctly before the process starts.
-CMD ["sh", "-c", "ASPNETCORE_URLS=http://+:${PORT:-8080} ./ComeRico.Api"]
+CMD ["sh", "-c", "ASPNETCORE_URLS=http://+:${PORT:-8080} dotnet ComeRico.Api.dll"]
