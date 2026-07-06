@@ -160,14 +160,15 @@ public static class AuthEndpoints
 
                     if (user.Role == HouseholdRole.Admin && user.HouseholdId is { } householdId)
                     {
-                        var nextAdmin = await dbContext
+                        var otherMembers = await dbContext
                             .Users.Where(u => u.HouseholdId == householdId && u.Id != user.Id)
                             .OrderBy(u => u.CreatedAt)
-                            .FirstOrDefaultAsync(ct);
+                            .ToListAsync(ct);
 
-                        if (nextAdmin is not null)
+                        var hasOtherAdmin = otherMembers.Any(u => u.Role == HouseholdRole.Admin);
+                        if (!hasOtherAdmin && otherMembers.Count > 0)
                         {
-                            nextAdmin.PromoteToAdmin();
+                            otherMembers[0].PromoteToAdmin();
                             await dbContext.SaveChangesAsync(ct);
                         }
                     }
