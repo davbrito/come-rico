@@ -4,7 +4,8 @@
   "ignorePatterns": ["src/api"],
   "categories": {
     "correctness": "error",
-    "nursery": "warn"
+    "nursery": "warn",
+    "suspicious": "warn"
   },
   "env": {
     "builtin": true,
@@ -12,6 +13,7 @@
     "browser": true
   },
   "rules": {
-    "react/react-compiler": "error"
+    "react/react-compiler": "error",
+    "react/react-in-jsx-scope": "off"
   }
 }

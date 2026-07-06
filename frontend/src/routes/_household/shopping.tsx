@@ -60,8 +60,8 @@ function ShoppingPage() {
       await qc.cancelQueries({ queryKey: shoppingItemsOps.queryKey });
       const previous = qc.getQueryData(shoppingItemsOps.queryKey);
       if (previous) {
-        qc.setQueryData(shoppingItemsOps.queryKey, (previous) =>
-          produce(previous, (draft) => {
+        qc.setQueryData(shoppingItemsOps.queryKey, (data) =>
+          produce(data, (draft) => {
             const item = draft?.find((i) => i.id === variables.path.id);
             if (item) item.isPurchased = variables.body.isPurchased;
           }),
