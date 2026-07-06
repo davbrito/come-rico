@@ -36,6 +36,13 @@ public sealed class GetMealPlanByIdQueryHandler(IAppDbContext dbContext, IFileSt
 
         return plan is null
             ? null
-            : new MealPlanDto(plan.Id, plan.Date, plan.MealType, plan.DishId, plan.DishName, storage.ResolveImageUrl(plan.ImageKey));
+            : new MealPlanDto(
+                plan.Id,
+                plan.Date,
+                plan.MealType,
+                plan.DishId,
+                plan.DishName,
+                storage.ResolveImageUrl(plan.ImageKey)
+            );
     }
 }

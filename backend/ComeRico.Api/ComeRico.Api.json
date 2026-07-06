@@ -1332,6 +1332,15 @@
               "string"
             ],
             "format": "uuid"
+          },
+          "ingredients": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/IngredientInput"
+            }
           }
         }
       },
@@ -1990,15 +1999,14 @@
       },
       "SetTagsRequest": {
         "required": [
-          "tagIds"
+          "tagNames"
         ],
         "type": "object",
         "properties": {
-          "tagIds": {
+          "tagNames": {
             "type": "array",
             "items": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             }
           }
         }

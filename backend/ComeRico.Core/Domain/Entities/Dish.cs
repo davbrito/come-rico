@@ -34,10 +34,8 @@ public class Dish : IHasHousehold
         ImageKey = imageKey;
     }
 
-    public void ReplaceTags(IEnumerable<Tag> tags)
+    public void ReplaceTags(ICollection<Tag> tags)
     {
-        Tags.Clear();
-        foreach (var tag in tags)
-            Tags.Add(tag);
+        Tags = tags;
     }
 }

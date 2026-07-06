@@ -34,18 +34,18 @@ export function Select<T>({
     >
       <BaseSelect.Trigger
         className={cn(
-          "flex items-center justify-between gap-1 border border-[var(--line)] text-[var(--sea-ink)] outline-none focus-visible:border-orange-400 data-[popup-open]:border-orange-400",
+          "flex items-center justify-between gap-1 border border-line text-sea-ink outline-none focus-visible:border-orange-400 data-[popup-open]:border-orange-400",
           triggerSizeClasses[size],
           className,
         )}
       >
         <BaseSelect.Value placeholder={placeholder} className="truncate" />
-        <BaseSelect.Icon className="flex shrink-0 text-[var(--sea-ink-soft)]">
+        <BaseSelect.Icon className="flex shrink-0 text-sea-ink-soft">
           <ChevronDown className="h-3.5 w-3.5" />
         </BaseSelect.Icon>
       </BaseSelect.Trigger>
       <BaseSelect.Portal>
-        <BaseSelect.Positioner className="z-50 outline-none" sideOffset={4}>
+        <BaseSelect.Positioner className="outline-none" sideOffset={4}>
           <BaseSelect.Popup className="island-shell max-h-64 overflow-y-auto rounded-xl p-1">
             <BaseSelect.List>
               {items.map((item) => (

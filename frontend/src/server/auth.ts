@@ -16,8 +16,9 @@ export const fetchCurrentUser = async (): Promise<CurrentUserDto | null> => {
       console.error("Failed to fetch current user:", res.response.status, res.response.statusText);
     }
     if (res.error) {
-      console.error("Failed to fetch current user:", res.error);
-      throw new Error(`Failed to fetch current user: ${res.error}`);
+      const error = res.error as any;
+      console.error("Failed to fetch current user:", error);
+      throw new Error(`Failed to fetch current user: ${error.message}`);
     }
     console.error("response:", res);
     throw new Error("Failed to fetch current user: no data or error returned");

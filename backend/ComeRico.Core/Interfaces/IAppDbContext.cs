@@ -1,5 +1,6 @@
 using ComeRico.Core.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 
 namespace ComeRico.Core.Interfaces;
 
@@ -16,4 +17,8 @@ public interface IAppDbContext
     DbSet<StoredFile> StoredFiles { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+
+    // Entry
+    EntityEntry<T> Entry<T>(T entity)
+        where T : class;
 }

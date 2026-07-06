@@ -93,7 +93,7 @@ public static class DishEndpoints
                     CancellationToken ct
                 ) =>
                 {
-                    var result = await mediator.Send(new SetDishTagsCommand(id, body.TagIds), ct);
+                    var result = await mediator.Send(new SetDishTagsCommand(id, body.TagNames), ct);
                     return result is null ? TypedResults.NotFound() : TypedResults.Ok(result);
                 }
             )
@@ -108,4 +108,4 @@ public sealed record UpdateDishRequest(string Name, string? Description, Guid? I
 
 public sealed record SetIngredientsRequest(IReadOnlyList<IngredientInput> Ingredients);
 
-public sealed record SetTagsRequest(IReadOnlyList<Guid> TagIds);
+public sealed record SetTagsRequest(IReadOnlyList<string> TagNames);

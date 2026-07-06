@@ -56,8 +56,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body className="font-sans wrap-anywhere antialiased selection:bg-[rgba(79,184,178,0.24)]">
-        <Header />
-        {children}
+        <div id="app" className="isolate">
+          <Header />
+          {children}
+        </div>
         <Toaster />
         <TanStackDevtools
           config={{ position: "bottom-right" }}
