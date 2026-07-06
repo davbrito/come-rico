@@ -11,7 +11,11 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as RouletteRouteImport } from './routes/roulette'
+import { Route as OgImageRouteImport } from './routes/og-image'
+import { Route as Icon512DotpngRouteImport } from './routes/icon-512[.]png'
+import { Route as Icon192DotpngRouteImport } from './routes/icon-192[.]png'
 import { Route as HouseholdRouteImport } from './routes/household'
+import { Route as FaviconDotpngRouteImport } from './routes/favicon[.]png'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as HouseholdRouteRouteImport } from './routes/_household/route'
 import { Route as AuthRouteRouteImport } from './routes/_auth/route'
@@ -32,9 +36,29 @@ const RouletteRoute = RouletteRouteImport.update({
   path: '/roulette',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OgImageRoute = OgImageRouteImport.update({
+  id: '/og-image',
+  path: '/og-image',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const Icon512DotpngRoute = Icon512DotpngRouteImport.update({
+  id: '/icon-512.png',
+  path: '/icon-512.png',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const Icon192DotpngRoute = Icon192DotpngRouteImport.update({
+  id: '/icon-192.png',
+  path: '/icon-192.png',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const HouseholdRoute = HouseholdRouteImport.update({
   id: '/household',
   path: '/household',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FaviconDotpngRoute = FaviconDotpngRouteImport.update({
+  id: '/favicon.png',
+  path: '/favicon.png',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AboutRoute = AboutRouteImport.update({
@@ -84,7 +108,11 @@ const AuthLoginRoute = AuthLoginRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/favicon.png': typeof FaviconDotpngRoute
   '/household': typeof HouseholdRoute
+  '/icon-192.png': typeof Icon192DotpngRoute
+  '/icon-512.png': typeof Icon512DotpngRoute
+  '/og-image': typeof OgImageRoute
   '/roulette': typeof RouletteRoute
   '/settings': typeof SettingsRoute
   '/login': typeof AuthLoginRoute
@@ -96,7 +124,11 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/favicon.png': typeof FaviconDotpngRoute
   '/household': typeof HouseholdRoute
+  '/icon-192.png': typeof Icon192DotpngRoute
+  '/icon-512.png': typeof Icon512DotpngRoute
+  '/og-image': typeof OgImageRoute
   '/roulette': typeof RouletteRoute
   '/settings': typeof SettingsRoute
   '/login': typeof AuthLoginRoute
@@ -111,7 +143,11 @@ export interface FileRoutesById {
   '/_auth': typeof AuthRouteRouteWithChildren
   '/_household': typeof HouseholdRouteRouteWithChildren
   '/about': typeof AboutRoute
+  '/favicon.png': typeof FaviconDotpngRoute
   '/household': typeof HouseholdRoute
+  '/icon-192.png': typeof Icon192DotpngRoute
+  '/icon-512.png': typeof Icon512DotpngRoute
+  '/og-image': typeof OgImageRoute
   '/roulette': typeof RouletteRoute
   '/settings': typeof SettingsRoute
   '/_auth/login': typeof AuthLoginRoute
@@ -125,7 +161,11 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/about'
+    | '/favicon.png'
     | '/household'
+    | '/icon-192.png'
+    | '/icon-512.png'
+    | '/og-image'
     | '/roulette'
     | '/settings'
     | '/login'
@@ -137,7 +177,11 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/about'
+    | '/favicon.png'
     | '/household'
+    | '/icon-192.png'
+    | '/icon-512.png'
+    | '/og-image'
     | '/roulette'
     | '/settings'
     | '/login'
@@ -151,7 +195,11 @@ export interface FileRouteTypes {
     | '/_auth'
     | '/_household'
     | '/about'
+    | '/favicon.png'
     | '/household'
+    | '/icon-192.png'
+    | '/icon-512.png'
+    | '/og-image'
     | '/roulette'
     | '/settings'
     | '/_auth/login'
@@ -166,7 +214,11 @@ export interface RootRouteChildren {
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
   HouseholdRouteRoute: typeof HouseholdRouteRouteWithChildren
   AboutRoute: typeof AboutRoute
+  FaviconDotpngRoute: typeof FaviconDotpngRoute
   HouseholdRoute: typeof HouseholdRoute
+  Icon192DotpngRoute: typeof Icon192DotpngRoute
+  Icon512DotpngRoute: typeof Icon512DotpngRoute
+  OgImageRoute: typeof OgImageRoute
   RouletteRoute: typeof RouletteRoute
   SettingsRoute: typeof SettingsRoute
 }
@@ -187,11 +239,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RouletteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/og-image': {
+      id: '/og-image'
+      path: '/og-image'
+      fullPath: '/og-image'
+      preLoaderRoute: typeof OgImageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/icon-512.png': {
+      id: '/icon-512.png'
+      path: '/icon-512.png'
+      fullPath: '/icon-512.png'
+      preLoaderRoute: typeof Icon512DotpngRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/icon-192.png': {
+      id: '/icon-192.png'
+      path: '/icon-192.png'
+      fullPath: '/icon-192.png'
+      preLoaderRoute: typeof Icon192DotpngRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/household': {
       id: '/household'
       path: '/household'
       fullPath: '/household'
       preLoaderRoute: typeof HouseholdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/favicon.png': {
+      id: '/favicon.png'
+      path: '/favicon.png'
+      fullPath: '/favicon.png'
+      preLoaderRoute: typeof FaviconDotpngRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/about': {
@@ -295,7 +375,11 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRouteRoute: AuthRouteRouteWithChildren,
   HouseholdRouteRoute: HouseholdRouteRouteWithChildren,
   AboutRoute: AboutRoute,
+  FaviconDotpngRoute: FaviconDotpngRoute,
   HouseholdRoute: HouseholdRoute,
+  Icon192DotpngRoute: Icon192DotpngRoute,
+  Icon512DotpngRoute: Icon512DotpngRoute,
+  OgImageRoute: OgImageRoute,
   RouletteRoute: RouletteRoute,
   SettingsRoute: SettingsRoute,
 }

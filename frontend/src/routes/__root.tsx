@@ -22,6 +22,12 @@ import appCss from "../styles.css?url";
 // (and keeps light/dark accurate) before the page is visible.
 const THEME_INIT_SCRIPT = `(function(){try{var match=document.cookie.match(/(?:^|; )theme=([^;]*)/);var stored=match?decodeURIComponent(match[1]):undefined;var mode=(stored==='light'||stored==='dark'||stored==='auto')?stored:'auto';var prefersDark=window.matchMedia('(prefers-color-scheme: dark)').matches;var resolved=mode==='auto'?(prefersDark?'dark':'light'):mode;var root=document.documentElement;root.classList.remove('light','dark');root.classList.add(resolved);if(mode==='auto'){root.removeAttribute('data-theme')}else{root.setAttribute('data-theme',mode)}root.style.colorScheme=resolved;}catch(e){}})();`;
 
+const OG_BASE = (() => {
+  if (typeof process === "undefined") return "";
+  const host = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
+  return host ? `https://${host}` : "";
+})();
+
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   // The session is read server-side and flows into the router context, so
   // SSR, reloads, and client navigations all agree on who is logged in.
@@ -39,8 +45,22 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content:
           "Organiza los platillos de tu hogar, gira la ruleta para decidir qué comer y genera tu lista de compras automáticamente.",
       },
+      // Open Graph / social share
+      { property: "og:title", content: "ComeRico — ¿Qué vamos a comer?" },
+      {
+        property: "og:description",
+        content:
+          "Organiza los platillos de tu hogar, gira la ruleta para decidir qué comer y genera tu lista de compras automáticamente.",
+      },
+      { property: "og:image", content: `${OG_BASE}/og-image` },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:image", content: `${OG_BASE}/og-image` },
     ],
-    links: [{ rel: "stylesheet", href: appCss }],
+    links: [
+      { rel: "stylesheet", href: appCss },
+      { rel: "icon", type: "image/png", href: "/favicon.png" },
+    ],
   }),
   errorComponent: RootErrorComponent,
   shellComponent: RootDocument,
