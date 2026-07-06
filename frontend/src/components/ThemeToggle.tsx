@@ -35,13 +35,7 @@ function applyThemeMode(mode: ThemeMode) {
 }
 
 export default function ThemeToggle() {
-  const [mode, setMode] = useState<ThemeMode>("auto");
-
-  useEffect(() => {
-    const initialMode = getInitialMode();
-    setMode(initialMode);
-    applyThemeMode(initialMode);
-  }, []);
+  const [mode, setMode] = useState<ThemeMode>(getInitialMode);
 
   useEffect(() => {
     if (mode !== "auto") {
