@@ -3,6 +3,8 @@
     <OpenApiGenerateDocuments>true</OpenApiGenerateDocuments>
     <OpenApiDocumentsDirectory>$(MSBuildProjectDirectory)</OpenApiDocumentsDirectory>
     <UserSecretsId>4979222d-4fc2-4c2f-b12b-2950ae19a4fc</UserSecretsId>
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 
   <ItemGroup>
