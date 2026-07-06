@@ -1,4 +1,5 @@
 import { ImageResponse } from "@vercel/og";
+import { renderToStaticMarkup } from "react-dom/server";
 
 // ── Pabellón Venezolano icon ────────────────────────────────────────────
 
@@ -18,7 +19,13 @@ import { ImageResponse } from "@vercel/og";
  *   └──────────────────┘
  */
 
-function SvgPlate() {
+/**
+ * `detailed` toggles the fine texture (rice grains, bean highlights, meat
+ * strokes). At favicon sizes (16–32px) that texture collapses into noise,
+ * so small renders drop it in favor of flat color blocks; larger renders
+ * (OG image, 512px PWA icon) keep it.
+ */
+function SvgPlate({ detailed = true }: { detailed?: boolean }) {
   return (
     <svg
       fill="none"
@@ -28,8 +35,8 @@ function SvgPlate() {
     >
       {/* Background */}
       <rect width="64" height="64" fill="#0f172a" />
-      {/* Copper accent circle */}
-      <circle cx="56" cy="8" r="6" fill="#f97316" opacity="0.75" />
+      {/* Copper accent circle — pulled inward so it survives a circular/maskable crop */}
+      <circle cx="52" cy="12" r="5" fill="#f97316" opacity="0.8" />
       {/* Plate shadow */}
       <circle cx="32" cy="33" r="22" fill="rgba(0,0,0,0.35)" />
       {/* Plate rim */}
@@ -41,44 +48,45 @@ function SvgPlate() {
           d="M13 32 Q20 12 40 13 Q50 13 51 25 L51 28 Q44 24 32 26 Q20 28 13 32Z"
           fill="#f5f0e8"
         />
-        {[17, 22, 27, 33, 38].map((x) =>
-          [15, 18, 21, 24].map((y) => (
-            <circle key={`${x}-${y}`} cx={x} cy={y} r="0.8" fill="#e8e0d0" />
-          )),
-        )}
-        {/* Black beans — bottom-left */}
-        <path d="M13 32 Q20 36 32 34 Q30 40 32 48 Q24 50 16 46 Q12 42 13 32Z" fill="#1a1a2e" />
-        {/* Bean dots */}
-        {[
-          [18, 36],
-          [22, 38],
-          [17, 41],
-          [24, 43],
-          [20, 46],
-        ].map(([cx, cy]) => (
-          <ellipse key={`b${cx}-${cy}`} cx={cx} cy={cy} rx="1.8" ry="1.2" fill="#2a2a4e" />
-        ))}
+        {detailed &&
+          [17, 22, 27, 33, 38].map((x) =>
+            [15, 18, 21, 24].map((y) => (
+              <circle key={`${x}-${y}`} cx={x} cy={y} r="0.8" fill="#e8e0d0" />
+            )),
+          )}
+        {/* Black beans — bottom-left (lightened so the shape reads against the dark background) */}
+        <path d="M13 32 Q20 36 32 34 Q30 40 32 48 Q24 50 16 46 Q12 42 13 32Z" fill="#3a3a5e" />
+        {detailed &&
+          [
+            [18, 36],
+            [22, 38],
+            [17, 41],
+            [24, 43],
+            [20, 46],
+          ].map(([cx, cy]) => (
+            <ellipse key={`b${cx}-${cy}`} cx={cx} cy={cy} rx="1.8" ry="1.2" fill="#2a2a4e" />
+          ))}
         {/* Shredded beef — right side */}
         <path
           d="M32 20 Q40 18 50 28 L51 43 Q44 48 36 46 Q30 42 32 34Q30 28 32 20Z"
           fill="#8B4513"
         />
-        {/* Beef texture lines */}
-        {[
-          [36, 24],
-          [42, 28],
-          [38, 32],
-          [44, 36],
-          [36, 40],
-        ].map(([x, y]) => (
-          <path
-            key={`meat-${x}-${y}`}
-            d={`M${x} ${y} Q${x + 7} ${y + 3} ${x + 4} ${y + 6}`}
-            stroke="#a0522d"
-            strokeWidth="0.8"
-            fill="none"
-          />
-        ))}
+        {detailed &&
+          [
+            [36, 24],
+            [42, 28],
+            [38, 32],
+            [44, 36],
+            [36, 40],
+          ].map(([x, y]) => (
+            <path
+              key={`meat-${x}-${y}`}
+              d={`M${x} ${y} Q${x + 7} ${y + 3} ${x + 4} ${y + 6}`}
+              stroke="#a0522d"
+              strokeWidth="0.8"
+              fill="none"
+            />
+          ))}
         {/* Fried plantain — bottom strip */}
         <rect x="14" y="47" width="22" height="5" rx="2" fill="#FFB300" />
         <rect x="38" y="47" width="12" height="5" rx="2" fill="#FFB300" />
@@ -106,7 +114,7 @@ export async function generateFavicon(): Promise<ImageResponse> {
         height: "100%",
       }}
     >
-      <SvgPlate />
+      <SvgPlate detailed={false} />
     </div>,
     { width: 64, height: 64 },
   );
@@ -121,8 +129,16 @@ export async function generatePwaIcon(size: number): Promise<ImageResponse> {
         height: "100%",
       }}
     >
-      <SvgPlate />
+      <SvgPlate detailed={size >= 192} />
     </div>,
     { width: size, height: size },
   );
+}
+
+/**
+ * Raw SVG markup for the /favicon.svg endpoint, rendered from the same
+ * simplified (non-detailed) plate used by generateFavicon.
+ */
+export function svgFaviconMarkup(): string {
+  return renderToStaticMarkup(<SvgPlate detailed={false} />);
 }

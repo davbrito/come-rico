@@ -12,14 +12,15 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as RouletteRouteImport } from './routes/roulette'
 import { Route as OgImageRouteImport } from './routes/og-image'
-import { Route as Icon512DotpngRouteImport } from './routes/icon-512[.]png'
-import { Route as Icon192DotpngRouteImport } from './routes/icon-192[.]png'
 import { Route as HouseholdRouteImport } from './routes/household'
-import { Route as FaviconDotpngRouteImport } from './routes/favicon[.]png'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as HouseholdRouteRouteImport } from './routes/_household/route'
 import { Route as AuthRouteRouteImport } from './routes/_auth/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as IconsIcon512DotpngRouteImport } from './routes/_icons/icon-512[.]png'
+import { Route as IconsIcon192DotpngRouteImport } from './routes/_icons/icon-192[.]png'
+import { Route as IconsFaviconDotsvgRouteImport } from './routes/_icons/favicon[.]svg'
+import { Route as IconsFaviconDotpngRouteImport } from './routes/_icons/favicon[.]png'
 import { Route as HouseholdShoppingRouteImport } from './routes/_household/shopping'
 import { Route as HouseholdMealPlanRouteImport } from './routes/_household/meal-plan'
 import { Route as HouseholdDishesRouteImport } from './routes/_household/dishes'
@@ -41,24 +42,9 @@ const OgImageRoute = OgImageRouteImport.update({
   path: '/og-image',
   getParentRoute: () => rootRouteImport,
 } as any)
-const Icon512DotpngRoute = Icon512DotpngRouteImport.update({
-  id: '/icon-512.png',
-  path: '/icon-512.png',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const Icon192DotpngRoute = Icon192DotpngRouteImport.update({
-  id: '/icon-192.png',
-  path: '/icon-192.png',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const HouseholdRoute = HouseholdRouteImport.update({
   id: '/household',
   path: '/household',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const FaviconDotpngRoute = FaviconDotpngRouteImport.update({
-  id: '/favicon.png',
-  path: '/favicon.png',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AboutRoute = AboutRouteImport.update({
@@ -77,6 +63,26 @@ const AuthRouteRoute = AuthRouteRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IconsIcon512DotpngRoute = IconsIcon512DotpngRouteImport.update({
+  id: '/_icons/icon-512.png',
+  path: '/icon-512.png',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IconsIcon192DotpngRoute = IconsIcon192DotpngRouteImport.update({
+  id: '/_icons/icon-192.png',
+  path: '/icon-192.png',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IconsFaviconDotsvgRoute = IconsFaviconDotsvgRouteImport.update({
+  id: '/_icons/favicon.svg',
+  path: '/favicon.svg',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IconsFaviconDotpngRoute = IconsFaviconDotpngRouteImport.update({
+  id: '/_icons/favicon.png',
+  path: '/favicon.png',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HouseholdShoppingRoute = HouseholdShoppingRouteImport.update({
@@ -108,10 +114,7 @@ const AuthLoginRoute = AuthLoginRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/favicon.png': typeof FaviconDotpngRoute
   '/household': typeof HouseholdRoute
-  '/icon-192.png': typeof Icon192DotpngRoute
-  '/icon-512.png': typeof Icon512DotpngRoute
   '/og-image': typeof OgImageRoute
   '/roulette': typeof RouletteRoute
   '/settings': typeof SettingsRoute
@@ -120,14 +123,15 @@ export interface FileRoutesByFullPath {
   '/dishes': typeof HouseholdDishesRoute
   '/meal-plan': typeof HouseholdMealPlanRoute
   '/shopping': typeof HouseholdShoppingRoute
+  '/favicon.png': typeof IconsFaviconDotpngRoute
+  '/favicon.svg': typeof IconsFaviconDotsvgRoute
+  '/icon-192.png': typeof IconsIcon192DotpngRoute
+  '/icon-512.png': typeof IconsIcon512DotpngRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/favicon.png': typeof FaviconDotpngRoute
   '/household': typeof HouseholdRoute
-  '/icon-192.png': typeof Icon192DotpngRoute
-  '/icon-512.png': typeof Icon512DotpngRoute
   '/og-image': typeof OgImageRoute
   '/roulette': typeof RouletteRoute
   '/settings': typeof SettingsRoute
@@ -136,6 +140,10 @@ export interface FileRoutesByTo {
   '/dishes': typeof HouseholdDishesRoute
   '/meal-plan': typeof HouseholdMealPlanRoute
   '/shopping': typeof HouseholdShoppingRoute
+  '/favicon.png': typeof IconsFaviconDotpngRoute
+  '/favicon.svg': typeof IconsFaviconDotsvgRoute
+  '/icon-192.png': typeof IconsIcon192DotpngRoute
+  '/icon-512.png': typeof IconsIcon512DotpngRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -143,10 +151,7 @@ export interface FileRoutesById {
   '/_auth': typeof AuthRouteRouteWithChildren
   '/_household': typeof HouseholdRouteRouteWithChildren
   '/about': typeof AboutRoute
-  '/favicon.png': typeof FaviconDotpngRoute
   '/household': typeof HouseholdRoute
-  '/icon-192.png': typeof Icon192DotpngRoute
-  '/icon-512.png': typeof Icon512DotpngRoute
   '/og-image': typeof OgImageRoute
   '/roulette': typeof RouletteRoute
   '/settings': typeof SettingsRoute
@@ -155,16 +160,17 @@ export interface FileRoutesById {
   '/_household/dishes': typeof HouseholdDishesRoute
   '/_household/meal-plan': typeof HouseholdMealPlanRoute
   '/_household/shopping': typeof HouseholdShoppingRoute
+  '/_icons/favicon.png': typeof IconsFaviconDotpngRoute
+  '/_icons/favicon.svg': typeof IconsFaviconDotsvgRoute
+  '/_icons/icon-192.png': typeof IconsIcon192DotpngRoute
+  '/_icons/icon-512.png': typeof IconsIcon512DotpngRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/about'
-    | '/favicon.png'
     | '/household'
-    | '/icon-192.png'
-    | '/icon-512.png'
     | '/og-image'
     | '/roulette'
     | '/settings'
@@ -173,14 +179,15 @@ export interface FileRouteTypes {
     | '/dishes'
     | '/meal-plan'
     | '/shopping'
+    | '/favicon.png'
+    | '/favicon.svg'
+    | '/icon-192.png'
+    | '/icon-512.png'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/about'
-    | '/favicon.png'
     | '/household'
-    | '/icon-192.png'
-    | '/icon-512.png'
     | '/og-image'
     | '/roulette'
     | '/settings'
@@ -189,16 +196,17 @@ export interface FileRouteTypes {
     | '/dishes'
     | '/meal-plan'
     | '/shopping'
+    | '/favicon.png'
+    | '/favicon.svg'
+    | '/icon-192.png'
+    | '/icon-512.png'
   id:
     | '__root__'
     | '/'
     | '/_auth'
     | '/_household'
     | '/about'
-    | '/favicon.png'
     | '/household'
-    | '/icon-192.png'
-    | '/icon-512.png'
     | '/og-image'
     | '/roulette'
     | '/settings'
@@ -207,6 +215,10 @@ export interface FileRouteTypes {
     | '/_household/dishes'
     | '/_household/meal-plan'
     | '/_household/shopping'
+    | '/_icons/favicon.png'
+    | '/_icons/favicon.svg'
+    | '/_icons/icon-192.png'
+    | '/_icons/icon-512.png'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -214,13 +226,14 @@ export interface RootRouteChildren {
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
   HouseholdRouteRoute: typeof HouseholdRouteRouteWithChildren
   AboutRoute: typeof AboutRoute
-  FaviconDotpngRoute: typeof FaviconDotpngRoute
   HouseholdRoute: typeof HouseholdRoute
-  Icon192DotpngRoute: typeof Icon192DotpngRoute
-  Icon512DotpngRoute: typeof Icon512DotpngRoute
   OgImageRoute: typeof OgImageRoute
   RouletteRoute: typeof RouletteRoute
   SettingsRoute: typeof SettingsRoute
+  IconsFaviconDotpngRoute: typeof IconsFaviconDotpngRoute
+  IconsFaviconDotsvgRoute: typeof IconsFaviconDotsvgRoute
+  IconsIcon192DotpngRoute: typeof IconsIcon192DotpngRoute
+  IconsIcon512DotpngRoute: typeof IconsIcon512DotpngRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -246,32 +259,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OgImageRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/icon-512.png': {
-      id: '/icon-512.png'
-      path: '/icon-512.png'
-      fullPath: '/icon-512.png'
-      preLoaderRoute: typeof Icon512DotpngRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/icon-192.png': {
-      id: '/icon-192.png'
-      path: '/icon-192.png'
-      fullPath: '/icon-192.png'
-      preLoaderRoute: typeof Icon192DotpngRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/household': {
       id: '/household'
       path: '/household'
       fullPath: '/household'
       preLoaderRoute: typeof HouseholdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/favicon.png': {
-      id: '/favicon.png'
-      path: '/favicon.png'
-      fullPath: '/favicon.png'
-      preLoaderRoute: typeof FaviconDotpngRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/about': {
@@ -300,6 +292,34 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_icons/icon-512.png': {
+      id: '/_icons/icon-512.png'
+      path: '/icon-512.png'
+      fullPath: '/icon-512.png'
+      preLoaderRoute: typeof IconsIcon512DotpngRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_icons/icon-192.png': {
+      id: '/_icons/icon-192.png'
+      path: '/icon-192.png'
+      fullPath: '/icon-192.png'
+      preLoaderRoute: typeof IconsIcon192DotpngRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_icons/favicon.svg': {
+      id: '/_icons/favicon.svg'
+      path: '/favicon.svg'
+      fullPath: '/favicon.svg'
+      preLoaderRoute: typeof IconsFaviconDotsvgRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_icons/favicon.png': {
+      id: '/_icons/favicon.png'
+      path: '/favicon.png'
+      fullPath: '/favicon.png'
+      preLoaderRoute: typeof IconsFaviconDotpngRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_household/shopping': {
@@ -375,23 +395,15 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRouteRoute: AuthRouteRouteWithChildren,
   HouseholdRouteRoute: HouseholdRouteRouteWithChildren,
   AboutRoute: AboutRoute,
-  FaviconDotpngRoute: FaviconDotpngRoute,
   HouseholdRoute: HouseholdRoute,
-  Icon192DotpngRoute: Icon192DotpngRoute,
-  Icon512DotpngRoute: Icon512DotpngRoute,
   OgImageRoute: OgImageRoute,
   RouletteRoute: RouletteRoute,
   SettingsRoute: SettingsRoute,
+  IconsFaviconDotpngRoute: IconsFaviconDotpngRoute,
+  IconsFaviconDotsvgRoute: IconsFaviconDotsvgRoute,
+  IconsIcon192DotpngRoute: IconsIcon192DotpngRoute,
+  IconsIcon512DotpngRoute: IconsIcon512DotpngRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}
