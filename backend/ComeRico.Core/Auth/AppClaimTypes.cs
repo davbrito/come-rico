@@ -1,4 +1,4 @@
-namespace ComeRico.Api.Auth;
+namespace ComeRico.Core.Auth;
 
 /// <summary>
 /// Custom claim types embedded in the authentication cookie.

@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using ComeRico.Core.Auth;
 using ComeRico.Core.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;

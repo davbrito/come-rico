@@ -21,5 +21,6 @@
   <ItemGroup>
     <ProjectReference Include="..\ComeRico.Api\ComeRico.Api.csproj" />
     <ProjectReference Include="..\ComeRico.Core\ComeRico.Core.csproj" />
+    <ProjectReference Include="..\ComeRico.Infrastructure\ComeRico.Infrastructure.csproj" />
   </ItemGroup>
 </Project>

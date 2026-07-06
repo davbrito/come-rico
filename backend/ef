@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PROJECT="ComeRico.Core"
+PROJECT="ComeRico.Infrastructure"
 STARTUP="ComeRico.Api"
 CMD="${1:-help}"
 shift 2>/dev/null || true

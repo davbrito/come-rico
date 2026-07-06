@@ -4,7 +4,7 @@ using Amazon.S3.Model;
 using ComeRico.Core.Interfaces;
 using Microsoft.Extensions.Options;
 
-namespace ComeRico.Api.Services;
+namespace ComeRico.Infrastructure.Services;
 
 public sealed class R2Options
 {

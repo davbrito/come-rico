@@ -4,7 +4,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
-namespace ComeRico.Core.Migrations
+namespace ComeRico.Infrastructure.Migrations
 {
     /// <inheritdoc />
     public partial class Init : Migration

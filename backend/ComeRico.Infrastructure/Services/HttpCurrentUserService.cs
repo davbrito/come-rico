@@ -1,9 +1,10 @@
 using System.Security.Claims;
-using ComeRico.Api.Auth;
+using ComeRico.Core.Auth;
 using ComeRico.Core.Domain.Entities;
 using ComeRico.Core.Interfaces;
+using Microsoft.AspNetCore.Http;
 
-namespace ComeRico.Api.Services;
+namespace ComeRico.Infrastructure.Services;
 
 /// <summary>
 /// Resolves the authenticated user's id from the auth cookie's NameIdentifier claim.

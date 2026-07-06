@@ -1,7 +1,8 @@
-using ComeRico.Api.Auth;
+using ComeRico.Core.Auth;
 using ComeRico.Core.Interfaces;
+using Microsoft.AspNetCore.Http;
 
-namespace ComeRico.Api.Services;
+namespace ComeRico.Infrastructure.Services;
 
 /// <summary>
 /// Resolves the current household tenant from the authenticated user's claims

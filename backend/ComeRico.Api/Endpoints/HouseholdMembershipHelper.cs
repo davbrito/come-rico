@@ -1,5 +1,5 @@
 using ComeRico.Core.Domain.Entities;
-using ComeRico.Core.Persistence;
+using ComeRico.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
 namespace ComeRico.Api.Endpoints;

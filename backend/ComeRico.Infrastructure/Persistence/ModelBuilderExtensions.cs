@@ -3,7 +3,7 @@ using ComeRico.Core.Domain.Entities;
 using ComeRico.Core.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
-namespace ComeRico.Core.Persistence;
+namespace ComeRico.Infrastructure.Persistence;
 
 public static class ModelBuilderExtensions
 {

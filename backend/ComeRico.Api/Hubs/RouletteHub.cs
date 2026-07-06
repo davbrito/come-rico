@@ -1,4 +1,4 @@
-using ComeRico.Api.Auth;
+using ComeRico.Core.Auth;
 using ComeRico.Core.Features.Roulette.Commands;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;

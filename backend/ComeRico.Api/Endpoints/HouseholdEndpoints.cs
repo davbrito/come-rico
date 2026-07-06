@@ -1,7 +1,7 @@
 using ComeRico.Core.Domain.Entities;
 using ComeRico.Core.Features.Households.Commands;
 using ComeRico.Core.Interfaces;
-using ComeRico.Core.Persistence;
+using ComeRico.Infrastructure.Persistence;
 using MediatR;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;

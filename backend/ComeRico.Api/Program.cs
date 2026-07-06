@@ -1,12 +1,13 @@
 using ComeRico.Api.Auth;
 using ComeRico.Api.Endpoints;
-using ComeRico.Api.Extensions;
 using ComeRico.Api.Hubs;
-using ComeRico.Api.Services;
+using ComeRico.Core.Auth;
 using ComeRico.Core.Domain.Entities;
 using ComeRico.Core.Features.Households.Commands;
 using ComeRico.Core.Interfaces;
-using ComeRico.Core.Persistence;
+using ComeRico.Infrastructure.Extensions;
+using ComeRico.Infrastructure.Persistence;
+using ComeRico.Infrastructure.Services;
 using FluentValidation;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
@@ -117,7 +118,7 @@ if (app.Environment.IsDevelopment())
 }
 
 // Migrations are applied exclusively via the dotnet CLI:
-//   dotnet ef database update --project ComeRico.Core --startup-project ComeRico.Api
+//   dotnet ef database update --project ComeRico.Infrastructure --startup-project ComeRico.Api
 // The app never migrates the database itself.
 
 // Global exception handler for validation errors

@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
-namespace ComeRico.Core.Persistence;
+namespace ComeRico.Infrastructure.Persistence;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService tenantService)
     : IdentityDbContext<AppUser, IdentityRole<Guid>, Guid>(options),

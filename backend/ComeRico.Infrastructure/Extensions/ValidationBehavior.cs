@@ -1,6 +1,6 @@
 using FluentValidation;
 
-namespace ComeRico.Api.Extensions;
+namespace ComeRico.Infrastructure.Extensions;
 
 /// <summary>
 /// MediatR pipeline behavior that validates commands before they reach their handlers.

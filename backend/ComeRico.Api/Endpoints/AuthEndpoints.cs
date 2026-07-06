@@ -1,6 +1,5 @@
 using ComeRico.Core.Domain.Entities;
-using ComeRico.Core.Persistence;
-using Microsoft.AspNetCore.Http;
+using ComeRico.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
