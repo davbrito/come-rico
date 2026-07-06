@@ -19,5 +19,8 @@
     "source.format.oxc": "always",
     "source.fixAll.oxc": "always"
   },
-  "tailwindCSS.classFunctions": ["cn", "cva"]
+  "tailwindCSS.classFunctions": ["cn", "cva"],
+  "yaml.schemas": {
+    "https://www.schemastore.org/github-workflow.json": "${workspaceFolder}/.github/workflows/*.yml"
+  }
 }
