@@ -27,4 +27,18 @@ public class HouseholdTests
         Assert.Equal(8, household.InviteCode.Length);
         Assert.Matches("^[0-9A-F]{8}$", household.InviteCode);
     }
+
+    [Fact]
+    public void RotateInviteCode_ChangesToNewCode()
+    {
+        var household = Household.Create("Test");
+
+        var originalCode = household.InviteCode;
+        household.RotateInviteCode();
+
+        Assert.NotNull(household.InviteCode);
+        Assert.Equal(8, household.InviteCode.Length);
+        Assert.Matches("^[0-9A-F]{8}$", household.InviteCode);
+        Assert.NotEqual(originalCode, household.InviteCode);
+    }
 }
