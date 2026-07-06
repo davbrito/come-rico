@@ -5,9 +5,7 @@ import { generateFavicon } from "#/lib/og-favicon";
 export const Route = createFileRoute("/favicon.png")({
   server: {
     handlers: {
-      GET: async () => await generateFavicon(),
+      GET: () => generateFavicon(),
     },
   },
-  // Dummy component — the generator requires one for escaped routes
-  component: () => null,
 });

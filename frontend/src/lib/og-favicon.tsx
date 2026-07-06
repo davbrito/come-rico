@@ -29,7 +29,7 @@ function SvgPlate() {
       {/* Background */}
       <rect width="64" height="64" fill="#0f172a" />
       {/* Copper accent circle */}
-      <circle cx="56" cy="8" r="6" fill="#f97316" opacity="0.75" />
+      <circle cx="56" cy="8" r="6" fill="#f97316" opacity="0.8" />
       {/* Plate shadow */}
       <circle cx="32" cy="33" r="22" fill="rgba(0,0,0,0.35)" />
       {/* Plate rim */}
