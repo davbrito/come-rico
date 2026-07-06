@@ -158,20 +158,7 @@ public static class AuthEndpoints
                     if (user is null)
                         return TypedResults.Unauthorized();
 
-                    if (user.Role == HouseholdRole.Admin && user.HouseholdId is { } householdId)
-                    {
-                        var otherMembers = await dbContext
-                            .Users.Where(u => u.HouseholdId == householdId && u.Id != user.Id)
-                            .OrderBy(u => u.CreatedAt)
-                            .ToListAsync(ct);
-
-                        var hasOtherAdmin = otherMembers.Any(u => u.Role == HouseholdRole.Admin);
-                        if (!hasOtherAdmin && otherMembers.Count > 0)
-                        {
-                            otherMembers[0].PromoteToAdmin();
-                            await dbContext.SaveChangesAsync(ct);
-                        }
-                    }
+                    await HouseholdMembershipHelper.PromoteFallbackAdminIfNeededAsync(dbContext, user, ct);
 
                     await signInManager.SignOutAsync();
                     await userManager.DeleteAsync(user);

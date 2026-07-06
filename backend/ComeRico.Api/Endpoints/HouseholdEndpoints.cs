@@ -92,6 +92,35 @@ public static class HouseholdEndpoints
             .WithSummary("Cambia el nombre del hogar (solo admin)");
 
         group
+            .MapPost(
+                "/leave",
+                async Task<Results<Ok, UnauthorizedHttpResult>> (
+                    ICurrentUserService currentUserService,
+                    UserManager<AppUser> userManager,
+                    SignInManager<AppUser> signInManager,
+                    AppDbContext dbContext,
+                    HttpContext httpContext,
+                    CancellationToken ct
+                ) =>
+                {
+                    var currentUser = await dbContext.Users.FirstOrDefaultAsync(u => u.Id == currentUserService.UserId, ct);
+                    if (currentUser is null)
+                        return TypedResults.Unauthorized();
+
+                    await HouseholdMembershipHelper.PromoteFallbackAdminIfNeededAsync(dbContext, currentUser, ct);
+
+                    currentUser.LeaveHousehold();
+                    await dbContext.SaveChangesAsync(ct);
+                    await RefreshHouseholdClaimsAsync(userManager, signInManager, httpContext);
+
+                    return TypedResults.Ok();
+                }
+            )
+            .RequireAuthorization("RequiresHousehold")
+            .WithName("LeaveHousehold")
+            .WithSummary("Abandona el hogar actual");
+
+        group
             .MapGet(
                 "/members",
                 async Task<Ok<List<HouseholdMemberDto>>> (

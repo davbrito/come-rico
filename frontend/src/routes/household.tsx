@@ -7,6 +7,7 @@ import {
   createHouseholdMutation,
   getHouseholdMembersOptions,
   joinHouseholdMutation,
+  leaveHouseholdMutation,
   renameHouseholdMutation,
 } from "#/api/@tanstack/react-query.gen";
 import { Button } from "#/components/ui/Button";
@@ -129,8 +130,10 @@ function HouseholdDetails({
   user: NonNullable<ReturnType<typeof Route.useRouteContext>["user"]>;
 }) {
   const router = useRouter();
+  const navigate = useNavigate();
   const { data: members } = useSuspenseQuery(getHouseholdMembersOptions());
   const [copied, setCopied] = useState(false);
+  const [confirmingLeave, setConfirmingLeave] = useState(false);
 
   const isAdmin = user.role === "Admin";
   const [editing, setEditing] = useState(false);
@@ -152,6 +155,14 @@ function HouseholdDetails({
     onSettled: async () => {
       await router.invalidate();
       setOptimisticName(null);
+    },
+  });
+
+  const leaveMut = useMutation({
+    ...leaveHouseholdMutation(),
+    onSuccess: async () => {
+      await router.invalidate();
+      navigate({ to: "/household" });
     },
   });
 
@@ -264,6 +275,41 @@ function HouseholdDetails({
             </li>
           ))}
         </ul>
+      </div>
+
+      <div className="island-shell mt-4 rounded-2xl border border-red-200 p-6 dark:border-red-900/40">
+        {leaveMut.isError && (
+          <p className="mb-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
+            {getApiErrorMessage(leaveMut.error)}
+          </p>
+        )}
+
+        {confirmingLeave ? (
+          <div className="space-y-3">
+            <p className="text-sm text-sea-ink-soft">
+              {isAdmin && members.length > 1
+                ? "Otro miembro será ascendido a administrador si no hay ninguno más. ¿Seguro que quieres abandonar el hogar?"
+                : "¿Seguro que quieres abandonar el hogar?"}
+            </p>
+            <div className="flex gap-2">
+              <Button
+                variant="danger"
+                disabled={leaveMut.isPending}
+                onClick={() => leaveMut.mutate({})}
+                className="flex-1"
+              >
+                {leaveMut.isPending ? "Saliendo…" : "Abandonar hogar"}
+              </Button>
+              <Button variant="outline" type="button" onClick={() => setConfirmingLeave(false)}>
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button variant="danger" onClick={() => setConfirmingLeave(true)} className="w-full">
+            Abandonar hogar
+          </Button>
+        )}
       </div>
     </>
   );

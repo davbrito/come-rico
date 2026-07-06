@@ -573,6 +573,20 @@
         }
       }
     },
+    "/api/households/leave": {
+      "post": {
+        "tags": [
+          "Households"
+        ],
+        "summary": "Abandona el hogar actual",
+        "operationId": "LeaveHousehold",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/households/members": {
       "get": {
         "tags": [
