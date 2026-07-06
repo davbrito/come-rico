@@ -80,7 +80,7 @@ export function TagsInput({
       </Combobox.InputGroup>
       <Combobox.Portal>
         <Combobox.Positioner className="outline-none" sideOffset={4}>
-          <Combobox.Popup className="island-shell max-h-64 w-(--anchor-width) overflow-y-auto rounded-xl p-1">
+          <Combobox.Popup className="island-shell max-h-64 w-(--anchor-width) scrollbar-thin overflow-y-auto rounded-xl p-1">
             <Combobox.Empty>
               <div className="px-3 py-2 text-xs text-sea-ink-soft">Sin coincidencias</div>
             </Combobox.Empty>

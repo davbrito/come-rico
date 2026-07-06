@@ -1,6 +1,6 @@
 import { createIsomorphicFn } from "@tanstack/react-start";
 import { getRequestHeader } from "@tanstack/react-start/server";
-import axios, { type InternalAxiosRequestConfig } from "axios";
+import axios, { isAxiosError, type InternalAxiosRequestConfig } from "axios";
 
 import type { CreateClientConfig } from "#/api/client";
 
@@ -27,13 +27,55 @@ export const createClientConfig: CreateClientConfig = (config) => ({
   axios,
 });
 
-export function getApiErrorMessage(err: unknown): string {
+export interface ErrorMetadata {
+  /** Human-readable error message. */
+  message: string;
+  /** HTTP status code, when the error came from an API response. */
+  status?: number;
+  /** Structured validation errors, when present. */
+  details?: Record<string, string[]>;
+}
+
+/**
+ * Extract structured metadata from any error value.
+ *
+ * Handles Axios errors (digging into `response.data`), standard `Error`
+ * instances, plain objects with a `message` or `errors` field, strings,
+ * and unknown types — always returning a safe fallback message.
+ */
+export function extractErrorMetadata(err: unknown): ErrorMetadata {
+  if (isAxiosError(err)) {
+    const data = err.response?.data as Record<string, unknown> | undefined;
+    return {
+      message: typeof data?.message === "string" ? data.message : err.message,
+      status: err.response?.status,
+      details:
+        typeof data?.errors === "object" && data.errors !== null
+          ? (data.errors as Record<string, string[]>)
+          : undefined,
+    };
+  }
+
+  if (err instanceof Error) {
+    return { message: err.message };
+  }
+
   if (typeof err === "object" && err !== null) {
     const e = err as Record<string, unknown>;
-    if (typeof e.message === "string") return e.message;
+    if (typeof e.message === "string") return { message: e.message };
     if (Array.isArray(e.errors) && typeof e.errors[0]?.message === "string")
-      return e.errors[0].message;
+      return { message: e.errors[0].message };
   }
-  if (typeof err === "string") return err;
-  return "Ocurrió un error inesperado";
+
+  if (typeof err === "string") return { message: err };
+
+  return { message: "Ocurrió un error inesperado" };
+}
+
+/**
+ * Convenience function that returns only the error message string.
+ * Prefer `extractErrorMetadata` when you also need the HTTP status or details.
+ */
+export function getApiErrorMessage(err: unknown): string {
+  return extractErrorMetadata(err).message;
 }

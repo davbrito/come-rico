@@ -10,6 +10,7 @@ import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query
 import { createIsomorphicFn } from "@tanstack/react-start";
 
 import { toastManager } from "./components/ui/Toaster";
+import { getApiErrorMessage } from "./lib/api";
 import { routeTree } from "./routeTree.gen";
 
 const onMutationError = createIsomorphicFn()
@@ -28,7 +29,7 @@ const onMutationError = createIsomorphicFn()
     toastManager.add({
       type: "error",
       title: "Error",
-      description: error instanceof Error ? error.message : "Ocurrió un error inesperado",
+      description: getApiErrorMessage(error),
     });
   });
 
