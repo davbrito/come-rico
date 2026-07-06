@@ -1,6 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import axios from "axios";
 import { z } from "zod";
 
 import { postApiIdentityLoginMutation } from "#/api/@tanstack/react-query.gen";
