@@ -24,10 +24,14 @@ public class Household
         {
             Id = id,
             Name = name,
-            InviteCode = id.ToString("N")[..8].ToUpperInvariant(),
+            InviteCode = GenerateInviteCode(),
             CreatedAt = now,
         };
     }
 
     public void Rename(string newName) => Name = newName;
+
+    public void RotateInviteCode() => InviteCode = GenerateInviteCode();
+
+    private static string GenerateInviteCode() => Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
 }
