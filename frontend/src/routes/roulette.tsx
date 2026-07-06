@@ -13,6 +13,11 @@ export const Route = createFileRoute("/roulette")({
     if (!context.user) throw redirect({ to: "/login" });
     if (!context.user.householdId) throw redirect({ to: "/household" });
   },
+  loader: async ({ context }) => {
+    await context.queryClient.ensureQueryData(
+      getRouletteHistoryOptions({ query: { page: 1, pageSize: 20 } }),
+    );
+  },
   component: RoulettePage,
 });
 
