@@ -26,6 +26,8 @@ public class AppUser : IdentityUser<Guid>
         HouseholdId = null;
         Role = HouseholdRole.Member;
     }
+
+    public void PromoteToAdmin() => Role = HouseholdRole.Admin;
 }
 
 public enum HouseholdRole

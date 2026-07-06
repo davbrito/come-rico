@@ -46,14 +46,22 @@ export interface ErrorMetadata {
 export function extractErrorMetadata(err: unknown): ErrorMetadata {
   if (isAxiosError(err)) {
     const data = err.response?.data as Record<string, unknown> | undefined;
-    return {
-      message: typeof data?.message === "string" ? data.message : err.message,
-      status: err.response?.status,
-      details:
-        typeof data?.errors === "object" && data.errors !== null
-          ? (data.errors as Record<string, string[]>)
-          : undefined,
-    };
+    const details =
+      typeof data?.errors === "object" && data.errors !== null
+        ? (data.errors as Record<string, string[]>)
+        : undefined;
+
+    const detailsMessage = details
+      ? Object.values(details).flat().join(" ")
+      : undefined;
+
+    const message =
+      detailsMessage ||
+      (typeof data?.message === "string" ? data.message : undefined) ||
+      (typeof data?.title === "string" ? data.title : undefined) ||
+      err.message;
+
+    return { message, status: err.response?.status, details };
   }
 
   if (err instanceof Error) {

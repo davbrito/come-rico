@@ -12,6 +12,8 @@ public sealed record UserRegisterRequest(string DisplayName, string Email, strin
 
 public sealed record UserLoginRequest(string Email, string Password);
 
+public sealed record UpdateProfileRequest(string DisplayName);
+
 public sealed record CurrentUserDto(
     Guid Id,
     string DisplayName,
@@ -109,6 +111,76 @@ public static class AuthEndpoints
             .RequireAuthorization()
             .WithName("GetCurrentUser")
             .WithSummary("Obtiene el usuario autenticado y su hogar");
+
+        group
+            .MapPut(
+                "/me",
+                async Task<Results<Ok<CurrentUserDto>, ValidationProblem, UnauthorizedHttpResult>> (
+                    [FromBody] UpdateProfileRequest request,
+                    UserManager<AppUser> userManager,
+                    AppDbContext dbContext,
+                    HttpContext httpContext,
+                    CancellationToken ct
+                ) =>
+                {
+                    var user = await userManager.GetUserAsync(httpContext.User);
+                    if (user is null)
+                        return TypedResults.Unauthorized();
+
+                    if (string.IsNullOrWhiteSpace(request.DisplayName))
+                        return TypedResults.ValidationProblem(
+                            new Dictionary<string, string[]> { { "displayName", ["El nombre es obligatorio."] } }
+                        );
+
+                    user.DisplayName = request.DisplayName.Trim();
+                    await userManager.UpdateAsync(user);
+
+                    var household = await FindHouseholdAsync(dbContext, user.HouseholdId, ct);
+                    return TypedResults.Ok(ToDto(user, household));
+                }
+            )
+            .RequireAuthorization()
+            .WithName("UpdateProfile")
+            .WithSummary("Actualiza el nombre para mostrar del usuario autenticado");
+
+        group
+            .MapDelete(
+                "/me",
+                async Task<Results<Ok, UnauthorizedHttpResult>> (
+                    UserManager<AppUser> userManager,
+                    SignInManager<AppUser> signInManager,
+                    AppDbContext dbContext,
+                    HttpContext httpContext,
+                    CancellationToken ct
+                ) =>
+                {
+                    var user = await userManager.GetUserAsync(httpContext.User);
+                    if (user is null)
+                        return TypedResults.Unauthorized();
+
+                    if (user.Role == HouseholdRole.Admin && user.HouseholdId is { } householdId)
+                    {
+                        var nextAdmin = await dbContext
+                            .Users.Where(u => u.HouseholdId == householdId && u.Id != user.Id)
+                            .OrderBy(u => u.CreatedAt)
+                            .FirstOrDefaultAsync(ct);
+
+                        if (nextAdmin is not null)
+                        {
+                            nextAdmin.PromoteToAdmin();
+                            await dbContext.SaveChangesAsync(ct);
+                        }
+                    }
+
+                    await signInManager.SignOutAsync();
+                    await userManager.DeleteAsync(user);
+
+                    return TypedResults.Ok();
+                }
+            )
+            .RequireAuthorization()
+            .WithName("DeleteAccount")
+            .WithSummary("Elimina la cuenta del usuario autenticado");
 
         return app;
     }

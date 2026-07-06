@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as RouletteRouteImport } from './routes/roulette'
 import { Route as HouseholdRouteImport } from './routes/household'
 import { Route as AboutRouteImport } from './routes/about'
@@ -21,6 +22,11 @@ import { Route as HouseholdDishesRouteImport } from './routes/_household/dishes'
 import { Route as AuthRegisterRouteImport } from './routes/_auth/register'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
 
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const RouletteRoute = RouletteRouteImport.update({
   id: '/roulette',
   path: '/roulette',
@@ -80,6 +86,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/household': typeof HouseholdRoute
   '/roulette': typeof RouletteRoute
+  '/settings': typeof SettingsRoute
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
   '/dishes': typeof HouseholdDishesRoute
@@ -91,6 +98,7 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/household': typeof HouseholdRoute
   '/roulette': typeof RouletteRoute
+  '/settings': typeof SettingsRoute
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
   '/dishes': typeof HouseholdDishesRoute
@@ -105,6 +113,7 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/household': typeof HouseholdRoute
   '/roulette': typeof RouletteRoute
+  '/settings': typeof SettingsRoute
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/register': typeof AuthRegisterRoute
   '/_household/dishes': typeof HouseholdDishesRoute
@@ -118,6 +127,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/household'
     | '/roulette'
+    | '/settings'
     | '/login'
     | '/register'
     | '/dishes'
@@ -129,6 +139,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/household'
     | '/roulette'
+    | '/settings'
     | '/login'
     | '/register'
     | '/dishes'
@@ -142,6 +153,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/household'
     | '/roulette'
+    | '/settings'
     | '/_auth/login'
     | '/_auth/register'
     | '/_household/dishes'
@@ -156,10 +168,18 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   HouseholdRoute: typeof HouseholdRoute
   RouletteRoute: typeof RouletteRoute
+  SettingsRoute: typeof SettingsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/roulette': {
       id: '/roulette'
       path: '/roulette'
@@ -277,6 +297,7 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   HouseholdRoute: HouseholdRoute,
   RouletteRoute: RouletteRoute,
+  SettingsRoute: SettingsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

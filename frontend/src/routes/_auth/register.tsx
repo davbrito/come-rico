@@ -30,9 +30,15 @@ function LoginPage() {
   const errorMessage = registerMut.error ? getApiErrorMessage(registerMut.error) : null;
 
   const form = useAppForm({
-    defaultValues: { displayName: "", email: "", password: "" },
+    defaultValues: { displayName: "", email: "", password: "", confirmPassword: "" },
     onSubmit: async ({ value }) => {
-      await registerMut.mutateAsync({ body: value });
+      await registerMut.mutateAsync({
+        body: {
+          displayName: value.displayName,
+          email: value.email,
+          password: value.password,
+        },
+      });
     },
   });
 
@@ -72,9 +78,22 @@ function LoginPage() {
           </form.AppField>
           <form.AppField name="password" validators={{ onChange: passwordSchema }}>
             {(field) => (
-              <field.TextField
-                label="Contraseña *"
-                type="password"
+              <field.PasswordField label="Contraseña *" autoComplete="new-password" required />
+            )}
+          </form.AppField>
+          <form.AppField
+            name="confirmPassword"
+            validators={{
+              onChangeListenTo: ["password"],
+              onChange: ({ value, fieldApi }) =>
+                value !== fieldApi.form.getFieldValue("password")
+                  ? "Las contraseñas no coinciden"
+                  : undefined,
+            }}
+          >
+            {(field) => (
+              <field.PasswordField
+                label="Repite la contraseña *"
                 autoComplete="new-password"
                 required
               />
