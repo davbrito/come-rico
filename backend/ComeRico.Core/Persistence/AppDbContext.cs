@@ -26,6 +26,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService
     public DbSet<ShoppingItem> ShoppingItems => Set<ShoppingItem>();
     public DbSet<StoredFile> StoredFiles => Set<StoredFile>();
 
+    public Guid CurrentHouseholdId => tenantService.HouseholdId;
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -145,6 +147,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService
             entity.HasOne(i => i.Household).WithMany().HasForeignKey(i => i.HouseholdId).OnDelete(DeleteBehavior.Cascade);
         });
 
-        modelBuilder.ApplyHouseholdFilters(tenantService);
+        modelBuilder.ApplyHouseholdFilters(this);
     }
 }

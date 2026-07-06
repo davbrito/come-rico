@@ -16,6 +16,8 @@ public interface IAppDbContext
     DbSet<ShoppingItem> ShoppingItems { get; }
     DbSet<StoredFile> StoredFiles { get; }
 
+    Guid CurrentHouseholdId { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 
     // Entry

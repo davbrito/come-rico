@@ -7,7 +7,7 @@ namespace ComeRico.Core.Persistence;
 
 public static class ModelBuilderExtensions
 {
-    public static ModelBuilder ApplyHouseholdFilters(this ModelBuilder modelBuilder, ITenantService tenantService)
+    public static ModelBuilder ApplyHouseholdFilters(this ModelBuilder modelBuilder, IAppDbContext context)
     {
         foreach (
             var entityType in modelBuilder.Model.GetEntityTypes().Where(e => typeof(IHasHousehold).IsAssignableFrom(e.ClrType))
@@ -16,16 +16,12 @@ public static class ModelBuilderExtensions
             var param = Expression.Parameter(entityType.ClrType, "e");
             var property = Expression.Property(param, nameof(IHasHousehold.HouseholdId));
 
-            var tenant = Expression.Constant(tenantService);
-            var isResolved = Expression.Property(tenant, nameof(ITenantService.IsResolved));
-            var notResolved = Expression.Not(isResolved);
-            var householdId = Expression.Property(tenant, nameof(ITenantService.HouseholdId));
+            var contextParam = Expression.Constant(context);
+            var householdId = Expression.Property(contextParam, nameof(IAppDbContext.CurrentHouseholdId));
             var equals = Expression.Equal(property, householdId);
+            var filter = Expression.Lambda(equals, param);
 
-            var body = Expression.OrElse(notResolved, equals);
-            var filter = Expression.Lambda(body, param);
-
-            entityType.SetQueryFilter(filter);
+            entityType.SetQueryFilter("HouseholdFilter", filter);
         }
 
         return modelBuilder;
