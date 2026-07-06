@@ -2,7 +2,7 @@ using ComeRico.Core.Domain.Entities;
 using ComeRico.Core.Interfaces;
 using MediatR;
 
-namespace ComeRico.Infrastructure.Extensions;
+namespace ComeRico.Core.Behaviors;
 
 /// <summary>
 /// MediatR pipeline behavior that enforces household-admin-only access for requests
