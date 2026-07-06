@@ -19,10 +19,9 @@ public class Household
     public static Household Create(string name)
     {
         var now = DateTime.UtcNow;
-        var id = Guid.CreateVersion7(now);
         return new()
         {
-            Id = id,
+            Id = Guid.CreateVersion7(now),
             Name = name,
             InviteCode = GenerateInviteCode(),
             CreatedAt = now,

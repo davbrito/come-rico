@@ -10,9 +10,7 @@ public class HouseholdMembershipHelperTests
 {
     private static AppDbContext CreateContext()
     {
-        var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
+        var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
 
         return new AppDbContext(options, new FakeTenantService());
     }
