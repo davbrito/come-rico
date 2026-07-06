@@ -9,7 +9,10 @@ export const Route = createFileRoute("/_icons/favicon.svg")({
         new Response(svgFaviconMarkup(), {
           headers: {
             "Content-Type": "image/svg+xml",
-            "Cache-Control": "public, max-age=86400, immutable",
+            "Cache-Control":
+              process.env.NODE_ENV === "development"
+                ? "no-cache, no-store"
+                : "public, immutable, no-transform, max-age=31536000",
           },
         }),
     },
