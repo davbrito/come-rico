@@ -15,7 +15,8 @@
     "lint:fix": "oxlint --fix",
     "format": "oxfmt",
     "format:fix": "oxfmt --fix",
-    "clear": "rm -r .tanstack .output"
+    "clear": "rm -r .tanstack .output",
+    "openapi:generate": "openapi-ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
