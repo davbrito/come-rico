@@ -67,13 +67,22 @@ export default function Header() {
             </>
           )}
           {user && (
-            <Link
-              to="/household"
-              className="nav-link"
-              activeProps={{ className: "nav-link is-active" }}
-            >
-              Hogar
-            </Link>
+            <>
+              <Link
+                to="/household"
+                className="nav-link"
+                activeProps={{ className: "nav-link is-active" }}
+              >
+                Hogar
+              </Link>
+              <Link
+                to="/settings"
+                className="nav-link"
+                activeProps={{ className: "nav-link is-active" }}
+              >
+                Ajustes
+              </Link>
+            </>
           )}
         </div>
 
