@@ -26,4 +26,8 @@
   <ItemGroup>
     <ProjectReference Include="..\ComeRico.Core\ComeRico.Core.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ComeRico.Tests" />
+  </ItemGroup>
 </Project>
