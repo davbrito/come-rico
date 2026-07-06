@@ -93,6 +93,26 @@ public static class HouseholdEndpoints
 
         group
             .MapPost(
+                "/invite-code/rotate",
+                async Task<Results<Ok<HouseholdDto>, UnauthorizedHttpResult>> (ISender mediator, CancellationToken ct) =>
+                {
+                    try
+                    {
+                        var result = await mediator.Send(new RotateInviteCodeCommand(), ct);
+                        return TypedResults.Ok(result);
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        return TypedResults.Unauthorized();
+                    }
+                }
+            )
+            .RequireAuthorization("RequiresHousehold")
+            .WithName("RotateInviteCode")
+            .WithSummary("Rota el código de invitación del hogar (solo admin)");
+
+        group
+            .MapPost(
                 "/leave",
                 async Task<Results<Ok, UnauthorizedHttpResult>> (
                     ICurrentUserService currentUserService,

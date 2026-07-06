@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using ComeRico.Api.Auth;
+using ComeRico.Core.Domain.Entities;
 using ComeRico.Core.Interfaces;
 
 namespace ComeRico.Api.Services;
@@ -20,4 +22,13 @@ public sealed class HttpCurrentUserService(IHttpContextAccessor httpContextAcces
     }
 
     public bool IsAuthenticated => httpContextAccessor.HttpContext?.User.Identity?.IsAuthenticated ?? false;
+
+    public HouseholdRole? Role
+    {
+        get
+        {
+            var claim = httpContextAccessor.HttpContext?.User.FindFirst(AppClaimTypes.HouseholdRole)?.Value;
+            return Enum.TryParse<HouseholdRole>(claim, out var role) ? role : null;
+        }
+    }
 }

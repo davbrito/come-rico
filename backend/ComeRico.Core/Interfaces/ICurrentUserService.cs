@@ -1,3 +1,5 @@
+using ComeRico.Core.Domain.Entities;
+
 namespace ComeRico.Core.Interfaces;
 
 /// <summary>
@@ -7,4 +9,5 @@ public interface ICurrentUserService
 {
     Guid UserId { get; }
     bool IsAuthenticated { get; }
+    HouseholdRole? Role { get; }
 }

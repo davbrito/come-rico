@@ -85,6 +85,7 @@ builder.Services.AddMediatR(cfg =>
 {
     cfg.RegisterServicesFromAssemblyContaining<CreateHouseholdCommand>();
     cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
+    cfg.AddOpenBehavior(typeof(AdminOnlyBehavior<,>));
 });
 
 // FluentValidation — scans the ComeRico.Core assembly for validators

@@ -573,6 +573,27 @@
         }
       }
     },
+    "/api/households/invite-code/rotate": {
+      "post": {
+        "tags": [
+          "Households"
+        ],
+        "summary": "Rota el código de invitación del hogar (solo admin)",
+        "operationId": "RotateInviteCode",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HouseholdDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/households/leave": {
       "post": {
         "tags": [
