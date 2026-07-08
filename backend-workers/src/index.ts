@@ -9,6 +9,7 @@ import { rouletteRoutes } from "./features/roulette";
 import { shoppingRoutes } from "./features/shopping";
 import { tagRoutes } from "./features/tags";
 import { registerErrorHandler } from "./http/errors";
+import { hubRoutes } from "./realtime/routes";
 import { RouletteRoom } from "./realtime/roulette-room";
 
 // The ComeRico backend, running on Cloudflare Workers.
@@ -45,6 +46,9 @@ app.route("/", shoppingRoutes);
 
 // Roulette (household-scoped) — spin broadcasts via the RouletteRoom DO.
 app.route("/", rouletteRoutes);
+
+// Real-time roulette WebSocket.
+app.route("/", hubRoutes);
 
 // The Durable Object class must be exported from the Worker entrypoint for the
 // ROULETTE_ROOM binding to resolve.
