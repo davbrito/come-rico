@@ -1,6 +1,6 @@
 import { createExecutionContext, env, waitOnExecutionContext } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import app from "../src/index";
+import { app } from "../src/index";
 
 async function request(path: string, init?: RequestInit) {
   const ctx = createExecutionContext();

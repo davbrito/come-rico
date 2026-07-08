@@ -9,17 +9,16 @@ async function status(path: string, init?: RequestInit) {
   return res.status;
 }
 
-// No-DB wiring checks: household-scoped routes reject requests without a
-// household session (401) before touching the database.
-describe("dishes/tags routes wiring", () => {
-  it("guards GET /api/dishes", async () => expect(await status("/api/dishes")).toBe(401));
-  it("guards POST /api/dishes", async () =>
+describe("image routes wiring", () => {
+  it("guards POST /api/images", async () =>
     expect(
-      await status("/api/dishes", {
+      await status("/api/images", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name: "x" }),
+        body: JSON.stringify({ type: "image", keyFolder: "dishes", contentType: "image/png", sizeBytes: 1 }),
       }),
     ).toBe(401));
-  it("guards GET /api/tags", async () => expect(await status("/api/tags")).toBe(401));
+
+  it("guards PUT /api/images/:id", async () =>
+    expect(await status("/api/images/abc", { method: "PUT" })).toBe(401));
 });

@@ -1,6 +1,6 @@
 import { createExecutionContext, env, waitOnExecutionContext } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import app from "../src/index";
+import { app } from "../src/index";
 
 // These exercise the auth wiring that does NOT require a database (no session
 // cookie → getSession short-circuits before any query). Full sign-up/sign-in

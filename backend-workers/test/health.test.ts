@@ -1,6 +1,6 @@
 import { env, createExecutionContext, waitOnExecutionContext } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import app from "../src/index";
+import { app } from "../src/index";
 
 describe("health", () => {
   it("responds ok", async () => {

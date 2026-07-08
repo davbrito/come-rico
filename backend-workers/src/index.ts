@@ -3,12 +3,15 @@ import { authRoutes } from "./auth/routes";
 import { sessionMiddleware } from "./auth/session";
 import { householdRoutes } from "./households/routes";
 import type { AppEnv } from "./context";
+import { createDb } from "./db/client";
 import { dishRoutes } from "./features/dishes";
+import { imageRoutes } from "./features/images/routes";
 import { mealPlanRoutes } from "./features/meal-plans";
 import { rouletteRoutes } from "./features/roulette";
 import { shoppingRoutes } from "./features/shopping";
 import { tagRoutes } from "./features/tags";
 import { registerErrorHandler } from "./http/errors";
+import { sweepOrphanedFiles } from "./images/cleanup";
 import { hubRoutes } from "./realtime/routes";
 import { RouletteRoom } from "./realtime/roulette-room";
 
@@ -47,6 +50,9 @@ app.route("/", shoppingRoutes);
 // Roulette (household-scoped) — spin broadcasts via the RouletteRoom DO.
 app.route("/", rouletteRoutes);
 
+// Image uploads (household-scoped, direct-to-R2 via the Worker).
+app.route("/", imageRoutes);
+
 // Real-time roulette WebSocket.
 app.route("/", hubRoutes);
 
@@ -54,4 +60,15 @@ app.route("/", hubRoutes);
 // ROULETTE_ROOM binding to resolve.
 export { RouletteRoom };
 
-export default app;
+// Named export of the Hono app for tests (app.request); production uses the
+// default handler below.
+export { app };
+
+export default {
+  fetch: app.fetch,
+  // Weekly cron (wrangler.jsonc triggers) → orphaned-image sweep.
+  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext) {
+    const db = createDb(env.HYPERDRIVE);
+    ctx.waitUntil(sweepOrphanedFiles(db, env.BUCKET));
+  },
+} satisfies ExportedHandler<Env>;
