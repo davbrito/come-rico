@@ -1,0 +1,12 @@
+{
+  // Cloudflare Worker for the ComeRico backend.
+  // Bindings (Hyperdrive, R2, Durable Objects, Cron) are added in a later step.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "comerico-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-07-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true
+  }
+}
