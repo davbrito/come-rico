@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { RouletteRoom } from "./realtime/roulette-room";
 
 // The ComeRico backend, running on Cloudflare Workers.
 //
@@ -13,5 +14,9 @@ const app = new Hono<{ Bindings: Env }>();
 
 // Liveness probe — replaced/extended as real routes land.
 app.get("/api/health", (c) => c.json({ status: "ok" }));
+
+// The Durable Object class must be exported from the Worker entrypoint for the
+// ROULETTE_ROOM binding to resolve.
+export { RouletteRoom };
 
 export default app;
