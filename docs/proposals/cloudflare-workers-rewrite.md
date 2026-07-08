@@ -24,6 +24,8 @@ Replace the ASP.NET Core 10 backend (`backend/`) with a TypeScript backend runni
 
 If the team weighs these higher than the motivations, the alternative is to keep .NET and only move *hosting* (e.g. to a container platform with fewer cold-start issues). This proposal assumes we want the full rewrite.
 
+**Timing favors doing this now:** the app is not yet in production, so there's no data, no live users, and no password hashes to migrate. A rewrite gets materially harder and riskier the moment real household data exists — this is the cheapest this change will ever be.
+
 ## Current state (what must be preserved)
 
 | Concern | Today |
@@ -50,7 +52,7 @@ Domain rules that must survive verbatim: roulette excludes winners from the last
 | HTTP framework | [Hono](https://hono.dev) | Minimal APIs |
 | Validation | Zod (via `@hono/zod-validator`) + generated OpenAPI | FluentValidation + built-in OpenAPI |
 | ORM | Drizzle ORM (`postgres-js` driver) | EF Core + Npgsql |
-| Database | Keep PostgreSQL (Neon), accessed through **Cloudflare Hyperdrive** for connection pooling | same DB, no migration of data |
+| Database | Keep PostgreSQL (Neon), accessed through **Cloudflare Hyperdrive** for connection pooling | same engine, clean schema (not in prod — DB dropped/recreated) |
 | Auth | [Better Auth](https://better-auth.com) — cookie sessions, Postgres-backed, scrypt/argon2 hashing | ASP.NET Identity + Data Protection |
 | Real-time | One **Durable Object** per household (`RouletteRoom`), WebSocket Hibernation API | SignalR + `IHubContext` |
 | File storage | Native **R2 binding**; keep the presigned-POST ticket flow | `AmazonS3Client` against R2 |
@@ -115,9 +117,9 @@ This is the highest-risk area. EF's global query filters are replaced by a **man
 
 ### Database
 
-- **Keep the existing PostgreSQL data.** The Drizzle schema is written to match the current EF snapshot (table/column names verbatim), validated by `drizzle-kit pull` against a copy of production. No data migration; Identity's `AspNetUsers` password hashes are the one exception — see cutover step 4.
-- Hyperdrive fronts the connection (Workers are short-lived; unpooled Postgres connections would exhaust Neon).
-- Migration policy carries over: migrations run only via `drizzle-kit`/CI, never at startup.
+- **Not in production yet — so no data to preserve.** We define a **clean Drizzle schema** modeled on the current domain (not bound to EF's exact table/column names or its `AspNet*` Identity tables), reset migration history, and drop/recreate the database. This is a significant simplification over a data-preserving rewrite: no `drizzle-kit pull` reconciliation against a production snapshot, no dual-schema compatibility, no password-hash migration (see removed cutover step below).
+- We keep PostgreSQL (Neon) as the engine. Hyperdrive fronts the connection (Workers are short-lived; unpooled Postgres connections would exhaust Neon).
+- Migration policy carries over: migrations run only via `drizzle-kit`/CI, never at startup. History starts fresh from a single initial migration.
 
 ## Deployment & routing
 
@@ -128,22 +130,21 @@ Two viable end states:
 
 ## Migration plan
 
-Phased, with the .NET backend running until parity is proven:
+Because there's **no production data or users to preserve**, this is a clean cutover, not a dual-run migration. The .NET backend is a reference to port *behavior* from, then delete — not a live system to keep in sync.
 
-1. **Scaffold + read-only parity (week 1–2).** Worker with Hyperdrive against a staging copy of the DB; Drizzle schema validated against the EF snapshot; implement `GET` endpoints; contract-test both backends return identical JSON (enum-as-string included) using the existing OpenAPI spec as the oracle.
-2. **Auth + writes (week 2–4).** Better Auth tables added via migration; all commands ported with the tenant-scoped handle; two-household isolation suite green; admin-only rules ported as middleware.
-3. **Real-time + images + cron (week 4–5).** `RouletteRoom` DO, WebSocket helper in the frontend behind a flag; upload flow option A; `scheduled()` GC.
-4. **Password cutover.** Better Auth can't read ASP.NET Identity's PBKDF2 format directly, so ship a custom `password.verify` that recognizes the Identity hash format and transparently re-hashes on first successful login. No forced resets. (This app has a handful of household users — worst case, a manual reset is acceptable, but the shim is cheap.)
-5. **Cutover (week 5–6).** Point staging rewrites at the Worker; run both against production DB briefly (Worker primary, .NET as instant rollback since the schema is unchanged); flip production; watch for a week; then delete `backend/` .NET code, `Dockerfile.vercel`, cron config, and R2 CORS rules, and update README/AGENTS.md.
+1. **Scaffold + schema (week 1).** Worker with Hyperdrive against a fresh staging DB; clean Drizzle schema + initial migration; Better Auth tables; wire bindings (R2, DO, cron).
+2. **Read paths (week 1–2).** Port `GET` endpoints; contract-test JSON shape (enum-as-string included) against the existing OpenAPI spec as the oracle — the C# handlers are the behavioral reference, checked side-by-side, not run in parallel in production.
+3. **Auth + writes (week 2–3).** All commands ported with the tenant-scoped handle; two-household isolation suite green; admin-only rules ported as middleware. Fresh signups — no password-hash migration.
+4. **Real-time + images + cron (week 3–4).** `RouletteRoom` DO; swap `@microsoft/signalr` for the WebSocket helper; upload flow option A; `scheduled()` GC.
+5. **Cutover (week 4).** Point the rewrites at the Worker in staging, verify end-to-end, then flip production. Since the DB is dropped/recreated anyway, there's a single clean switch — then delete `backend/` .NET code, `Dockerfile.vercel`, cron config, and R2 CORS rules, and update README/AGENTS.md.
 
-Rollback at any point = flip the rewrites back; the shared, unchanged schema makes this safe (the only additive tables are Better Auth's, which .NET ignores).
+Because nothing is live, "rollback" during development just means not flipping the switch — there's no production state at risk. This removes the dual-run safety scaffolding an in-production rewrite would need and shortens the timeline by ~2 weeks.
 
 ## Risks
 
 | Risk | Severity | Mitigation |
 |---|---|---|
 | Tenant-isolation regression (losing EF global filters) | **High** | Scoped-handle design, lint rule, mandatory two-household contract tests as the acceptance gate |
-| Password hash migration | Medium | Verify-and-rehash shim; tiny user base bounds the blast radius |
 | Vercel rewrite of WebSocket upgrades | Medium | Spike in week 1; fallback is the `api.` subdomain path |
 | Subtle domain-rule drift (roulette 3-day rule, week consolidation) | Medium | Port rules with side-by-side unit tests derived from the C# handlers before deleting them |
 | Neon connection behavior under Workers | Low | Hyperdrive is built for exactly this; validated in staging |
