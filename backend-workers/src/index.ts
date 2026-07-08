@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { authRoutes } from "./auth/routes";
 import { sessionMiddleware } from "./auth/session";
+import { householdRoutes } from "./households/routes";
 import type { AppEnv } from "./context";
 import { registerErrorHandler } from "./http/errors";
 import { RouletteRoom } from "./realtime/roulette-room";
@@ -25,6 +26,9 @@ app.get("/api/health", (c) => c.json({ status: "ok" }));
 
 // Auth (login/register/logout/me) — BFF cookie sessions.
 app.route("/", authRoutes);
+
+// Households (create/join/leave/rename/rotate/members).
+app.route("/", householdRoutes);
 
 // The Durable Object class must be exported from the Worker entrypoint for the
 // ROULETTE_ROOM binding to resolve.
