@@ -13,44 +13,23 @@ import {
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
+import {
+  HOUSEHOLD_ROLES,
+  MEAL_TYPES,
+  MEASUREMENT_UNITS,
+  ROULETTE_STATUSES,
+  STORED_FILE_STATUSES,
+} from "../domain/enums";
 
 // ---------------------------------------------------------------------------
-// Enums
-//
-// String values are PascalCase to match exactly what the ASP.NET Core backend
-// emitted (EF `HasConversion<string>` stored the .NET enum member names). The
-// frontend's generated client consumes these as string-literal unions, so
-// keeping the values identical means no frontend type churn.
+// Enums (values defined in src/domain/enums.ts — the single source of truth).
 // ---------------------------------------------------------------------------
 
-export const householdRole = pgEnum("household_role", ["Member", "Admin"]);
-
-export const mealType = pgEnum("meal_type", ["Breakfast", "Lunch", "Dinner"]);
-
-// Closed unit set so ingredient amounts can be summed for the shopping list.
-export const measurementUnit = pgEnum("measurement_unit", [
-  "Piece",
-  "Gram",
-  "Kilogram",
-  "Milliliter",
-  "Liter",
-  "Cup",
-  "Tablespoon",
-  "Teaspoon",
-]);
-
-export const rouletteStatus = pgEnum("roulette_status", [
-  "Pending",
-  "Spinning",
-  "Completed",
-  "Cancelled",
-]);
-
-export const storedFileStatus = pgEnum("stored_file_status", [
-  "Pending", // upload ticket issued; blob may not exist yet
-  "Active", // referenced by an entity (e.g. a dish image)
-  "Orphaned", // unreferenced; eligible for the next GC sweep
-]);
+export const householdRole = pgEnum("household_role", HOUSEHOLD_ROLES);
+export const mealType = pgEnum("meal_type", MEAL_TYPES);
+export const measurementUnit = pgEnum("measurement_unit", MEASUREMENT_UNITS);
+export const rouletteStatus = pgEnum("roulette_status", ROULETTE_STATUSES);
+export const storedFileStatus = pgEnum("stored_file_status", STORED_FILE_STATUSES);
 
 // ---------------------------------------------------------------------------
 // Better Auth tables

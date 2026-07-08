@@ -3,6 +3,8 @@ import { authRoutes } from "./auth/routes";
 import { sessionMiddleware } from "./auth/session";
 import { householdRoutes } from "./households/routes";
 import type { AppEnv } from "./context";
+import { dishRoutes } from "./features/dishes";
+import { tagRoutes } from "./features/tags";
 import { registerErrorHandler } from "./http/errors";
 import { RouletteRoom } from "./realtime/roulette-room";
 
@@ -29,6 +31,10 @@ app.route("/", authRoutes);
 
 // Households (create/join/leave/rename/rotate/members).
 app.route("/", householdRoutes);
+
+// Dishes + tags (household-scoped).
+app.route("/", dishRoutes);
+app.route("/", tagRoutes);
 
 // The Durable Object class must be exported from the Worker entrypoint for the
 // ROULETTE_ROOM binding to resolve.

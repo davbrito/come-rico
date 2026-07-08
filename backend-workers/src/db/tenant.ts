@@ -108,6 +108,18 @@ export class TenantDb {
   }
 
   /**
+   * Replace a dish's tags in the `dish_tags` join table. The join table has no
+   * `household_id` of its own; the caller must first confirm `dishId` belongs
+   * to this household (via `this.dishes.findFirst`), which pins isolation.
+   */
+  async replaceDishTags(dishId: string, tagIds: string[]): Promise<void> {
+    await this.db.delete(schema.dishTags).where(eq(schema.dishTags.dishId, dishId));
+    if (tagIds.length > 0) {
+      await this.db.insert(schema.dishTags).values(tagIds.map((tagId) => ({ dishId, tagId })));
+    }
+  }
+
+  /**
    * Controlled escape hatch for multi-table reads (e.g. shopping-list
    * consolidation joining meal_plans → dishes → ingredients). The callback
    * receives the raw client and this household's id so it can still constrain
