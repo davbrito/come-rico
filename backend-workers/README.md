@@ -51,8 +51,10 @@ wrangler r2 bucket create comerico-images-preview
 
 - `IMAGE_PUBLIC_BASE_URL` (in `vars`): the bucket's public r2.dev subdomain or
   custom domain.
-- Secrets (auth signing key, etc.) are set with `wrangler secret put NAME`, not
-  committed here.
+- Secrets are set with `wrangler secret put NAME`, not committed here:
+  - `BETTER_AUTH_SECRET` — Better Auth signing secret (`openssl rand -base64 32`).
+- `ENVIRONMENT` (`development` | `production`) drives secure-cookie enforcement;
+  `AUTH_BASE_URL` is the API's public origin (Better Auth cookie/URL config).
 
 ### Local dev
 

@@ -56,9 +56,14 @@
     "crons": ["0 0 * * 0"]
   },
 
-  // Public base URL for served images (R2 r2.dev subdomain or custom domain).
-  // Non-secret; secrets (e.g. auth) are set via `wrangler secret put`.
+  // Non-secret config. Secrets (BETTER_AUTH_SECRET) are set via
+  // `wrangler secret put` in production and .dev.vars locally.
   "vars": {
-    "IMAGE_PUBLIC_BASE_URL": "https://images.example.com"
+    // Public base URL for served images (R2 r2.dev subdomain or custom domain).
+    "IMAGE_PUBLIC_BASE_URL": "https://images.example.com",
+    // "development" | "production" — drives secure-cookie enforcement.
+    "ENVIRONMENT": "development",
+    // Public origin of the API, used by Better Auth for cookie/URL config.
+    "AUTH_BASE_URL": "http://localhost:8787"
   }
 }
