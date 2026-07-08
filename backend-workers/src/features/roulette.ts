@@ -30,7 +30,7 @@ const RECENT_WINNER_DAYS = 3;
 
 const tenantFor = (c: Context<AppEnv>): TenantDb => tenantDb(c.get("db"), householdId(c));
 
-async function spin(tenant: TenantDb): Promise<SpinRouletteResult> {
+export async function spin(tenant: TenantDb): Promise<SpinRouletteResult> {
   const active = await tenant.dishes.findMany(eq(tenant.dishes.table.isActive, true));
   if (active.length === 0) {
     throw new BusinessError("No hay platillos activos para girar la ruleta.");
