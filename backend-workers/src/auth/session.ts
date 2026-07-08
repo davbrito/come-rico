@@ -46,6 +46,17 @@ export const requireHousehold = createMiddleware<AppEnv & { Variables: { user: S
   await next();
 });
 
+// 403 unless the user is a household admin — the AdminOnlyBehavior equivalent.
+// Chain after `requireHousehold` on admin-only routes.
+export const requireAdmin = createMiddleware<AppEnv>(async (c, next) => {
+  const user = c.get("user");
+  if (!user) return c.json({ message: "No autenticado." }, 401);
+  if (user.role !== "Admin") {
+    return c.json({ message: "Solo los administradores pueden realizar esta acción." }, 403);
+  }
+  await next();
+});
+
 /** The current household id, guaranteed present after `requireHousehold`. */
 export function householdId(c: { get: (k: "user") => SessionUser | null }): string {
   const user = c.get("user");

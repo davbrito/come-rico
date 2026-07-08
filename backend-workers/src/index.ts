@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { authRoutes } from "./auth/routes";
 import { sessionMiddleware } from "./auth/session";
 import type { AppEnv } from "./context";
+import { registerErrorHandler } from "./http/errors";
 import { RouletteRoom } from "./realtime/roulette-room";
 
 // The ComeRico backend, running on Cloudflare Workers.
@@ -12,6 +13,9 @@ import { RouletteRoom } from "./realtime/roulette-room";
 // original ASP.NET Core backend.
 
 const app = new Hono<AppEnv>();
+
+// Map thrown errors to the same JSON/status shapes the .NET backend produced.
+registerErrorHandler(app);
 
 // Resolve DB + auth + session for every request.
 app.use("*", sessionMiddleware);
