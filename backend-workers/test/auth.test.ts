@@ -19,4 +19,16 @@ describe("auth wiring", () => {
     await waitOnExecutionContext(ctx);
     expect(res.status).toBe(401);
   });
+
+  it("returns 401 from /api/identity/manage/info when unauthenticated", async () => {
+    const ctx = createExecutionContext();
+    const res = await app.request(
+      "/api/identity/manage/info",
+      { method: "POST", headers: { "content-type": "application/json" }, body: "{}" },
+      env,
+      ctx,
+    );
+    await waitOnExecutionContext(ctx);
+    expect(res.status).toBe(401);
+  });
 });

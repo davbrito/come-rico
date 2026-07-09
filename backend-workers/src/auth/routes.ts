@@ -111,6 +111,38 @@ authRoutes.put("/api/auth/me", requireAuth, async (c) => {
   return c.json(await buildCurrentUser(db, { ...user, name: displayName }));
 });
 
+// Identity-compatible profile/password endpoint (the frontend's settings page
+// posts { oldPassword, newPassword } here to change the password). Maps to
+// Better Auth's changePassword; returns the InfoResponse shape.
+authRoutes.post("/api/identity/manage/info", requireAuth, async (c) => {
+  const user = c.get("user")!;
+  const body = await c.req.json().catch(() => ({}) as Record<string, unknown>);
+  const oldPassword = String(body.oldPassword ?? "");
+  const newPassword = String(body.newPassword ?? "");
+
+  const infoResponse = { email: user.email, isEmailConfirmed: true };
+
+  if (!newPassword && !oldPassword) return c.json(infoResponse);
+
+  if (newPassword.length < 8) {
+    return c.json(validationError("newPassword", "La contraseña debe tener al menos 8 caracteres."), 422);
+  }
+
+  const baRes = await c.get("auth").api.changePassword({
+    body: { currentPassword: oldPassword, newPassword },
+    headers: c.req.raw.headers,
+    asResponse: true,
+  });
+  if (!baRes.ok) {
+    const err = (await baRes.json().catch(() => null)) as { message?: string } | null;
+    return c.json({ message: err?.message ?? "No se pudo cambiar la contraseña." }, 400);
+  }
+
+  const out = c.json(infoResponse);
+  for (const cookie of baRes.headers.getSetCookie()) out.headers.append("set-cookie", cookie);
+  return out;
+});
+
 authRoutes.delete("/api/auth/me", requireAuth, async (c) => {
   const user = c.get("user")!;
   const db = c.get("db");

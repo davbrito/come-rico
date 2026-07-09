@@ -27,15 +27,20 @@ projects):
 2. **Create the schema** on the target database: `pnpm db:migrate` (pre-
    production, so a drop/recreate is fine).
 3. **Regenerate the frontend API client.** `frontend/src/api` is generated
-   (git-ignored) from the backend's OpenAPI by `pnpm openapi:generate`. The
-   .NET backend served `/openapi/v1.json`; **the Worker does not emit an OpenAPI
-   document yet.** Pick one before cutover:
-   - add `@hono/zod-openapi` (routes already validate with Zod) and serve the
-     generated document, or
-   - hand-author an `openapi.json` for the frozen API surface.
-   Then point `openapi-ts` at it and regenerate. The DTO field names and enum
-   string values were kept identical, so the generated types should match what
-   the frontend already expects.
+   (git-ignored) from a **static** OpenAPI file — `openapi-ts.config.ts` points
+   `input` at `backend/ComeRico.Api/ComeRico.Api.json`, not a live URL. Because
+   the Worker preserves the same paths, DTO field names, and enum string values,
+   that contract already matches it; the frozen spec is copied to
+   [`../../backend-workers/openapi.json`](../../backend-workers/openapi.json) so
+   it survives deleting the .NET project. At cutover, repoint the config:
+   ```ts
+   // frontend/openapi-ts.config.ts
+   input: fileURLToPath(new URL("../backend-workers/openapi.json", import.meta.url)),
+   ```
+   then `pnpm openapi:generate`. (The preserved spec still lists the full
+   ASP.NET Identity surface; the Worker implements the subset the frontend calls
+   — login, register, logout, me, manage/info — so the extra generated client
+   methods are simply unused. Trim the spec later if desired.)
 4. **Deploy the Worker** (`wrangler deploy`) to a staging URL and verify end to
    end against a copy of the app: register/login, household create/join,
    dishes + image upload, meal plans, shopping generate, roulette spin with two
