@@ -6,7 +6,7 @@ import { getRouletteHistoryOptions, spinRouletteMutation } from "#/api/@tanstack
 import type { RouletteSessionDto, SpinRouletteResult } from "#/api/types.gen";
 import { Button } from "#/components/ui/Button";
 import { getApiErrorMessage } from "#/lib/api";
-import { onRouletteSpun, startRouletteConnection, stopRouletteConnection } from "#/lib/signalr";
+import { onRouletteSpun, startRouletteConnection, stopRouletteConnection } from "#/lib/roulette-socket";
 
 export const Route = createFileRoute("/roulette")({
   beforeLoad: ({ context }) => {
@@ -40,7 +40,7 @@ function RoulettePage() {
     onError: () => setSpinning(false),
   });
 
-  // Connect to SignalR and listen for real-time roulette events.
+  // Connect to the roulette WebSocket and listen for real-time events.
   // The auth cookie identifies the household — nothing to pass from the client.
   useEffect(() => {
     startRouletteConnection().catch(console.error);

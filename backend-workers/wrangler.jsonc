@@ -1,0 +1,69 @@
+{
+  // Cloudflare Worker for the ComeRico backend.
+  //
+  // Resource ids below are PLACEHOLDERS — replace them with real values from
+  // the Cloudflare dashboard / `wrangler` before deploying. See README section
+  // "Provisioning" for the create commands.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "comerico-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-07-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true
+  },
+
+  // PostgreSQL (Neon) fronted by Hyperdrive for connection pooling — Workers
+  // are short-lived, so unpooled connections would exhaust the database.
+  // Local dev uses `localConnectionString` (or WRANGLER_HYPERDRIVE_LOCAL_
+  // CONNECTION_STRING_HYPERDRIVE) instead of the remote id.
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "REPLACE_WITH_HYPERDRIVE_ID",
+      "localConnectionString": "postgresql://postgres:postgres@localhost:5432/comerico"
+    }
+  ],
+
+  // R2 bucket for dish images (replaces the S3-SDK-against-R2 setup).
+  "r2_buckets": [
+    {
+      "binding": "BUCKET",
+      "bucket_name": "comerico-images",
+      "preview_bucket_name": "comerico-images-preview"
+    }
+  ],
+
+  // One Durable Object per household backs the real-time roulette room.
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "ROULETTE_ROOM",
+        "class_name": "RouletteRoom"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["RouletteRoom"]
+    }
+  ],
+
+  // Weekly orphaned-image sweep (replaces the Vercel Cron + CRON_SECRET
+  // endpoint). Handled by the Worker's scheduled() handler.
+  "triggers": {
+    "crons": ["0 0 * * 0"]
+  },
+
+  // Non-secret config. Secrets (BETTER_AUTH_SECRET) are set via
+  // `wrangler secret put` in production and .dev.vars locally.
+  "vars": {
+    // Public base URL for served images (R2 r2.dev subdomain or custom domain).
+    "IMAGE_PUBLIC_BASE_URL": "https://images.example.com",
+    // "development" | "production" — drives secure-cookie enforcement.
+    "ENVIRONMENT": "development",
+    // Public origin of the API, used by Better Auth for cookie/URL config.
+    "AUTH_BASE_URL": "http://localhost:8787"
+  }
+}

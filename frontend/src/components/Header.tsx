@@ -111,7 +111,7 @@ export default function Header() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => logoutMut.mutate({ body: {} })}
+                onClick={() => logoutMut.mutate({})}
                 disabled={logoutMut.isPending}
               >
                 Salir

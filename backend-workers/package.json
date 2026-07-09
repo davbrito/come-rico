@@ -1,0 +1,45 @@
+{
+  "name": "comerico-workers",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "cf-typegen": "wrangler types",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "openapi:snapshot": "tsx scripts/snapshot-openapi.ts"
+  },
+  "dependencies": {
+    "@hono/zod-openapi": "^1.4.0",
+    "@hono/zod-validator": "^0.8.0",
+    "better-auth": "^1.6.23",
+    "drizzle-orm": "^0.45.2",
+    "hono": "^4.9.0",
+    "postgres": "^3.4.9",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.9.0",
+    "@electric-sql/pglite": "^0.5.4",
+    "@types/node": "^22.0.0",
+    "drizzle-kit": "^0.31.10",
+    "eslint": "^10.6.0",
+    "tsx": "^4.23.0",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.63.0",
+    "vitest": "~3.2.0",
+    "wrangler": "^4.28.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp",
+      "workerd"
+    ]
+  }
+}

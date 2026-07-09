@@ -2,6 +2,19 @@
 
 This file is the durable context file for AI agents and contributors working on the **ComeRico** project. Keep it up to date after significant architectural changes. For project overview, setup, and run commands, see [README.md](README.md).
 
+> **Backend rewrite in progress (Cloudflare Workers).** A TypeScript Worker
+> backend in [`backend-workers/`](backend-workers/) is being introduced to
+> replace the ASP.NET Core backend documented below. It runs in parallel until
+> parity is verified; see [`docs/proposals/cloudflare-workers-rewrite.md`](docs/proposals/cloudflare-workers-rewrite.md)
+> and [`docs/proposals/cloudflare-workers-cutover.md`](docs/proposals/cloudflare-workers-cutover.md).
+> Highlights: Hono + Drizzle (Postgres via Hyperdrive), Better Auth cookie
+> sessions (same BFF pattern), household isolation enforced by a tenant-scoped
+> DB handle + an ESLint rule + a two-household contract suite (replacing EF
+> global query filters), a RouletteRoom Durable Object for the real-time
+> roulette (replacing SignalR), native R2 direct upload, and a Workers cron for
+> the orphan-image sweep. The sections below describe the **current .NET**
+> backend until cutover.
+
 ---
 
 ## 1. Monorepo Structure
