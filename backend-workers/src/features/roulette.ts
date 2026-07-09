@@ -1,13 +1,23 @@
+import { createRoute } from "@hono/zod-openapi";
 import { and, eq, gte, isNotNull } from "drizzle-orm";
-import { Hono, type Context } from "hono";
+import type { Context } from "hono";
 import { householdId, requireHousehold } from "../auth/session";
 import type { AppEnv } from "../context";
 import { tenantDb, type TenantDb } from "../db/tenant";
 import { uuidv7 } from "../db/uuid";
 import type { RouletteStatusValue } from "../domain/enums";
-import { broadcastRouletteSpun } from "../realtime/broadcast";
 import { BusinessError } from "../http/errors";
+import { broadcastRouletteSpun } from "../realtime/broadcast";
+import { createApp, errors, jsonResponse } from "../openapi/factory";
+import {
+  RouletteHistoryList,
+  RouletteHistoryQuery,
+  SpinRouletteResult as SpinRouletteResultSchema,
+  type RouletteSession,
+} from "../openapi/schemas";
 
+// Internal result carries a Date; the HTTP route and the WebSocket broadcast
+// both serialize it to an ISO string on the wire.
 export interface SpinRouletteResult {
   sessionId: string;
   householdId: string;
@@ -16,27 +26,14 @@ export interface SpinRouletteResult {
   spunAt: Date;
 }
 
-interface RouletteSessionDto {
-  id: string;
-  householdId: string;
-  status: RouletteStatusValue;
-  winnerDishId: string | null;
-  winnerDishName: string | null;
-  createdAt: Date;
-  spunAt: Date | null;
-}
-
 const RECENT_WINNER_DAYS = 3;
 
 const tenantFor = (c: Context<AppEnv>): TenantDb => tenantDb(c.get("db"), householdId(c));
 
 export async function spin(tenant: TenantDb): Promise<SpinRouletteResult> {
   const active = await tenant.dishes.findMany(eq(tenant.dishes.table.isActive, true));
-  if (active.length === 0) {
-    throw new BusinessError("No hay platillos activos para girar la ruleta.");
-  }
+  if (active.length === 0) throw new BusinessError("No hay platillos activos para girar la ruleta.");
 
-  // Exclude dishes that won in the last 3 days, unless that leaves nothing.
   const cutoff = new Date(Date.now() - RECENT_WINNER_DAYS * 24 * 60 * 60 * 1000);
   const recent = await tenant.rouletteSessions.findMany(
     and(
@@ -69,50 +66,79 @@ export async function spin(tenant: TenantDb): Promise<SpinRouletteResult> {
   };
 }
 
-export const rouletteRoutes = new Hono<AppEnv>();
+export const rouletteRoutes = createApp();
 rouletteRoutes.use("/api/roulette/*", requireHousehold);
 
-rouletteRoutes.post("/api/roulette/spin", async (c) => {
-  const tenant = tenantFor(c);
-  const result = await spin(tenant);
-  // Notify connected household members in real time (Durable Object).
-  await broadcastRouletteSpun(c.env, result.householdId, result);
-  return c.json(result);
-});
+rouletteRoutes.openapi(
+  createRoute({
+    method: "post",
+    path: "/api/roulette/spin",
+    tags: ["Roulette"],
+    operationId: "SpinRoulette",
+    summary: "Gira la ruleta y retorna el platillo ganador",
+    responses: {
+      200: jsonResponse(SpinRouletteResultSchema, "Resultado del giro"),
+      400: errors.badRequest,
+      401: errors.unauthorized,
+      403: errors.forbidden,
+    },
+  }),
+  async (c) => {
+    const tenant = tenantFor(c);
+    const result = await spin(tenant);
+    await broadcastRouletteSpun(c.env, result.householdId, result);
+    return c.json({ ...result, spunAt: result.spunAt.toISOString() }, 200);
+  },
+);
 
-rouletteRoutes.get("/api/roulette/history", async (c) => {
-  const tenant = tenantFor(c);
-  const page = Math.max(1, Number(c.req.query("page")) || 1);
-  const rawSize = Number(c.req.query("pageSize"));
-  const pageSize = rawSize > 0 ? rawSize : 20;
-  const offset = (page - 1) * pageSize;
+rouletteRoutes.openapi(
+  createRoute({
+    method: "get",
+    path: "/api/roulette/history",
+    tags: ["Roulette"],
+    operationId: "GetRouletteHistory",
+    summary: "Obtiene el historial de giros de la ruleta",
+    request: { query: RouletteHistoryQuery },
+    responses: {
+      200: jsonResponse(RouletteHistoryList, "Historial"),
+      401: errors.unauthorized,
+      403: errors.forbidden,
+    },
+  }),
+  async (c) => {
+    const tenant = tenantFor(c);
+    const q = c.req.valid("query");
+    const page = Math.max(1, q.page ?? 1);
+    const pageSize = q.pageSize && q.pageSize > 0 ? q.pageSize : 20;
+    const offset = (page - 1) * pageSize;
 
-  const rows = (await tenant.join((db, hid) =>
-    db.query.rouletteSessions.findMany({
-      where: (r, { eq: e }) => e(r.householdId, hid),
-      with: { winnerDish: true },
-      orderBy: (r, { desc }) => desc(r.createdAt),
-      limit: pageSize,
-      offset,
-    }),
-  )) as {
-    id: string;
-    householdId: string;
-    status: RouletteStatusValue;
-    winnerDishId: string | null;
-    createdAt: Date;
-    spunAt: Date | null;
-    winnerDish: { name: string } | null;
-  }[];
+    const rows = (await tenant.join((db, hid) =>
+      db.query.rouletteSessions.findMany({
+        where: (r, { eq: e }) => e(r.householdId, hid),
+        with: { winnerDish: true },
+        orderBy: (r, { desc }) => desc(r.createdAt),
+        limit: pageSize,
+        offset,
+      }),
+    )) as {
+      id: string;
+      householdId: string;
+      status: RouletteStatusValue;
+      winnerDishId: string | null;
+      createdAt: Date;
+      spunAt: Date | null;
+      winnerDish: { name: string } | null;
+    }[];
 
-  const dtos: RouletteSessionDto[] = rows.map((r) => ({
-    id: r.id,
-    householdId: r.householdId,
-    status: r.status,
-    winnerDishId: r.winnerDishId,
-    winnerDishName: r.winnerDish?.name ?? null,
-    createdAt: r.createdAt,
-    spunAt: r.spunAt,
-  }));
-  return c.json(dtos);
-});
+    const dtos: RouletteSession[] = rows.map((r) => ({
+      id: r.id,
+      householdId: r.householdId,
+      status: r.status,
+      winnerDishId: r.winnerDishId,
+      winnerDishName: r.winnerDish?.name ?? null,
+      createdAt: r.createdAt.toISOString(),
+      spunAt: r.spunAt ? r.spunAt.toISOString() : null,
+    }));
+    return c.json(dtos, 200);
+  },
+);

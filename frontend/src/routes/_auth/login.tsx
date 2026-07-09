@@ -34,7 +34,6 @@ function LoginPage() {
     onSubmit: async ({ value }) => {
       await loginMut.mutateAsync({
         body: { email: value.email, password: value.password },
-        query: { useCookies: true },
       });
     },
   });

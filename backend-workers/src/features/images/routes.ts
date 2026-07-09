@@ -1,57 +1,54 @@
+import { createRoute } from "@hono/zod-openapi";
 import { eq } from "drizzle-orm";
-import { Hono } from "hono";
-import { z } from "zod";
 import { householdId, requireHousehold } from "../../auth/session";
-import type { AppEnv } from "../../context";
 import { tenantDb } from "../../db/tenant";
 import { uuidv7 } from "../../db/uuid";
-import { validateJson } from "../../http/validate";
-import { ALLOWED_IMAGE_TYPES, ALLOWED_KEY_FOLDERS, MAX_IMAGE_BYTES } from "./rules";
+import { createApp, errors, jsonResponse } from "../../openapi/factory";
+import { CreateUploadRequest, UploadTicketDto } from "../../openapi/schemas";
+import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES } from "./rules";
 
 // Direct-upload flow (proposal Option A): no presigned URLs, no bucket CORS.
-//   POST /api/images         → registers a Pending StoredFile, returns a ticket
-//                              whose uploadUrl is this same-origin PUT endpoint.
-//   PUT  /api/images/:id      → streams the body straight into R2 at the key.
-// Consuming commands (CreateDish/UpdateDish) flip the file to Active by id.
+//   POST /api/images     → registers a Pending StoredFile, returns a ticket
+//                          whose uploadUrl is the same-origin PUT endpoint.
+//   PUT  /api/images/:id  → streams the body straight into R2 at the key.
+// The PUT is a plain (undocumented) route: the frontend uploads to it with a
+// raw fetch, not the generated client.
 
-interface UploadTicketDto {
-  uploadId: string;
-  uploadUrl: string;
-}
-
-const createSchema = z.object({
-  type: z.literal("image", { error: "Tipo no soportado. Usa 'image'." }),
-  keyFolder: z.enum(ALLOWED_KEY_FOLDERS, { error: "Carpeta de destino no permitida." }),
-  contentType: z.string().refine((ct) => ct in ALLOWED_IMAGE_TYPES, {
-    error: "Formato no soportado. Usa JPG, PNG, WebP, AVIF o GIF.",
-  }),
-  sizeBytes: z
-    .number()
-    .int()
-    .gt(0, "El archivo está vacío.")
-    .max(MAX_IMAGE_BYTES, "La imagen no puede superar 5 MB."),
-});
-
-export const imageRoutes = new Hono<AppEnv>();
+export const imageRoutes = createApp();
 imageRoutes.use("/api/images", requireHousehold);
 imageRoutes.use("/api/images/*", requireHousehold);
 
-imageRoutes.post("/api/images", validateJson(createSchema), async (c) => {
-  const tenant = tenantDb(c.get("db"), householdId(c));
-  const body = c.req.valid("json");
-  const ext = ALLOWED_IMAGE_TYPES[body.contentType]!;
-  const key = `${body.keyFolder}/${householdId(c)}/${crypto.randomUUID().replace(/-/g, "")}${ext}`;
+imageRoutes.openapi(
+  createRoute({
+    method: "post",
+    path: "/api/images",
+    tags: ["Images"],
+    operationId: "CreateUpload",
+    summary: "Crea un ticket de subida: URL de subida + id del archivo",
+    request: { body: { content: { "application/json": { schema: CreateUploadRequest } }, required: true } },
+    responses: {
+      200: jsonResponse(UploadTicketDto, "Ticket de subida"),
+      422: errors.validation,
+      401: errors.unauthorized,
+      403: errors.forbidden,
+    },
+  }),
+  async (c) => {
+    const tenant = tenantDb(c.get("db"), householdId(c));
+    const body = c.req.valid("json");
+    const ext = ALLOWED_IMAGE_TYPES[body.contentType]!;
+    const key = `${body.keyFolder}/${householdId(c)}/${crypto.randomUUID().replace(/-/g, "")}${ext}`;
+    const file = await tenant.storedFiles.insertOne({
+      id: uuidv7(),
+      key,
+      contentType: body.contentType,
+      createdAt: new Date(),
+    });
+    return c.json({ uploadId: file.id, uploadUrl: `/api/images/${file.id}` }, 200);
+  },
+);
 
-  const file = await tenant.storedFiles.insertOne({
-    id: uuidv7(),
-    key,
-    contentType: body.contentType,
-    createdAt: new Date(),
-  });
-
-  return c.json({ uploadId: file.id, uploadUrl: `/api/images/${file.id}` } satisfies UploadTicketDto);
-});
-
+// Binary upload target (not part of the OpenAPI document).
 imageRoutes.put("/api/images/:id", async (c) => {
   const tenant = tenantDb(c.get("db"), householdId(c));
   const file = await tenant.storedFiles.findFirst(eq(tenant.storedFiles.table.id, c.req.param("id")));
@@ -61,7 +58,6 @@ imageRoutes.put("/api/images/:id", async (c) => {
   if (contentType !== file.contentType) {
     return c.json({ message: "El tipo de contenido no coincide con el ticket." }, 400);
   }
-
   const bytes = await c.req.arrayBuffer();
   if (bytes.byteLength === 0) return c.json({ message: "El archivo está vacío." }, 400);
   if (bytes.byteLength > MAX_IMAGE_BYTES) return c.json({ message: "La imagen no puede superar 5 MB." }, 413);

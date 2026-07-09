@@ -26,21 +26,18 @@ projects):
    `BETTER_AUTH_SECRET` secret + `IMAGE_PUBLIC_BASE_URL` / `AUTH_BASE_URL` vars.
 2. **Create the schema** on the target database: `pnpm db:migrate` (pre-
    production, so a drop/recreate is fine).
-3. **Regenerate the frontend API client.** `frontend/src/api` is generated
-   (git-ignored) from a **static** OpenAPI file — `openapi-ts.config.ts` points
-   `input` at `backend/ComeRico.Api/ComeRico.Api.json`, not a live URL. Because
-   the Worker preserves the same paths, DTO field names, and enum string values,
-   that contract already matches it; the frozen spec is copied to
-   [`../../backend-workers/openapi.json`](../../backend-workers/openapi.json) so
-   it survives deleting the .NET project. At cutover, repoint the config:
-   ```ts
-   // frontend/openapi-ts.config.ts
-   input: fileURLToPath(new URL("../backend-workers/openapi.json", import.meta.url)),
-   ```
-   then `pnpm openapi:generate`. (The preserved spec still lists the full
-   ASP.NET Identity surface; the Worker implements the subset the frontend calls
-   — login, register, logout, me, manage/info — so the extra generated client
-   methods are simply unused. Trim the spec later if desired.)
+3. **Frontend API client — already repointed.** The Worker generates its own
+   OpenAPI document dynamically with `@hono/zod-openapi` (served at
+   `/openapi/v1.json`; snapshotted to
+   [`../../backend-workers/openapi.json`](../../backend-workers/openapi.json)
+   via `pnpm openapi:snapshot`). `frontend/openapi-ts.config.ts` now reads that
+   snapshot, and `frontend/src/api` (git-ignored) has been regenerated from it —
+   operationIds were preserved, so the client's method names are unchanged
+   (two obsolete .NET params — logout's empty body and login's `useCookies`
+   query — were dropped, a two-line frontend fix). The generated client targets
+   the same paths/DTOs, so it works against either backend during the parallel
+   period. Re-run `pnpm openapi:snapshot` (backend) + `pnpm openapi:generate`
+   (frontend) whenever a route or schema changes.
 4. **Deploy the Worker** (`wrangler deploy`) to a staging URL and verify end to
    end against a copy of the app: register/login, household create/join,
    dishes + image upload, meal plans, shopping generate, roulette spin with two

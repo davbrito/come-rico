@@ -1,52 +1,77 @@
+import { createRoute } from "@hono/zod-openapi";
 import { eq, ilike } from "drizzle-orm";
-import { Hono } from "hono";
-import { z } from "zod";
 import { householdId, requireHousehold } from "../auth/session";
-import type { AppEnv } from "../context";
 import { tenantDb } from "../db/tenant";
 import { uuidv7 } from "../db/uuid";
 import { BusinessError } from "../http/errors";
-import { validateJson } from "../http/validate";
+import { createApp, emptyResponse, errors, jsonResponse } from "../openapi/factory";
+import { CreateTagRequest, IdParam, TagDto, TagList } from "../openapi/schemas";
 
-interface TagDto {
-  id: string;
-  name: string;
-}
-
-const createSchema = z.object({
-  name: z
-    .string()
-    .min(1, "El nombre de la etiqueta es obligatorio.")
-    .max(50, "El nombre no puede superar los 50 caracteres."),
-});
-
-export const tagRoutes = new Hono<AppEnv>();
+export const tagRoutes = createApp();
 tagRoutes.use("/api/tags", requireHousehold);
 tagRoutes.use("/api/tags/*", requireHousehold);
 
-tagRoutes.get("/api/tags", async (c) => {
-  const tenant = tenantDb(c.get("db"), householdId(c));
-  const rows = await tenant.tags.findMany();
-  const dtos: TagDto[] = [...rows]
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .map((t) => ({ id: t.id, name: t.name }));
-  return c.json(dtos);
-});
+tagRoutes.openapi(
+  createRoute({
+    method: "get",
+    path: "/api/tags",
+    tags: ["Tags"],
+    operationId: "GetTags",
+    summary: "Obtiene las etiquetas del hogar",
+    responses: { 200: jsonResponse(TagList, "Etiquetas"), 401: errors.unauthorized, 403: errors.forbidden },
+  }),
+  async (c) => {
+    const tenant = tenantDb(c.get("db"), householdId(c));
+    const rows = await tenant.tags.findMany();
+    const dtos = [...rows].sort((a, b) => a.name.localeCompare(b.name)).map((t) => ({ id: t.id, name: t.name }));
+    return c.json(dtos, 200);
+  },
+);
 
-tagRoutes.post("/api/tags", validateJson(createSchema), async (c) => {
-  const tenant = tenantDb(c.get("db"), householdId(c));
-  const name = c.req.valid("json").name.trim();
+tagRoutes.openapi(
+  createRoute({
+    method: "post",
+    path: "/api/tags",
+    tags: ["Tags"],
+    operationId: "CreateTag",
+    summary: "Crea una nueva etiqueta",
+    request: { body: { content: { "application/json": { schema: CreateTagRequest } }, required: true } },
+    responses: {
+      201: jsonResponse(TagDto, "Etiqueta creada"),
+      400: errors.badRequest,
+      422: errors.validation,
+      401: errors.unauthorized,
+      403: errors.forbidden,
+    },
+  }),
+  async (c) => {
+    const tenant = tenantDb(c.get("db"), householdId(c));
+    const name = c.req.valid("json").name.trim();
+    const existing = await tenant.tags.findFirst(ilike(tenant.tags.table.name, name));
+    if (existing) throw new BusinessError(`Ya existe una etiqueta llamada "${name}".`);
+    const tag = await tenant.tags.insertOne({ id: uuidv7(), name, createdAt: new Date() });
+    return c.json({ id: tag.id, name: tag.name }, 201);
+  },
+);
 
-  const existing = await tenant.tags.findFirst(ilike(tenant.tags.table.name, name));
-  if (existing) throw new BusinessError(`Ya existe una etiqueta llamada "${name}".`);
-
-  const tag = await tenant.tags.insertOne({ id: uuidv7(), name, createdAt: new Date() });
-  return c.json({ id: tag.id, name: tag.name } satisfies TagDto, 201);
-});
-
-tagRoutes.delete("/api/tags/:id", async (c) => {
-  const tenant = tenantDb(c.get("db"), householdId(c));
-  const id = c.req.param("id");
-  const deleted = await tenant.tags.delete(eq(tenant.tags.table.id, id));
-  return deleted.length > 0 ? c.body(null, 204) : c.json({ message: "Etiqueta no encontrada." }, 404);
-});
+tagRoutes.openapi(
+  createRoute({
+    method: "delete",
+    path: "/api/tags/{id}",
+    tags: ["Tags"],
+    operationId: "DeleteTag",
+    summary: "Elimina una etiqueta",
+    request: { params: IdParam },
+    responses: {
+      204: emptyResponse("Eliminada"),
+      404: errors.notFound,
+      401: errors.unauthorized,
+      403: errors.forbidden,
+    },
+  }),
+  async (c) => {
+    const tenant = tenantDb(c.get("db"), householdId(c));
+    const deleted = await tenant.tags.delete(eq(tenant.tags.table.id, c.req.valid("param").id));
+    return deleted.length > 0 ? c.body(null, 204) : c.json({ message: "Etiqueta no encontrada." }, 404);
+  },
+);

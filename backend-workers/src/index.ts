@@ -1,17 +1,9 @@
-import { Hono } from "hono";
-import { authRoutes } from "./auth/routes";
 import { sessionMiddleware } from "./auth/session";
-import { householdRoutes } from "./households/routes";
-import type { AppEnv } from "./context";
 import { createDb } from "./db/client";
-import { dishRoutes } from "./features/dishes";
-import { imageRoutes } from "./features/images/routes";
-import { mealPlanRoutes } from "./features/meal-plans";
-import { rouletteRoutes } from "./features/roulette";
-import { shoppingRoutes } from "./features/shopping";
-import { tagRoutes } from "./features/tags";
 import { registerErrorHandler } from "./http/errors";
 import { sweepOrphanedFiles } from "./images/cleanup";
+import { mountApiRoutes, OPENAPI_INFO } from "./openapi/document";
+import { createApp } from "./openapi/factory";
 import { hubRoutes } from "./realtime/routes";
 import { RouletteRoom } from "./realtime/roulette-room";
 
@@ -22,7 +14,7 @@ import { RouletteRoom } from "./realtime/roulette-room";
 // modules, mirroring the "endpoints map HTTP to handlers" rule from the
 // original ASP.NET Core backend.
 
-const app = new Hono<AppEnv>();
+const app = createApp();
 
 // Map thrown errors to the same JSON/status shapes the .NET backend produced.
 registerErrorHandler(app);
@@ -33,28 +25,16 @@ app.use("*", sessionMiddleware);
 // Liveness probe.
 app.get("/api/health", (c) => c.json({ status: "ok" }));
 
-// Auth (login/register/logout/me) — BFF cookie sessions.
-app.route("/", authRoutes);
+// Documented API routes (auth, households, dishes, tags, meal plans, shopping,
+// roulette, images).
+mountApiRoutes(app);
 
-// Households (create/join/leave/rename/rotate/members).
-app.route("/", householdRoutes);
-
-// Dishes + tags (household-scoped).
-app.route("/", dishRoutes);
-app.route("/", tagRoutes);
-
-// Meal plans + shopping list (household-scoped).
-app.route("/", mealPlanRoutes);
-app.route("/", shoppingRoutes);
-
-// Roulette (household-scoped) — spin broadcasts via the RouletteRoom DO.
-app.route("/", rouletteRoutes);
-
-// Image uploads (household-scoped, direct-to-R2 via the Worker).
-app.route("/", imageRoutes);
-
-// Real-time roulette WebSocket.
+// Real-time roulette WebSocket (not part of the OpenAPI document).
 app.route("/", hubRoutes);
+
+// OpenAPI document — the frontend's typed client is generated from this
+// (snapshotted to backend-workers/openapi.json via `pnpm openapi:snapshot`).
+app.doc31("/openapi/v1.json", OPENAPI_INFO);
 
 // The Durable Object class must be exported from the Worker entrypoint for the
 // ROULETTE_ROOM binding to resolve.
