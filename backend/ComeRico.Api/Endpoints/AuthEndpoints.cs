@@ -14,6 +14,12 @@ public sealed record UserLoginRequest(string Email, string Password);
 
 public sealed record UpdateProfileRequest(string DisplayName);
 
+// Named distinctly from ASP.NET Identity's built-in ForgotPasswordRequest/ResetPasswordRequest
+// (mapped at /api/identity/*) so the two don't collide as the same OpenAPI schema name.
+public sealed record AuthForgotPasswordRequest(string Email);
+
+public sealed record AuthResetPasswordRequest(string Email, string Token, string NewPassword);
+
 public sealed record CurrentUserDto(
     Guid Id,
     string DisplayName,
@@ -89,6 +95,63 @@ public static class AuthEndpoints
             .RequireAuthorization()
             .WithName("Logout")
             .WithSummary("Cierra la sesión actual");
+
+        // No email sending capability yet: the reset token is logged server-side
+        // instead of being emailed. Swap the logger call for a real mailer later.
+        group
+            .MapPost(
+                "/forgot-password",
+                async Task<Ok> (
+                    [FromBody] AuthForgotPasswordRequest request,
+                    UserManager<AppUser> userManager,
+                    ILogger<Program> logger
+                ) =>
+                {
+                    var user = await userManager.FindByEmailAsync(request.Email);
+                    if (user is not null)
+                    {
+                        var token = await userManager.GeneratePasswordResetTokenAsync(user);
+                        logger.LogInformation("Password reset requested for {Email}. Token: {Token}", request.Email, token);
+                    }
+
+                    // Always 200, regardless of whether the email matched a user, to
+                    // avoid leaking which emails are registered.
+                    return TypedResults.Ok();
+                }
+            )
+            .AllowAnonymous()
+            .WithName("ForgotPassword")
+            .WithSummary("Solicita el restablecimiento de contraseña (el token se registra en el servidor)");
+
+        group
+            .MapPost(
+                "/reset-password",
+                async Task<Results<Ok, ValidationProblem>> (
+                    [FromBody] AuthResetPasswordRequest request,
+                    UserManager<AppUser> userManager
+                ) =>
+                {
+                    var user = await userManager.FindByEmailAsync(request.Email);
+                    if (user is null)
+                        return TypedResults.ValidationProblem(
+                            new Dictionary<string, string[]> { { "token", ["Token inválido o expirado."] } }
+                        );
+
+                    var result = await userManager.ResetPasswordAsync(user, request.Token, request.NewPassword);
+                    if (!result.Succeeded)
+                    {
+                        var errors = result
+                            .Errors.GroupBy(e => e.Code, e => e.Description)
+                            .ToDictionary(g => g.Key, g => g.ToArray());
+                        return TypedResults.ValidationProblem(errors);
+                    }
+
+                    return TypedResults.Ok();
+                }
+            )
+            .AllowAnonymous()
+            .WithName("ResetPassword")
+            .WithSummary("Restablece la contraseña usando el token generado");
 
         group
             .MapGet(
