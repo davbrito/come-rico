@@ -14,9 +14,11 @@ public sealed record UserLoginRequest(string Email, string Password);
 
 public sealed record UpdateProfileRequest(string DisplayName);
 
-public sealed record ForgotPasswordRequest(string Email);
+// Named distinctly from ASP.NET Identity's built-in ForgotPasswordRequest/ResetPasswordRequest
+// (mapped at /api/identity/*) so the two don't collide as the same OpenAPI schema name.
+public sealed record AuthForgotPasswordRequest(string Email);
 
-public sealed record ResetPasswordRequest(string Email, string Token, string NewPassword);
+public sealed record AuthResetPasswordRequest(string Email, string Token, string NewPassword);
 
 public sealed record CurrentUserDto(
     Guid Id,
@@ -100,7 +102,7 @@ public static class AuthEndpoints
             .MapPost(
                 "/forgot-password",
                 async Task<Ok> (
-                    [FromBody] ForgotPasswordRequest request,
+                    [FromBody] AuthForgotPasswordRequest request,
                     UserManager<AppUser> userManager,
                     ILogger<Program> logger
                 ) =>
@@ -109,11 +111,7 @@ public static class AuthEndpoints
                     if (user is not null)
                     {
                         var token = await userManager.GeneratePasswordResetTokenAsync(user);
-                        logger.LogInformation(
-                            "Password reset requested for {Email}. Token: {Token}",
-                            request.Email,
-                            token
-                        );
+                        logger.LogInformation("Password reset requested for {Email}. Token: {Token}", request.Email, token);
                     }
 
                     // Always 200, regardless of whether the email matched a user, to
@@ -129,7 +127,7 @@ public static class AuthEndpoints
             .MapPost(
                 "/reset-password",
                 async Task<Results<Ok, ValidationProblem>> (
-                    [FromBody] ResetPasswordRequest request,
+                    [FromBody] AuthResetPasswordRequest request,
                     UserManager<AppUser> userManager
                 ) =>
                 {

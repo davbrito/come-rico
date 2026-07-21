@@ -1,8 +1,8 @@
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import axios from "axios";
 import { z } from "zod";
 
+import { forgotPasswordMutation } from "#/api/@tanstack/react-query.gen";
 import { useAppForm } from "#/components/form";
 import { Button } from "#/components/ui/Button";
 import { getApiErrorMessage } from "#/lib/api";
@@ -16,16 +16,14 @@ const emailSchema = z.email("Correo electrónico inválido");
 function ForgotPasswordPage() {
   const navigate = Route.useNavigate();
 
-  const forgotMut = useMutation({
-    mutationFn: (email: string) => axios.post("/api/auth/forgot-password", { email }),
-  });
+  const forgotMut = useMutation(forgotPasswordMutation());
 
   const errorMessage = forgotMut.error ? getApiErrorMessage(forgotMut.error) : null;
 
   const form = useAppForm({
     defaultValues: { email: "" },
     onSubmit: async ({ value }) => {
-      await forgotMut.mutateAsync(value.email);
+      await forgotMut.mutateAsync({ body: { email: value.email } });
     },
   });
 
@@ -48,7 +46,9 @@ function ForgotPasswordPage() {
 
   return (
     <>
-      <h1 className="mb-6 text-center text-2xl font-bold text-sea-ink">🔑 ¿Olvidaste tu contraseña?</h1>
+      <h1 className="mb-6 text-center text-2xl font-bold text-sea-ink">
+        🔑 ¿Olvidaste tu contraseña?
+      </h1>
 
       {errorMessage && (
         <p className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">

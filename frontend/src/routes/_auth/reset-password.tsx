@@ -1,8 +1,8 @@
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import axios from "axios";
 import { z } from "zod";
 
+import { resetPasswordMutation } from "#/api/@tanstack/react-query.gen";
 import { useAppForm } from "#/components/form";
 import { Button } from "#/components/ui/Button";
 import { getApiErrorMessage } from "#/lib/api";
@@ -23,17 +23,14 @@ function ResetPasswordPage() {
   const { email, token } = Route.useSearch();
   const navigate = Route.useNavigate();
 
-  const resetMut = useMutation({
-    mutationFn: (newPassword: string) =>
-      axios.post("/api/auth/reset-password", { email, token, newPassword }),
-  });
+  const resetMut = useMutation(resetPasswordMutation());
 
   const errorMessage = resetMut.error ? getApiErrorMessage(resetMut.error) : null;
 
   const form = useAppForm({
     defaultValues: { password: "", confirmPassword: "" },
     onSubmit: async ({ value }) => {
-      await resetMut.mutateAsync(value.password);
+      await resetMut.mutateAsync({ body: { email, token, newPassword: value.password } });
     },
   });
 
@@ -54,7 +51,9 @@ function ResetPasswordPage() {
   if (resetMut.isSuccess) {
     return (
       <>
-        <h1 className="mb-6 text-center text-2xl font-bold text-sea-ink">✅ Contraseña actualizada</h1>
+        <h1 className="mb-6 text-center text-2xl font-bold text-sea-ink">
+          ✅ Contraseña actualizada
+        </h1>
         <div className="island-shell space-y-4 rounded-2xl p-6 text-center text-sm text-sea-ink-soft">
           <p>Tu contraseña se actualizó correctamente. Ya puedes iniciar sesión.</p>
           <Button variant="link" onClick={() => navigate({ to: "/login" })}>
@@ -67,7 +66,9 @@ function ResetPasswordPage() {
 
   return (
     <>
-      <h1 className="mb-6 text-center text-2xl font-bold text-sea-ink">🔒 Restablece tu contraseña</h1>
+      <h1 className="mb-6 text-center text-2xl font-bold text-sea-ink">
+        🔒 Restablece tu contraseña
+      </h1>
 
       {errorMessage && (
         <p className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
