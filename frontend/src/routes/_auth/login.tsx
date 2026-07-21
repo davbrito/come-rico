@@ -75,6 +75,17 @@ function LoginPage() {
           </form.AppField>
         </div>
 
+        <p className="text-right text-sm">
+          <Button
+            variant="link"
+            onClick={() => {
+              navigate({ to: "/forgot-password" });
+            }}
+          >
+            ¿Olvidaste tu contraseña?
+          </Button>
+        </p>
+
         <form.AppForm>
           <form.SubmitButton pendingLabel="Un momento…" className="w-full">
             Entrar
