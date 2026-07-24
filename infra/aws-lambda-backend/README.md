@@ -1,14 +1,46 @@
 # Backend on AWS Lambda (always-free tier)
 
-Provisions the ComeRico backend as a Lambda container image behind a Lambda
-Function URL (not API Gateway, to stay in Lambda's always-free allowance —
-API Gateway's free tier is 12-months-for-new-accounts only). A weekly
-EventBridge Scheduler job replaces Vercel Cron for `/api/images/cleanup`.
+Provisions the ComeRico backend as a Lambda function (zip package, custom
+runtime) behind a Lambda Function URL (not API Gateway, to stay in Lambda's
+always-free allowance — API Gateway's free tier is 12-months-for-new-accounts
+only). A weekly EventBridge Scheduler job replaces Vercel Cron for
+`/api/images/cleanup`.
+
+The app hosts itself in Lambda via `Amazon.Lambda.AspNetCoreServer.Hosting`
+(`builder.Services.AddAWSLambdaHosting(LambdaEventSource.HttpApi)` in
+`Program.cs`) — no Docker/container image involved. Since net10.0 has no
+AWS-managed Lambda runtime yet, it's published **self-contained** and
+deployed on the `provided.al2023` custom runtime; the same code path falls
+back to normal Kestrel hosting outside of Lambda (local dev, tests), so
+nothing else changes.
 
 Neon (Postgres) and Cloudflare R2 are unchanged — only the compute moves.
 The frontend stays on Vercel; `vercel.json`'s `/api/(.*)` rewrite should point
 at this stack's `function_url` output so the browser only ever talks to the
 Vercel origin (same-origin cookies, no CORS changes needed).
+
+## Building the deployment package
+
+Custom runtimes require a file named exactly `bootstrap` at the zip root.
+
+```bash
+cd backend
+dotnet publish ComeRico.Api/ComeRico.Api.csproj \
+  -c Release \
+  -r linux-x64 \
+  --self-contained true \
+  -p:PublishReadyToRun=false \
+  -o publish
+
+mv publish/ComeRico.Api publish/bootstrap
+chmod +x publish/bootstrap
+
+(cd publish && zip -r ../publish/function.zip . -x '*.pdb')
+```
+
+Use `-r linux-arm64` instead (and set `lambda_architecture = "arm64"` in
+Terraform) for Graviton — cheaper and faster, no code changes needed either
+way.
 
 ## First-time deploy
 
@@ -27,16 +59,6 @@ r2_public_base_url   = "https://..."
 cron_secret          = "..."
 EOF
 
-# 1. Create the ECR repo (and everything else) once, so we have somewhere to push to.
-terraform apply -target=aws_ecr_repository.backend
-
-# 2. Build and push the image
-aws ecr get-login-password --region "$(terraform output -raw aws_region 2>/dev/null || echo us-east-1)" \
-  | docker login --username AWS --password-stdin "$(terraform output -raw ecr_repository_url | cut -d/ -f1)"
-docker build -f ../../backend/Dockerfile.lambda -t "$(terraform output -raw ecr_repository_url):latest" ../../backend
-docker push "$(terraform output -raw ecr_repository_url):latest"
-
-# 3. Deploy the Lambda function, Function URL, and cron
 terraform apply
 ```
 
@@ -64,14 +86,14 @@ Vercel `backend` service so the live site keeps working.
 ## Redeploying after a code change
 
 ```bash
-docker build -f ../../backend/Dockerfile.lambda -t "$(terraform output -raw ecr_repository_url):latest" ../../backend
-docker push "$(terraform output -raw ecr_repository_url):latest"
-terraform apply -replace=aws_lambda_function.backend
+# from repo root — rebuild the zip (see "Building the deployment package" above)
+cd infra/aws-lambda-backend
+terraform apply
 ```
 
-(`-replace` forces Lambda to pick up the new image at the same tag; without
-it Terraform won't detect that `latest` now points at different image
-digest.)
+Terraform picks up the new zip automatically via `source_code_hash`
+(`filebase64sha256(var.lambda_zip_path)`), so a plain `apply` after
+rebuilding is enough — no `-replace` needed.
 
 ## Notes
 
@@ -86,3 +108,9 @@ digest.)
   AWS Secrets Manager (referenced via `environment.variables` pointing at a
   secret ARN, or Lambda's native Secrets Manager extension) if that's a
   requirement.
+- Cold starts: a self-contained ASP.NET Core app on a custom runtime is
+  slower to cold-start than a managed dotnet runtime would be (no
+  ReadyToRun/AOT here). If cold starts become a problem, look at
+  `PublishReadyToRun=true` (needs a matching RID) or Native AOT (`dotnet
+  publish -p:PublishAot=true`, if the app's dependencies support it —
+  EF Core's reflection-heavy startup usually doesn't out of the box).

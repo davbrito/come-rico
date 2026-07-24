@@ -10,10 +10,21 @@ variable "project_name" {
   default     = "come-rico-backend"
 }
 
-variable "image_tag" {
-  description = "Tag of the container image (in the ECR repo created here) to deploy. Push an image with this tag before applying, or re-apply after pushing a new one."
+variable "lambda_zip_path" {
+  description = "Path to the built Lambda deployment zip (self-contained publish output with a `bootstrap` entrypoint). Build it before applying — see README.md."
   type        = string
-  default     = "latest"
+  default     = "../../backend/publish/function.zip"
+}
+
+variable "lambda_architecture" {
+  description = "Lambda instruction set architecture; must match what the zip was published for (linux-x64 -> x86_64, linux-arm64 -> arm64)."
+  type        = string
+  default     = "x86_64"
+
+  validation {
+    condition     = contains(["x86_64", "arm64"], var.lambda_architecture)
+    error_message = "lambda_architecture must be \"x86_64\" or \"arm64\"."
+  }
 }
 
 variable "memory_size" {

@@ -1,3 +1,4 @@
+using Amazon.Lambda.AspNetCoreServer.Hosting;
 using ComeRico.Api.Auth;
 using ComeRico.Api.Endpoints;
 using ComeRico.Core.Auth;
@@ -15,6 +16,12 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 // ---------- Services ----------
+
+// Runs the app through the Lambda Runtime API (payload format matches both
+// API Gateway HTTP API and Lambda Function URLs) when invoked as a Lambda
+// function; no-ops and falls back to Kestrel everywhere else (local dev,
+// or any non-Lambda host), so this is safe to register unconditionally.
+builder.Services.AddAWSLambdaHosting(LambdaEventSource.HttpApi);
 
 // EF Core + PostgreSQL (DATABASE_URL from Neon/Vercel, or DefaultConnection locally)
 builder.Services.AddDbContext<AppDbContext>(options =>

@@ -1,6 +1,6 @@
-output "ecr_repository_url" {
-  description = "Push the backend image here (see backend/Dockerfile.lambda), then apply again if image_tag changed."
-  value       = aws_ecr_repository.backend.repository_url
+output "artifacts_bucket" {
+  description = "S3 bucket holding the Lambda deployment zip."
+  value       = aws_s3_bucket.artifacts.id
 }
 
 output "function_url" {
