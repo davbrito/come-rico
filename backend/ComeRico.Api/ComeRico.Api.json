@@ -354,7 +354,7 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Registra un nuevo usuario e inicia sesión",
+        "summary": "Registra un nuevo usuario e inicia sesi\u00f3n",
         "operationId": "Register",
         "requestBody": {
           "content": {
@@ -395,12 +395,12 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Cierra la sesión actual",
+        "summary": "Cierra la sesi\u00f3n actual",
         "operationId": "Logout",
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { }
+              "schema": {}
             }
           },
           "required": true
@@ -417,7 +417,7 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Solicita el restablecimiento de contraseña (el token se registra en el servidor)",
+        "summary": "Solicita el restablecimiento de contrase\u00f1a (el token se registra en el servidor)",
         "operationId": "ForgotPassword",
         "requestBody": {
           "content": {
@@ -441,7 +441,7 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Restablece la contraseña usando el token generado",
+        "summary": "Restablece la contrase\u00f1a usando el token generado",
         "operationId": "ResetPassword",
         "requestBody": {
           "content": {
@@ -578,7 +578,7 @@
         "tags": [
           "Households"
         ],
-        "summary": "Une al usuario a un hogar mediante código de invitación",
+        "summary": "Une al usuario a un hogar mediante c\u00f3digo de invitaci\u00f3n",
         "operationId": "JoinHousehold",
         "requestBody": {
           "content": {
@@ -636,7 +636,7 @@
         "tags": [
           "Households"
         ],
-        "summary": "Rota el código de invitación del hogar (solo admin)",
+        "summary": "Rota el c\u00f3digo de invitaci\u00f3n del hogar (solo admin)",
         "operationId": "RotateInviteCode",
         "responses": {
           "200": {
@@ -940,7 +940,7 @@
         "tags": [
           "Images"
         ],
-        "summary": "Elimina archivos huérfanos de R2 (invocado por Vercel Cron)",
+        "summary": "Elimina archivos hu\u00e9rfanos de R2 (invocado por Vercel Cron)",
         "operationId": "CleanupOrphanedFiles",
         "responses": {
           "200": {
@@ -949,79 +949,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CleanupFilesResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/roulette/spin": {
-      "post": {
-        "tags": [
-          "Roulette"
-        ],
-        "summary": "Gira la ruleta y retorna el platillo ganador",
-        "operationId": "SpinRoulette",
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SpinRouletteResult"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/roulette/history": {
-      "get": {
-        "tags": [
-          "Roulette"
-        ],
-        "summary": "Obtiene el historial de giros de la ruleta",
-        "operationId": "GetRouletteHistory",
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
-            }
-          },
-          {
-            "name": "pageSize",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "pattern": "^-?(?:0|[1-9]\\d*)$",
-              "type": [
-                "integer",
-                "string"
-              ],
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/RouletteSessionDto"
-                  }
                 }
               }
             }
@@ -1271,7 +1198,7 @@
         "tags": [
           "Shopping"
         ],
-        "summary": "Añade un artículo manual a la lista de compras",
+        "summary": "A\u00f1ade un art\u00edculo manual a la lista de compras",
         "operationId": "CreateShoppingItem",
         "requestBody": {
           "content": {
@@ -1336,7 +1263,7 @@
         "tags": [
           "Shopping"
         ],
-        "summary": "Marca o desmarca un artículo como comprado",
+        "summary": "Marca o desmarca un art\u00edculo como comprado",
         "operationId": "SetShoppingItemPurchased",
         "parameters": [
           {
@@ -1381,7 +1308,7 @@
         "tags": [
           "Shopping"
         ],
-        "summary": "Elimina un artículo de la lista de compras",
+        "summary": "Elimina un art\u00edculo de la lista de compras",
         "operationId": "DeleteShoppingItem",
         "parameters": [
           {
@@ -2097,55 +2024,6 @@
           }
         }
       },
-      "RouletteSessionDto": {
-        "required": [
-          "id",
-          "householdId",
-          "status",
-          "winnerDishId",
-          "winnerDishName",
-          "createdAt",
-          "spunAt"
-        ],
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "householdId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "status": {
-            "type": "string"
-          },
-          "winnerDishId": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "uuid"
-          },
-          "winnerDishName": {
-            "type": [
-              "null",
-              "string"
-            ]
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "spunAt": {
-            "type": [
-              "null",
-              "string"
-            ],
-            "format": "date-time"
-          }
-        }
-      },
       "SetIngredientsRequest": {
         "required": [
           "ingredients"
@@ -2238,37 +2116,6 @@
             "format": "date"
           },
           "createdAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "SpinRouletteResult": {
-        "required": [
-          "sessionId",
-          "householdId",
-          "winnerDishId",
-          "winnerDishName",
-          "spunAt"
-        ],
-        "type": "object",
-        "properties": {
-          "sessionId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "householdId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "winnerDishId": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "winnerDishName": {
-            "type": "string"
-          },
-          "spunAt": {
             "type": "string",
             "format": "date-time"
           }
@@ -2446,9 +2293,6 @@
     },
     {
       "name": "Images"
-    },
-    {
-      "name": "Roulette"
     },
     {
       "name": "Tags"

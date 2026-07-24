@@ -19,7 +19,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService
 
     public DbSet<Household> Households => Set<Household>();
     public DbSet<Dish> Dishes => Set<Dish>();
-    public DbSet<RouletteSession> RouletteSessions => Set<RouletteSession>();
     public DbSet<Ingredient> Ingredients => Set<Ingredient>();
     public DbSet<Tag> Tags => Set<Tag>();
     public DbSet<MealPlan> MealPlans => Set<MealPlan>();
@@ -56,12 +55,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService
                 .WithOne(d => d.Household)
                 .HasForeignKey(d => d.HouseholdId)
                 .OnDelete(DeleteBehavior.Cascade);
-
-            entity
-                .HasMany(h => h.RouletteSessions)
-                .WithOne(r => r.Household)
-                .HasForeignKey(r => r.HouseholdId)
-                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Dish>(entity =>
@@ -70,14 +63,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService
             entity.Property(d => d.Name).IsRequired().HasMaxLength(200);
             entity.Property(d => d.Description).HasMaxLength(1000);
             entity.Property(d => d.ImageKey).HasMaxLength(2048);
-        });
-
-        modelBuilder.Entity<RouletteSession>(entity =>
-        {
-            entity.HasKey(r => r.Id);
-            entity.Property(r => r.Status).HasConversion<string>().IsRequired();
-
-            entity.HasOne(r => r.WinnerDish).WithMany().HasForeignKey(r => r.WinnerDishId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Ingredient>(entity =>

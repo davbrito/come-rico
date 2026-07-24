@@ -32,3 +32,9 @@ frontend/.env.*.local
 *.orig
 Thumbs.db
 .vercel
+
+# ─── Terraform ─────────────────────────────────────────────────────────────────
+infra/**/.terraform/
+infra/**/*.tfstate
+infra/**/*.tfstate.*
+infra/**/terraform.tfvars

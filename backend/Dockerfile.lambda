@@ -1,0 +1,36 @@
+# ---------- Build stage ----------
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+# Restore dependencies (layer-cache friendly)
+COPY Directory.Build.props .
+COPY Directory.Packages.props .
+COPY ComeRico.Core/ComeRico.Core.csproj ComeRico.Core/
+COPY ComeRico.Infrastructure/ComeRico.Infrastructure.csproj ComeRico.Infrastructure/
+COPY ComeRico.Api/ComeRico.Api.csproj  ComeRico.Api/
+RUN dotnet restore ComeRico.Api/ComeRico.Api.csproj
+
+# Copy source and publish
+COPY . .
+RUN dotnet publish ComeRico.Api/ComeRico.Api.csproj \
+      -c Release \
+      -o /app/publish \
+      --no-restore
+
+# ---------- Runtime stage ----------
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+WORKDIR /app
+
+# AWS Lambda Web Adapter: proxies Lambda Function URL invocation events to a
+# normal Kestrel HTTP server listening on $PORT, so the app itself needs no
+# Lambda-specific code (Amazon.Lambda.AspNetCoreServer isn't a dependency here).
+# https://github.com/awslabs/aws-lambda-web-adapter
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.9.1 /lambda-adapter /opt/extensions/lambda-adapter
+
+COPY --from=build /app/publish .
+
+EXPOSE 8080
+
+# The adapter forwards requests to the app on $PORT (default 8080); reuse the
+# same shell wrapper as Dockerfile.vercel so ASPNETCORE_URLS is set correctly.
+CMD ["sh", "-c", "ASPNETCORE_URLS=http://+:${PORT:-8080} dotnet ComeRico.Api.dll"]
