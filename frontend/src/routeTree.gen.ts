@@ -27,6 +27,7 @@ import { Route as IconsFaviconDotpngRouteImport } from './routes/_icons/favicon[
 import { Route as IconsFaviconDotsvgRouteImport } from './routes/_icons/favicon[.]svg'
 import { Route as IconsIcon192DotpngRouteImport } from './routes/_icons/icon-192[.]png'
 import { Route as IconsIcon512DotpngRouteImport } from './routes/_icons/icon-512[.]png'
+import { Route as ApiSplatRouteImport } from './routes/api.$'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -116,6 +117,11 @@ const IconsIcon512DotpngRoute = IconsIcon512DotpngRouteImport.update({
   path: '/icon-512.png',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSplatRoute = ApiSplatRouteImport.update({
+  id: '/api/$',
+  path: '/api/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -134,6 +140,7 @@ export interface FileRoutesByFullPath {
   '/favicon.svg': typeof IconsFaviconDotsvgRoute
   '/icon-192.png': typeof IconsIcon192DotpngRoute
   '/icon-512.png': typeof IconsIcon512DotpngRoute
+  '/api/$': typeof ApiSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -152,6 +159,7 @@ export interface FileRoutesByTo {
   '/favicon.svg': typeof IconsFaviconDotsvgRoute
   '/icon-192.png': typeof IconsIcon192DotpngRoute
   '/icon-512.png': typeof IconsIcon512DotpngRoute
+  '/api/$': typeof ApiSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -173,6 +181,7 @@ export interface FileRoutesById {
   '/_icons/favicon.svg': typeof IconsFaviconDotsvgRoute
   '/_icons/icon-192.png': typeof IconsIcon192DotpngRoute
   '/_icons/icon-512.png': typeof IconsIcon512DotpngRoute
+  '/api/$': typeof ApiSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -193,6 +202,7 @@ export interface FileRouteTypes {
     | '/favicon.svg'
     | '/icon-192.png'
     | '/icon-512.png'
+    | '/api/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -211,6 +221,7 @@ export interface FileRouteTypes {
     | '/favicon.svg'
     | '/icon-192.png'
     | '/icon-512.png'
+    | '/api/$'
   id:
     | '__root__'
     | '/'
@@ -231,6 +242,7 @@ export interface FileRouteTypes {
     | '/_icons/favicon.svg'
     | '/_icons/icon-192.png'
     | '/_icons/icon-512.png'
+    | '/api/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -245,6 +257,7 @@ export interface RootRouteChildren {
   IconsFaviconDotsvgRoute: typeof IconsFaviconDotsvgRoute
   IconsIcon192DotpngRoute: typeof IconsIcon192DotpngRoute
   IconsIcon512DotpngRoute: typeof IconsIcon512DotpngRoute
+  ApiSplatRoute: typeof ApiSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -375,6 +388,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IconsIcon512DotpngRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/$': {
+      id: '/api/$'
+      path: '/api/$'
+      fullPath: '/api/$'
+      preLoaderRoute: typeof ApiSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -424,6 +444,7 @@ const rootRouteChildren: RootRouteChildren = {
   IconsFaviconDotsvgRoute: IconsFaviconDotsvgRoute,
   IconsIcon192DotpngRoute: IconsIcon192DotpngRoute,
   IconsIcon512DotpngRoute: IconsIcon512DotpngRoute,
+  ApiSplatRoute: ApiSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

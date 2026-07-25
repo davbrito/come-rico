@@ -1,0 +1,13 @@
+{
+  // Fallback config for plain `pnpm build` / `pnpm dev` outside of SST.
+  // When deploying, SST's TanStackStart component generates its own
+  // wrangler config and points the Vite plugin at it via
+  // SST_WRANGLER_PATH (see vite.config.ts), so this file is not what
+  // ships to production.
+  "$schema": "https://raw.githubusercontent.com/cloudflare/workers-sdk/main/packages/wrangler/config-schema.json",
+  "name": "come-rico",
+  // >= 2024-09-23 selects nodejs_compat v2, which the Vite plugin requires.
+  "compatibility_date": "2026-07-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "./src/server.ts"
+}

@@ -38,7 +38,6 @@
     "cnfast": "^0.0.8",
     "immer": "^11.1.11",
     "lucide-react": "^1.23.0",
-    "nitro": "3.0.260610-beta",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-dropzone": "^15.0.0",
@@ -46,6 +45,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.47.0",
     "@hey-api/openapi-ts": "0.99.0",
     "@hey-api/vite-plugin": "0.3.2",
     "@tailwindcss/typography": "^0.5.16",
