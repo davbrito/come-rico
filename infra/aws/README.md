@@ -27,33 +27,38 @@ directly against Neon, independent of where the app runtime lives.
 
 ## One-time setup
 
-### 1. State bucket (bootstrap)
+### 1. State bucket + GitHub OIDC role (bootstrap)
 
-Terraform's own state needs somewhere to live; this one bucket is created
-with local state since there's nothing to point a backend at yet:
+`infra/aws/bootstrap/` is applied once, manually, with your own AWS
+credentials — it creates the things CI needs to exist *before* it can run
+Terraform against the main stack (the state bucket, and the IAM role CI
+assumes), so it can't live in `infra/aws/` itself (chicken-and-egg) and
+stays on local state (nothing to point a remote backend at yet):
 
 ```bash
 cd infra/aws/bootstrap
 terraform init
 terraform apply
-terraform output state_bucket   # note this down
+terraform output state_bucket     # -> TF_STATE_BUCKET secret
+terraform output deploy_role_arn  # -> AWS_DEPLOY_ROLE_ARN secret
 ```
 
-### 2. GitHub OIDC role (for CI)
+This also creates the GitHub Actions OIDC provider
+(`token.actions.githubusercontent.com`) — AWS allows only one per account,
+so if your account already has one (e.g. shared with another project), set
+`create_oidc_provider = false` and pass its ARN via
+`github_oidc_provider_arn` instead. The deploy role's trust policy is
+scoped to `davbrito/come-rico` on the `aws-main` branch specifically
+(`github_repo`/`github_branch` variables); its permissions are scoped by
+resource-name prefix (`come-rico-*`) to what `infra/aws/*.tf` actually
+provisions — see `infra/aws/bootstrap/oidc.tf` for the exact statements.
 
-Create an IAM role GitHub Actions can assume via OIDC (no long-lived AWS
-keys stored as secrets) — trust policy scoped to this repo, permissions
-covering Lambda/S3/CloudFront/IAM/EventBridge/CloudWatch Logs for the
-resources this stack creates. (Not itself Terraform-managed here to avoid a
-bootstrapping problem — create via the console or a one-off `aws iam`
-script, then set its ARN as a secret.)
-
-### 3. Repository secrets/variables
+### 2. Repository secrets/variables
 
 | Name | Used by |
 |---|---|
-| `TF_STATE_BUCKET` | workflow — the bucket from step 1 |
-| `AWS_DEPLOY_ROLE_ARN` | workflow — the OIDC role from step 2 |
+| `TF_STATE_BUCKET` | workflow — `state_bucket` output from step 1 |
+| `AWS_DEPLOY_ROLE_ARN` | workflow — `deploy_role_arn` output from step 1 |
 | `NEON_CONNECTION_STRING` | Terraform `connection_string` var |
 | `R2_SERVICE_URL`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, `R2_PUBLIC_BASE_URL` | Terraform R2 vars |
 | `CRON_SECRET` | Terraform `cron_secret` var — also required by `GET /api/images/cleanup` |
