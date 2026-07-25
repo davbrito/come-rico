@@ -2,6 +2,12 @@
 
 A domestic/family app to plan meals and resolve culinary indecision via a real-time synchronized roulette. Built for households; user-facing copy is in Spanish.
 
+> **Backend rewrite in progress.** A TypeScript Cloudflare Workers backend
+> ([`backend-workers/`](backend-workers/)) is being introduced alongside the
+> ASP.NET Core backend below and runs in parallel until parity is verified.
+> See the [proposal](docs/proposals/cloudflare-workers-rewrite.md) and the
+> [cutover checklist](docs/proposals/cloudflare-workers-cutover.md).
+
 ## Tech Stack
 
 | Layer | Technology |

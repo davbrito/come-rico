@@ -34,7 +34,7 @@ function HomePage() {
             [
               "🎡",
               "Ruleta en Tiempo Real",
-              "Gira la ruleta y todos los miembros del hogar ven el resultado al instante gracias a SignalR.",
+              "Gira la ruleta y todos los miembros del hogar ven el resultado al instante en tiempo real.",
             ],
             [
               "🍲",
