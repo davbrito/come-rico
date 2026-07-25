@@ -1,6 +1,5 @@
 using ComeRico.Api.Auth;
 using ComeRico.Api.Endpoints;
-using ComeRico.Api.Hubs;
 using ComeRico.Core.Auth;
 using ComeRico.Core.Behaviors;
 using ComeRico.Core.Domain.Entities;
@@ -94,9 +93,6 @@ builder.Services.AddMediatR(cfg =>
 // FluentValidation — scans the ComeRico.Core assembly for validators
 builder.Services.AddValidatorsFromAssemblyContaining<CreateHouseholdCommand>();
 
-// SignalR
-builder.Services.AddSignalR();
-
 // Cloudflare R2 (S3-compatible API) for image uploads
 builder.Services.AddOptions<R2Options>().BindConfiguration(R2Options.SectionName);
 builder.Services.AddSingleton<IFileStorage, R2FileStorage>();
@@ -159,12 +155,8 @@ app.MapAuthEndpoints();
 app.MapHouseholdEndpoints();
 app.MapDishEndpoints();
 app.MapImageEndpoints();
-app.MapRouletteEndpoints();
 app.MapTagEndpoints();
 app.MapMealPlanEndpoints();
 app.MapShoppingEndpoints();
-
-// SignalR hub — decoupled broadcast only
-app.MapHub<RouletteHub>("/hubs/roulette");
 
 app.Run();

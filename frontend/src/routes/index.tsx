@@ -15,15 +15,15 @@ function HomePage() {
           ¿Qué vamos a comer hoy? 🍽️
         </h1>
         <p className="mb-8 max-w-2xl text-base text-sea-ink-soft sm:text-lg">
-          Organiza los platillos de tu hogar y deja que la ruleta resuelva la eterna pregunta:{" "}
+          Organiza los platillos de tu hogar y planifica la semana sin complicarte:{" "}
           <em>¿qué comemos?</em>
         </p>
         <div className="flex flex-wrap gap-3">
-          <Button nativeButton={false} render={<Link to="/roulette" />}>
-            🎡 Girar la Ruleta
-          </Button>
-          <Button variant="outline" nativeButton={false} render={<Link to="/dishes" />}>
+          <Button nativeButton={false} render={<Link to="/dishes" />}>
             🍲 Ver Platillos
+          </Button>
+          <Button variant="outline" nativeButton={false} render={<Link to="/meal-plan" />}>
+            📅 Plan Semanal
           </Button>
         </div>
       </section>
@@ -32,14 +32,14 @@ function HomePage() {
         {(
           [
             [
-              "🎡",
-              "Ruleta en Tiempo Real",
-              "Gira la ruleta y todos los miembros del hogar ven el resultado al instante gracias a SignalR.",
-            ],
-            [
               "🍲",
               "Tus Platillos",
               "Agrega, edita y organiza todos los platillos que el hogar disfruta comer.",
+            ],
+            [
+              "📅",
+              "Plan Semanal",
+              "Programa desayunos, almuerzos y cenas para toda la semana en un solo lugar.",
             ],
             [
               "🏠",
