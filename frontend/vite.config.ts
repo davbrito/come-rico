@@ -17,6 +17,7 @@ const config = defineConfig({
     tanstackStart(),
     heyApiPlugin(),
     nitro({
+      preset: "aws-lambda",
       devProxy: {
         "/api/**": { target: BACKEND_URL, changeOrigin: true },
         "/hubs/**": { target: BACKEND_URL, changeOrigin: true, ws: true },

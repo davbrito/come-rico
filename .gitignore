@@ -1,6 +1,7 @@
 # ─── .NET / Backend ────────────────────────────────────────────────────────────
 **/bin/
 **/obj/
+backend/publish/
 *.user
 *.suo
 .vs/
@@ -32,3 +33,9 @@ frontend/.env.*.local
 *.orig
 Thumbs.db
 .vercel
+
+# ─── Terraform ─────────────────────────────────────────────────────────────────
+infra/**/.terraform/
+infra/**/*.tfstate
+infra/**/*.tfstate.*
+infra/**/terraform.tfvars
