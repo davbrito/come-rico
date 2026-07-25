@@ -1,6 +1,6 @@
 # ComeRico
 
-A domestic/family app to plan meals and resolve culinary indecision via a real-time synchronized roulette. Built for households; user-facing copy is in Spanish.
+A domestic/family app to plan meals: manage dishes, schedule a weekly meal plan, and generate a shopping list. Built for households; user-facing copy is in Spanish.
 
 ## Tech Stack
 
@@ -10,7 +10,6 @@ A domestic/family app to plan meals and resolve culinary indecision via a real-t
 | ORM | Entity Framework Core 10 + Npgsql (PostgreSQL) |
 | Mediator | MediatR 14 |
 | Validation | FluentValidation 12 |
-| Real-time | ASP.NET Core SignalR |
 | Frontend | TanStack Start (React 19 + Vite 8 + TanStack Router) |
 | Styling | Tailwind CSS 4 |
 | Package Manager | pnpm (frontend only) |

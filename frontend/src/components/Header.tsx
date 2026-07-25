@@ -60,13 +60,6 @@ export default function Header() {
                 Platillos
               </Link>
               <Link
-                to="/roulette"
-                className="nav-link"
-                activeProps={{ className: "nav-link is-active" }}
-              >
-                Ruleta
-              </Link>
-              <Link
                 to="/meal-plan"
                 className="nav-link"
                 activeProps={{ className: "nav-link is-active" }}

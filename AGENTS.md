@@ -12,14 +12,13 @@ come-rico/                    # Root (all lowercase)
 ├── .gitignore
 ├── backend/
 │   ├── ComeRico.slnx         # Solution file (.NET 10 slnx format)
-│   ├── ComeRico.Api/         # ASP.NET Core Web API (Minimal APIs + SignalR Hubs)
+│   ├── ComeRico.Api/         # ASP.NET Core Web API (Minimal APIs)
 │   └── ComeRico.Core/        # Domain Entities, EF Core DbContext, MediatR Handlers
 └── frontend/                 # TanStack Start project (React + Vite + Tailwind)
     ├── AGENTS.md             # TanStack Intent skill mappings (auto-generated)
     └── src/
         ├── lib/
-        │   ├── api.ts        # Typed REST API client (cookie-based, same-origin)
-        │   └── signalr.ts    # SignalR connection helpers
+        │   └── api.ts        # Typed REST API client (cookie-based, same-origin)
         ├── server/
         │   └── auth.ts       # fetchCurrentUser server fn (reads session on the Start server)
         └── routes/
@@ -27,8 +26,7 @@ come-rico/                    # Root (all lowercase)
             ├── index.tsx     # Home page
             ├── login.tsx     # Login / register (redirects away when authenticated)
             ├── household.tsx # Create/join household + invite code
-            ├── dishes.tsx    # Dishes CRUD (protected via beforeLoad redirect)
-            └── roulette.tsx  # Real-time roulette (protected via beforeLoad redirect)
+            └── dishes.tsx    # Dishes CRUD (protected via beforeLoad redirect)
 ```
 
 ---
@@ -74,7 +72,7 @@ dotnet sln add ComeRico.Api/ComeRico.Api.csproj
 - **Frontend session (TanStack Start pattern):** `fetchCurrentUser` (`createServerFn` in `src/server/auth.ts`) forwards the request cookie to `/api/auth/me` on the Start server; the root route's `beforeLoad` puts the user into router context, and protected routes throw `redirect({ to: '/login' })` when missing. SSR, reloads, and client navigations all share the same auth state — never store the session in client-only React state.
 
 ### Multi-Tenancy (Household Isolation)
-- Global Query Filters are applied automatically to **every entity implementing `IHasHousehold`** (`Dish`, `RouletteSession`, `Ingredient`, `Tag`, `MealPlan`, `ShoppingItem`) via `ModelBuilderExtensions.ApplyHouseholdFilters` — new tenant-scoped entities only need to implement the interface.
+- Global Query Filters are applied automatically to **every entity implementing `IHasHousehold`** (`Dish`, `Ingredient`, `Tag`, `MealPlan`, `ShoppingItem`) via `ModelBuilderExtensions.ApplyHouseholdFilters` — new tenant-scoped entities only need to implement the interface.
 - `ITenantService` is resolved per HTTP request via `ClaimsTenantService` — it reads the `household_id` claim from the validated auth cookie (never client-supplied headers).
 - `RequiresHousehold` policy = authenticated user + `household_id` claim present.
 - Note: `PendingModelChangesWarning` is suppressed in `Program.cs` — the tenant query filters capture a scoped service, which makes the runtime model never match the snapshot exactly (false positive).
@@ -88,7 +86,6 @@ dotnet sln add ComeRico.Api/ComeRico.Api.csproj
 - `Dish` owns `Ingredient`s (name + `decimal Amount` + `MeasurementUnit` enum — closed unit set so amounts can be summed) and has a many-to-many with `Tag` (unique per household by name).
 - `MealPlan` schedules a dish on a `DateOnly` + `MealType` (Breakfast/Lunch/Dinner).
 - `ShoppingItem` is either manual or auto-generated: `POST /api/shopping-items/generate` consolidates the week's planned ingredients (grouped case-insensitively by name + unit, Monday-based week stored in `GeneratedForWeekStart`); regeneration replaces only that week's auto items, never manual ones.
-- Roulette spins exclude dishes that won in the last 3 days unless no other dish remains.
 - Enums serialize as strings (`ConfigureHttpJsonOptions` + `JsonStringEnumConverter`) so the Hey-API client emits string literal unions.
 - **EF gotcha:** entities with client-generated Guid keys discovered only through a navigation are tracked as `Modified`, not `Added` — always `Add`/`RemoveRange` child entities through their `DbSet` (see `SetDishIngredients`).
 
@@ -100,14 +97,8 @@ dotnet sln add ComeRico.Api/ComeRico.Api.csproj
 - Object keys are `dishes/{householdId}/{guid}.{ext}`; `CreateUploadCommand`'s validator enforces content type (JPG/PNG/WebP/AVIF/GIF) and the 5 MB limit (see `UploadRules`).
 - **Orphan GC (mark-and-sweep):** replacing/removing a dish image marks the old `StoredFile` `Orphaned`. `GET /api/images/cleanup` (invoked by Vercel Cron weekly, authenticated with `Authorization: Bearer {CRON_SECRET}` — not a user cookie; it runs cross-tenant with `IgnoreQueryFilters`) deletes blobs+rows that are `Orphaned` or `Pending` older than 2h (tickets never consumed). External/legacy image URLs have no `StoredFile` row and are ignored.
 
-### SignalR Hub Design
-- `RouletteHub` is `[Authorize]`d; on connect it joins the socket to the `household-{id}` group resolved from the cookie's `household_id` claim (never a client-passed id).
-- Business logic (spinning, selecting winner) is a MediatR command in `Core`.
-- After the command completes, `RouletteEndpoints` broadcasts the result via `IHubContext<RouletteHub>`.
-
 ### Frontend ↔ Backend Communication
 - **REST** (`/api/*`) for CRUD operations — in dev, proxied via Nitro's `devProxy` (configured on the `nitro()` plugin in `vite.config.ts`; Vite's own `server.proxy` is NOT used because the Nitro dev server handles requests first). In production, `vercel.json` rewrites route these paths to the backend service.
-- **WebSocket** (`/hubs/roulette`) for real-time roulette events — same proxying.
 
 ---
 
