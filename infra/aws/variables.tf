@@ -7,17 +7,35 @@ variable "aws_region" {
 variable "project_name" {
   description = "Short name used to prefix all created resources."
   type        = string
-  default     = "come-rico-backend"
+  default     = "come-rico"
 }
 
-variable "lambda_zip_path" {
-  description = "Path to the built Lambda deployment zip (self-contained publish output with a `bootstrap` entrypoint). Build it before applying — see README.md."
+variable "backend_zip_path" {
+  description = "Path to the built backend Lambda deployment zip (self-contained .NET publish output with a `bootstrap` entrypoint). Build it before applying — see README.md."
   type        = string
   default     = "../../backend/publish/function.zip"
 }
 
+variable "frontend_zip_path" {
+  description = "Path to the built frontend Lambda deployment zip (Nitro `aws-lambda` preset output, `.output/server/` incl. node_modules, zipped). Build it before applying — see README.md."
+  type        = string
+  default     = "../../frontend/.output/server.zip"
+}
+
+variable "frontend_node_runtime" {
+  description = "Managed Node.js Lambda runtime for the frontend SSR function."
+  type        = string
+  default     = "nodejs22.x"
+}
+
+variable "frontend_memory_size" {
+  description = "Lambda memory (MB) for the frontend SSR function."
+  type        = number
+  default     = 512
+}
+
 variable "lambda_architecture" {
-  description = "Lambda instruction set architecture; must match what the zip was published for (linux-x64 -> x86_64, linux-arm64 -> arm64)."
+  description = "Lambda instruction set architecture; must match what both zips were built for (linux-x64 -> x86_64, linux-arm64 -> arm64) — this matters especially for the frontend zip, which bundles native deps (sharp, for @vercel/og) that are platform-specific."
   type        = string
   default     = "x86_64"
 
@@ -28,7 +46,7 @@ variable "lambda_architecture" {
 }
 
 variable "memory_size" {
-  description = "Lambda memory (MB). Also determines allocated CPU."
+  description = "Lambda memory (MB) for the backend function. Also determines allocated CPU."
   type        = number
   default     = 512
 }

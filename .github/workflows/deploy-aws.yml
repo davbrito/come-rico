@@ -1,0 +1,161 @@
+name: deploy-aws
+
+# Deploys the whole stack (backend Lambda, frontend Lambda, static assets,
+# CloudFront, EventBridge cron) to AWS via Terraform. Triggers on `aws-main`
+# rather than `main` for now, while this replaces the Vercel deploy path —
+# `main` is untouched and keeps deploying to Vercel until the cutover is
+# ready.
+on:
+  push:
+    branches: [aws-main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write # for OIDC -> AWS credentials
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
+
+jobs:
+  build-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Publish self-contained (custom Lambda runtime needs no managed dotnet runtime)
+        working-directory: backend
+        run: |
+          dotnet publish ComeRico.Api/ComeRico.Api.csproj \
+            -c Release \
+            -r linux-x64 \
+            --self-contained true \
+            -p:PublishReadyToRun=false \
+            -o publish
+
+      - name: Package as a Lambda zip (bootstrap entrypoint required by provided.al2023)
+        working-directory: backend/publish
+        run: |
+          mv ComeRico.Api bootstrap
+          chmod +x bootstrap
+          zip -r ../function.zip . -x '*.pdb'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backend-zip
+          path: backend/function.zip
+          retention-days: 1
+
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: ./frontend/package.json
+          cache: true
+          cache-dependency-path: ./frontend/pnpm-lock.yaml
+
+      # Pinned to nodejs22.x specifically (not frontend/.node-version) to
+      # match the Lambda runtime in infra/aws/variables.tf
+      # (frontend_node_runtime) — sharp (used by @vercel/og) ships
+      # prebuilt native binaries tied to the Node ABI version, so the
+      # version installing node_modules here must match what Lambda runs.
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: ./frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Build (Nitro aws-lambda preset, set in vite.config.ts)
+        working-directory: frontend
+        run: pnpm build
+
+      - name: Install production node_modules for the Lambda zip (sharp needs its native binary)
+        working-directory: frontend/.output/server
+        run: npm install --omit=dev --no-audit --no-fund
+
+      - name: Package server output as a Lambda zip
+        working-directory: frontend/.output/server
+        run: zip -r ../server.zip .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-server-zip
+          path: frontend/.output/server.zip
+          retention-days: 1
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-public
+          path: frontend/.output/public
+          retention-days: 1
+
+  deploy:
+    needs: [build-backend, build-frontend]
+    runs-on: ubuntu-latest
+    environment: Production
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/download-artifact@v5
+        with:
+          name: backend-zip
+          path: backend
+
+      - uses: actions/download-artifact@v5
+        with:
+          name: frontend-server-zip
+          path: frontend/.output
+
+      - uses: actions/download-artifact@v5
+        with:
+          name: frontend-public
+          path: frontend/.output/public
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform init
+        working-directory: infra/aws
+        run: terraform init -backend-config="bucket=${TF_STATE_BUCKET}" -backend-config="region=${AWS_REGION}"
+
+      - name: Terraform apply
+        working-directory: infra/aws
+        env:
+          TF_VAR_backend_zip_path: ${{ github.workspace }}/backend/function.zip
+          TF_VAR_frontend_zip_path: ${{ github.workspace }}/frontend/.output/server.zip
+          TF_VAR_connection_string: ${{ secrets.NEON_CONNECTION_STRING }}
+          TF_VAR_r2_service_url: ${{ secrets.R2_SERVICE_URL }}
+          TF_VAR_r2_access_key_id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          TF_VAR_r2_secret_access_key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          TF_VAR_r2_bucket_name: ${{ secrets.R2_BUCKET_NAME }}
+          TF_VAR_r2_public_base_url: ${{ secrets.R2_PUBLIC_BASE_URL }}
+          TF_VAR_cron_secret: ${{ secrets.CRON_SECRET }}
+        run: terraform apply -auto-approve
+
+      - name: Sync static assets to S3
+        working-directory: infra/aws
+        run: |
+          bucket="$(terraform output -raw static_assets_bucket)"
+          aws s3 sync ../../frontend/.output/public "s3://${bucket}" --delete
+
+      - name: Deployment summary
+        working-directory: infra/aws
+        run: |
+          echo "### Deployed" >> "$GITHUB_STEP_SUMMARY"
+          echo "URL: https://$(terraform output -raw cloudfront_domain_name)" >> "$GITHUB_STEP_SUMMARY"

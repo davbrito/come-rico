@@ -74,3 +74,7 @@ cd frontend && pnpm exec tsc --noEmit
 # Frontend tests (Vitest)
 cd frontend && pnpm test
 ```
+
+## Deployment
+
+Runs entirely on AWS (Lambda + CloudFront + S3), provisioned by Terraform in `infra/aws/` and deployed via `.github/workflows/deploy-aws.yml` on push to `aws-main`. See `infra/aws/README.md` for the full setup.

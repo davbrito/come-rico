@@ -95,10 +95,10 @@ dotnet sln add ComeRico.Api/ComeRico.Api.csproj
 - `R2FileStorage` (`ComeRico.Api/Services`, implements `IFileStorage` from Core) configures `AmazonS3Client` with `ServiceURL` from config and checksums `WHEN_REQUIRED` (required for R2), per https://developers.cloudflare.com/r2/examples/aws/aws-sdk-net/.
 - Config lives in the `R2` section (`ServiceUrl` — the full `https://{accountId}.r2.cloudflarestorage.com` endpoint —, `AccessKeyId`, `SecretAccessKey`, `BucketName`, `PublicBaseUrl`); locally secrets live in dotnet user-secrets (mirroring the root `.env`), in production env vars (`R2__ServiceUrl`, …). `PublicBaseUrl` is the bucket's r2.dev subdomain or custom domain and must allow public reads.
 - Object keys are `dishes/{householdId}/{guid}.{ext}`; `CreateUploadCommand`'s validator enforces content type (JPG/PNG/WebP/AVIF/GIF) and the 5 MB limit (see `UploadRules`).
-- **Orphan GC (mark-and-sweep):** replacing/removing a dish image marks the old `StoredFile` `Orphaned`. `GET /api/images/cleanup` (invoked by Vercel Cron weekly, authenticated with `Authorization: Bearer {CRON_SECRET}` — not a user cookie; it runs cross-tenant with `IgnoreQueryFilters`) deletes blobs+rows that are `Orphaned` or `Pending` older than 2h (tickets never consumed). External/legacy image URLs have no `StoredFile` row and are ignored.
+- **Orphan GC (mark-and-sweep):** replacing/removing a dish image marks the old `StoredFile` `Orphaned`. `GET /api/images/cleanup` (invoked weekly by an EventBridge Scheduler job, authenticated with `Authorization: Bearer {CRON_SECRET}` — not a user cookie; it runs cross-tenant with `IgnoreQueryFilters`) deletes blobs+rows that are `Orphaned` or `Pending` older than 2h (tickets never consumed). External/legacy image URLs have no `StoredFile` row and are ignored.
 
 ### Frontend ↔ Backend Communication
-- **REST** (`/api/*`) for CRUD operations — in dev, proxied via Nitro's `devProxy` (configured on the `nitro()` plugin in `vite.config.ts`; Vite's own `server.proxy` is NOT used because the Nitro dev server handles requests first). In production, `vercel.json` rewrites route these paths to the backend service.
+- **REST** (`/api/*`) for CRUD operations — in dev, proxied via Nitro's `devProxy` (configured on the `nitro()` plugin in `vite.config.ts`; Vite's own `server.proxy` is NOT used because the Nitro dev server handles requests first). In production, a CloudFront distribution (see `infra/aws/`) routes these paths to the backend Lambda.
 
 ---
 
@@ -108,7 +108,7 @@ dotnet sln add ComeRico.Api/ComeRico.Api.csproj
 - **Production cookies:** `CookieSecurePolicy.SameAsRequest` is dev-friendly; enforce `Always` (HTTPS-only) in production.
 - **Email confirmation / password reset:** Not implemented; `AddDefaultTokenProviders()` is already wired for when they're needed.
 - **Tests:** No automated tests yet. Add xUnit for backend and Vitest for frontend.
-- **Database config:** The backend prefers a URI-style `DATABASE_URL` (Neon/Vercel format, converted by `ConnectionStringResolver`) and falls back to `ConnectionStrings:DefaultConnection`.
+- **Database config:** the backend only reads `ConnectionStrings:DefaultConnection` (ADO.NET keyword=value format, e.g. `Host=...;Port=...;Database=...;Username=...;Password=...`), set via `ConnectionStrings__DefaultConnection` in production (see `infra/aws/backend.tf`). No URI-style `DATABASE_URL` parsing exists in the code — Neon's own dashboard can generate an ADO.NET-format string directly.
 - **Migrations policy:** Migrations run exclusively via the dotnet CLI (`dotnet ef database update --project ComeRico.Core --startup-project ComeRico.Api`). The app never auto-migrates at startup, in any environment.
 
 ---
