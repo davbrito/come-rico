@@ -1,0 +1,95 @@
+name: deploy
+
+# Deploys the whole stack:
+#   1. SST provisions/updates infra (Cloudflare Worker + R2 + crons, Azure
+#      App Service, Neon) and deploys the frontend Worker.
+#   2. The backend binary is pushed to the App Service separately — SST
+#      creates the App Service, but azure-native has no first-class "ship
+#      this zip" resource, so that stays an `az webapp deploy`.
+#
+# See infra/README.md for the credentials this needs.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  STAGE: production
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: Production
+
+    steps:
+      - uses: actions/checkout@v6
+
+      # ---- Backend build ----
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      # Self-contained so the deploy doesn't depend on App Service having a
+      # .NET 10 runtime available (still Preview-tagged in some regions).
+      - name: Publish backend
+        working-directory: backend
+        run: |
+          dotnet publish ComeRico.Api/ComeRico.Api.csproj \
+            -c Release \
+            -r linux-x64 \
+            --self-contained true \
+            -o publish
+          (cd publish && zip -qr ../backend.zip . -x '*.pdb')
+
+      # ---- Frontend toolchain (SST runs `pnpm build` in frontend/) ----
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: ./frontend/package.json
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: ./frontend/.node-version
+          cache: pnpm
+          cache-dependency-path: ./frontend/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: |
+          pnpm install --frozen-lockfile --dir .
+          pnpm install --frozen-lockfile --dir frontend
+
+      # ---- Infra + frontend ----
+      - name: SST deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_DEFAULT_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+        run: pnpm sst deploy --stage "$STAGE"
+
+      # ---- Backend code ----
+      - uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy backend to App Service
+        run: |
+          az webapp deploy \
+            --resource-group "come-rico-${STAGE}" \
+            --name "come-rico-${STAGE}-api" \
+            --src-path backend/backend.zip \
+            --type zip
+
+      - name: Summary
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_DEFAULT_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          echo "### Deployed" >> "$GITHUB_STEP_SUMMARY"
+          pnpm sst outputs --stage "$STAGE" >> "$GITHUB_STEP_SUMMARY" || true

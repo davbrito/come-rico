@@ -1,0 +1,13 @@
+{
+  "name": "come-rico",
+  "private": true,
+  "type": "module",
+  "description": "Infrastructure root — SST config only. The app lives in frontend/ (pnpm) and backend/ (.NET).",
+  "scripts": {
+    "deploy": "sst deploy --stage production",
+    "sst": "sst"
+  },
+  "devDependencies": {
+    "sst": "^4"
+  }
+}
