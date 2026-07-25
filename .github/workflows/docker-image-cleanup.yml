@@ -1,10 +1,13 @@
 name: docker-image-cleanup
 
 # Vercel's Hobby plan caps Vercel Container Registry (VCR) storage at 50
-# images per project. The "backend"/"frontend" services build a new image
-# on every deploy (see vercel.json), so the cap is eventually hit and
-# deploys start failing. This prunes old images, keeping only the N most
-# recent per repository.
+# images per project. The "frontend" service builds a new image on every
+# deploy (see vercel.json), so the cap is eventually hit and deploys start
+# failing. This prunes old images, keeping only the N most recent per
+# repository.
+#
+# (The backend no longer deploys to Vercel — it's on Azure App Service, see
+# infra/azure.md — so this only has the frontend service to prune now.)
 on:
   schedule:
     - cron: "0 3 * * *"

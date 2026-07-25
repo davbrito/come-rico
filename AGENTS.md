@@ -95,10 +95,11 @@ dotnet sln add ComeRico.Api/ComeRico.Api.csproj
 - `R2FileStorage` (`ComeRico.Api/Services`, implements `IFileStorage` from Core) configures `AmazonS3Client` with `ServiceURL` from config and checksums `WHEN_REQUIRED` (required for R2), per https://developers.cloudflare.com/r2/examples/aws/aws-sdk-net/.
 - Config lives in the `R2` section (`ServiceUrl` — the full `https://{accountId}.r2.cloudflarestorage.com` endpoint —, `AccessKeyId`, `SecretAccessKey`, `BucketName`, `PublicBaseUrl`); locally secrets live in dotnet user-secrets (mirroring the root `.env`), in production env vars (`R2__ServiceUrl`, …). `PublicBaseUrl` is the bucket's r2.dev subdomain or custom domain and must allow public reads.
 - Object keys are `dishes/{householdId}/{guid}.{ext}`; `CreateUploadCommand`'s validator enforces content type (JPG/PNG/WebP/AVIF/GIF) and the 5 MB limit (see `UploadRules`).
-- **Orphan GC (mark-and-sweep):** replacing/removing a dish image marks the old `StoredFile` `Orphaned`. `GET /api/images/cleanup` (invoked by Vercel Cron weekly, authenticated with `Authorization: Bearer {CRON_SECRET}` — not a user cookie; it runs cross-tenant with `IgnoreQueryFilters`) deletes blobs+rows that are `Orphaned` or `Pending` older than 2h (tickets never consumed). External/legacy image URLs have no `StoredFile` row and are ignored.
+- **Orphan GC (mark-and-sweep):** replacing/removing a dish image marks the old `StoredFile` `Orphaned`. `GET /api/images/cleanup` (invoked by Vercel Cron weekly — the cron hits the Vercel origin, which rewrites through to the Azure-hosted backend — authenticated with `Authorization: Bearer {CRON_SECRET}` — not a user cookie; it runs cross-tenant with `IgnoreQueryFilters`) deletes blobs+rows that are `Orphaned` or `Pending` older than 2h (tickets never consumed). External/legacy image URLs have no `StoredFile` row and are ignored.
 
 ### Frontend ↔ Backend Communication
-- **REST** (`/api/*`) for CRUD operations — in dev, proxied via Nitro's `devProxy` (configured on the `nitro()` plugin in `vite.config.ts`; Vite's own `server.proxy` is NOT used because the Nitro dev server handles requests first). In production, `vercel.json` rewrites route these paths to the backend service.
+- **REST** (`/api/*`) for CRUD operations — in dev, proxied via Nitro's `devProxy` (configured on the `nitro()` plugin in `vite.config.ts`; Vite's own `server.proxy` is NOT used because the Nitro dev server handles requests first). In production, `vercel.json` rewrites route these paths to the Azure App Service backend (see `infra/azure.md`) — server-side, so the browser only ever sees the Vercel origin and the `__Host-` auth cookie stays same-origin.
+- **Two backend URLs, by design:** `frontend/src/lib/api.ts` resolves the API base isomorphically — `window.location.origin` in the browser (→ Vercel rewrite → Azure) and `process.env.BACKEND_URL` on the Start server (→ Azure directly, cookie forwarded manually). Both must point at the backend or auth breaks on one path only.
 
 ---
 
@@ -108,7 +109,7 @@ dotnet sln add ComeRico.Api/ComeRico.Api.csproj
 - **Production cookies:** `CookieSecurePolicy.SameAsRequest` is dev-friendly; enforce `Always` (HTTPS-only) in production.
 - **Email confirmation / password reset:** Not implemented; `AddDefaultTokenProviders()` is already wired for when they're needed.
 - **Tests:** No automated tests yet. Add xUnit for backend and Vitest for frontend.
-- **Database config:** The backend prefers a URI-style `DATABASE_URL` (Neon/Vercel format, converted by `ConnectionStringResolver`) and falls back to `ConnectionStrings:DefaultConnection`.
+- **Database config:** the backend reads `ConnectionStrings:DefaultConnection` only, in ADO.NET `keyword=value` form (`Host=...;Port=...;Database=...;Username=...;Password=...`), set via the `ConnectionStrings__DefaultConnection` env var in production. There is **no** URI-style `DATABASE_URL` parsing in the codebase — earlier docs claimed a `ConnectionStringResolver` that has never existed. Neon's dashboard can emit the ADO.NET format directly.
 - **Migrations policy:** Migrations run exclusively via the dotnet CLI (`dotnet ef database update --project ComeRico.Core --startup-project ComeRico.Api`). The app never auto-migrates at startup, in any environment.
 
 ---
