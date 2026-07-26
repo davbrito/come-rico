@@ -14,12 +14,21 @@ backend/**/*.db-wal
 **/secrets.json
 
 # ─── Frontend / Node ───────────────────────────────────────────────────────────
+node_modules/
 frontend/node_modules/
 frontend/.output/
 frontend/.vinxi/
 frontend/dist/
+frontend/.wrangler/
+frontend/.dev.vars
 frontend/.env.local
 frontend/.env.*.local
+
+# ─── Terraform ─────────────────────────────────────────────────────────────────
+infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.*
+infra/terraform.tfvars
 
 # ─── Environment files ─────────────────────────────────────────────────────────
 .env

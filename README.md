@@ -74,3 +74,18 @@ cd frontend && pnpm exec tsc --noEmit
 # Frontend tests (Vitest)
 cd frontend && pnpm test
 ```
+
+## Deployment
+
+| Piece | Host |
+|---|---|
+| Frontend (TanStack Start SSR) | Cloudflare Workers |
+| Images | Cloudflare R2 |
+| Backend (ASP.NET Core) | Azure App Service (free F1) |
+| Database | Neon (Postgres) |
+
+All of it is defined in Terraform under [`infra/`](infra/) and applied by CI
+on push to `main`. Everything runs on a free tier — see
+[`infra/README.md`](infra/README.md) for setup, secrets, and the reasoning.
+Migrating existing data onto the stack is covered in
+[`docs/migration.md`](docs/migration.md).

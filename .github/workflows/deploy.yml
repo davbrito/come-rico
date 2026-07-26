@@ -1,0 +1,152 @@
+name: deploy
+
+# Terraform owns the infrastructure; each platform's native CLI ships the
+# application code:
+#   1. terraform apply  — R2 bucket, Neon project, Azure App Service.
+#   2. wrangler deploy  — the Worker (48 ES modules + static assets + cron
+#      triggers). BACKEND_URL comes from a Terraform output, so the Worker
+#      always points at the App Service Terraform just reconciled.
+#   3. az webapp deploy — the backend binary. Neither Terraform provider has
+#      a first-class "ship this build output" resource, hence 2 and 3.
+#
+# See infra/README.md for the credentials this needs.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  TF_VAR_stage: production
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: Production
+
+    # State lives in R2 (S3-compatible). The AWS_* names are what
+    # Terraform's S3 backend expects — these are R2 credentials, not AWS.
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      # ---- Builds ----
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: ./frontend/package.json
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: ./frontend/.node-version
+          cache: pnpm
+          cache-dependency-path: ./frontend/pnpm-lock.yaml
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      # Self-contained so the deploy doesn't depend on App Service having a
+      # .NET 10 runtime available (still Preview-tagged in some regions).
+      - name: Publish backend
+        working-directory: backend
+        run: |
+          dotnet publish ComeRico.Api/ComeRico.Api.csproj \
+            -c Release \
+            -r linux-x64 \
+            --self-contained true \
+            -o publish
+          (cd publish && zip -qr ../backend.zip . -x '*.pdb')
+
+      # ---- 1. Infrastructure ----
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ~1.10
+          terraform_wrapper: false # so `terraform output -raw` is clean
+
+      - name: Terraform init
+        working-directory: infra
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ secrets.TF_STATE_BUCKET }}" \
+            -backend-config="endpoints={s3=\"https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com\"}"
+
+      - name: Terraform apply
+        working-directory: infra
+        env:
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          TF_VAR_cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          TF_VAR_azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_neon_api_key: ${{ secrets.NEON_API_KEY }}
+          TF_VAR_cron_secret: ${{ secrets.CRON_SECRET }}
+          TF_VAR_r2_access_key_id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          TF_VAR_r2_secret_access_key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          TF_VAR_r2_public_base_url: ${{ secrets.R2_PUBLIC_BASE_URL }}
+        run: terraform apply -auto-approve
+
+      - name: Read Terraform outputs
+        id: tf
+        working-directory: infra
+        run: |
+          {
+            echo "backend_url=$(terraform output -raw backend_url)"
+            echo "resource_group=$(terraform output -raw backend_resource_group)"
+            echo "app_name=$(terraform output -raw backend_app_name)"
+          } >> "$GITHUB_OUTPUT"
+
+      # ---- 2. Worker ----
+      # Deploys with the config the Vite plugin generated (correct module
+      # rules, assets directory and cron triggers already resolved).
+      - name: Deploy Worker
+        working-directory: frontend
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          pnpm exec wrangler deploy \
+            --config dist/server/wrangler.json \
+            --var "BACKEND_URL:${{ steps.tf.outputs.backend_url }}"
+
+      - name: Set Worker secrets
+        working-directory: frontend
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          printf '%s' '${{ secrets.CRON_SECRET }}' \
+            | pnpm exec wrangler secret put CRON_SECRET \
+                --config dist/server/wrangler.json
+
+      # ---- 3. Backend binary ----
+      - uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy backend to App Service
+        run: |
+          az webapp deploy \
+            --resource-group "${{ steps.tf.outputs.resource_group }}" \
+            --name "${{ steps.tf.outputs.app_name }}" \
+            --src-path backend/backend.zip \
+            --type zip
+
+      - name: Summary
+        run: |
+          {
+            echo "### Deployed"
+            echo "- Backend: ${{ steps.tf.outputs.backend_url }}"
+          } >> "$GITHUB_STEP_SUMMARY"

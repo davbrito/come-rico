@@ -1,0 +1,32 @@
+{
+  // Config for `pnpm dev` / `pnpm build` and local `wrangler dev`.
+  //
+  // Deployment does NOT go through wrangler: Terraform uploads the built
+  // Worker and its assets directly (see infra/cloudflare.tf), and sets the
+  // runtime bindings there. Keep compatibility_date and
+  // compatibility_flags here in sync with that file.
+  "$schema": "https://raw.githubusercontent.com/cloudflare/workers-sdk/main/packages/wrangler/config-schema.json",
+  "name": "come-rico",
+  // Both land in the `scheduled` export in src/server.ts, which dispatches
+  // on the cron expression.
+  "triggers": {
+    "crons": [
+      // Weekly orphaned-image GC (replaces the old Vercel Cron entry).
+      "0 0 * * 0",
+      // Keeps the Azure App Service F1 instance from sleeping — it has no
+      // "Always On" and unloads after ~20 min idle.
+      "*/5 * * * *"
+    ]
+  },
+  // The `scheduled` handler in src/server.ts dispatches on the cron
+  // expression. Keeping these next to the triggers above means a schedule
+  // change can't silently unwire a job — update both together.
+  "vars": {
+    "IMAGE_CLEANUP_CRON": "0 0 * * 0",
+    "KEEP_WARM_CRON": "*/5 * * * *"
+  },
+  // >= 2024-09-23 selects nodejs_compat v2, which the Vite plugin requires.
+  "compatibility_date": "2026-07-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "./src/server.ts"
+}
