@@ -1,11 +1,12 @@
-# Migrating data onto the SST stack
+# Migrating data onto the Terraform stack
 
-The SST stack provisions a **new** Neon project and a **new** R2 bucket. If
+The Terraform stack in `infra/` provisions a **new** Neon project and a **new** R2 bucket. If
 you're cutting over from the previous Vercel/Neon/R2 setup, the data has to
 come with you.
 
-Rehearse this against a throwaway stage (`pnpm sst deploy --stage dev-x`)
-before doing it for real.
+Rehearse this against a throwaway stack (`terraform apply -var stage=dev-x`
+in `infra/`, which names every resource with that stage) before doing it for
+real.
 
 ## 1. Database
 
@@ -14,7 +15,7 @@ before doing it for real.
 pg_dump "postgresql://<old-connection-string>" \
   --no-owner --no-privileges -Fc -f comerico.dump
 
-# New project (connection details from `pnpm sst outputs`, or the Neon console)
+# New project (connection details from the Neon console, or `terraform output` in infra/)
 pg_restore --no-owner --no-privileges \
   -d "postgresql://<new-connection-string>" comerico.dump
 ```

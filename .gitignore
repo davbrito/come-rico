@@ -24,8 +24,11 @@ frontend/.dev.vars
 frontend/.env.local
 frontend/.env.*.local
 
-# ─── SST ───────────────────────────────────────────────────────────────────────
-.sst/
+# ─── Terraform ─────────────────────────────────────────────────────────────────
+infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.*
+infra/terraform.tfvars
 
 # ─── Environment files ─────────────────────────────────────────────────────────
 .env

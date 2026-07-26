@@ -14,13 +14,7 @@ const config = defineConfig({
   plugins: [
     devtools(),
     tailwindcss(),
-    cloudflare({
-      viteEnvironment: { name: "ssr" },
-      // SST points this at the wrangler config it generates for the
-      // TanStackStart component. Falls back to ./wrangler.jsonc for plain
-      // `pnpm build` / `pnpm dev` outside of SST.
-      configPath: process.env.SST_WRANGLER_PATH,
-    }),
+    cloudflare({ viteEnvironment: { name: "ssr" } }),
     tanstackStart(),
     heyApiPlugin(),
     viteReact(),

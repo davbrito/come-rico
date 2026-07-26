@@ -95,11 +95,11 @@ dotnet sln add ComeRico.Api/ComeRico.Api.csproj
 - `R2FileStorage` (`ComeRico.Api/Services`, implements `IFileStorage` from Core) configures `AmazonS3Client` with `ServiceURL` from config and checksums `WHEN_REQUIRED` (required for R2), per https://developers.cloudflare.com/r2/examples/aws/aws-sdk-net/.
 - Config lives in the `R2` section (`ServiceUrl` — the full `https://{accountId}.r2.cloudflarestorage.com` endpoint —, `AccessKeyId`, `SecretAccessKey`, `BucketName`, `PublicBaseUrl`); locally secrets live in dotnet user-secrets (mirroring the root `.env`), in production env vars (`R2__ServiceUrl`, …). `PublicBaseUrl` is the bucket's r2.dev subdomain or custom domain and must allow public reads.
 - Object keys are `dishes/{householdId}/{guid}.{ext}`; `CreateUploadCommand`'s validator enforces content type (JPG/PNG/WebP/AVIF/GIF) and the 5 MB limit (see `UploadRules`).
-- **Orphan GC (mark-and-sweep):** replacing/removing a dish image marks the old `StoredFile` `Orphaned`. `GET /api/images/cleanup` (invoked weekly by the `ImageCleanup` Cloudflare Cron in `sst.config.ts`, authenticated with `Authorization: Bearer {CRON_SECRET}` — not a user cookie; it runs cross-tenant with `IgnoreQueryFilters`) deletes blobs+rows that are `Orphaned` or `Pending` older than 2h (tickets never consumed). External/legacy image URLs have no `StoredFile` row and are ignored.
+- **Orphan GC (mark-and-sweep):** replacing/removing a dish image marks the old `StoredFile` `Orphaned`. `GET /api/images/cleanup` (invoked weekly by a Cloudflare cron trigger — the `scheduled` handler in `frontend/src/server.ts`, wired up in `infra/cloudflare.tf` — authenticated with `Authorization: Bearer {CRON_SECRET}` — not a user cookie; it runs cross-tenant with `IgnoreQueryFilters`) deletes blobs+rows that are `Orphaned` or `Pending` older than 2h (tickets never consumed). External/legacy image URLs have no `StoredFile` row and are ignored.
 
 ### Frontend ↔ Backend Communication
 - **REST** (`/api/*`) for CRUD operations — in dev, proxied by Vite's `server.proxy` (see `vite.config.ts`). In production, `src/routes/api.$.ts` is a catch-all reverse proxy running in the Cloudflare Worker that forwards `/api/**` to the Azure-hosted backend.
-- **Single origin, single source of truth:** the browser only ever talks to the Worker, so the `__Host-` auth cookie needs no CORS or `SameSite=None`. `BACKEND_URL` (set by SST from the Azure hostname) is the only place the backend's location is configured — it's read by the proxy route and by the server-side branch of `src/lib/api.ts`. On Workers it arrives as a `cloudflare:workers` env binding, with a `process.env` fallback for dev/tests.
+- **Single origin, single source of truth:** the browser only ever talks to the Worker, so the `__Host-` auth cookie needs no CORS or `SameSite=None`. `BACKEND_URL` (set by Terraform from the Azure hostname, as a Worker binding) is the only place the backend's location is configured — it's read by the proxy route and by the server-side branch of `src/lib/api.ts`. On Workers it arrives as a `cloudflare:workers` env binding, with a `process.env` fallback for dev/tests.
 
 ---
 
@@ -109,7 +109,7 @@ dotnet sln add ComeRico.Api/ComeRico.Api.csproj
 - **Production cookies:** `CookieSecurePolicy.SameAsRequest` is dev-friendly; enforce `Always` (HTTPS-only) in production.
 - **Email confirmation / password reset:** Not implemented; `AddDefaultTokenProviders()` is already wired for when they're needed.
 - **Tests:** No automated tests yet. Add xUnit for backend and Vitest for frontend.
-- **Database config:** the backend reads `ConnectionStrings:DefaultConnection` only, in ADO.NET `keyword=value` form, set via the `ConnectionStrings__DefaultConnection` env var in production (assembled in `sst.config.ts`). There is **no** URI-style `DATABASE_URL` parsing — earlier docs claimed a `ConnectionStringResolver` that has never existed in this codebase.
+- **Database config:** the backend reads `ConnectionStrings:DefaultConnection` only, in ADO.NET `keyword=value` form, set via the `ConnectionStrings__DefaultConnection` env var in production (assembled in `infra/neon.tf`). There is **no** URI-style `DATABASE_URL` parsing — earlier docs claimed a `ConnectionStringResolver` that has never existed in this codebase.
 - **Migrations policy:** Migrations run exclusively via the dotnet CLI (`dotnet ef database update --project ComeRico.Core --startup-project ComeRico.Api`). The app never auto-migrates at startup, in any environment.
 
 ---

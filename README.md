@@ -84,8 +84,8 @@ cd frontend && pnpm test
 | Backend (ASP.NET Core) | Azure App Service (free F1) |
 | Database | Neon (Postgres) |
 
-All of it is defined in [`sst.config.ts`](sst.config.ts) and deployed with
-`pnpm sst deploy` (CI does this on push to `main`). Everything runs on a
-free tier — see [`infra/README.md`](infra/README.md) for setup, secrets, and
-the reasoning. Migrating existing data onto the stack is covered in
+All of it is defined in Terraform under [`infra/`](infra/) and applied by CI
+on push to `main`. Everything runs on a free tier — see
+[`infra/README.md`](infra/README.md) for setup, secrets, and the reasoning.
+Migrating existing data onto the stack is covered in
 [`docs/migration.md`](docs/migration.md).
