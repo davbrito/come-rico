@@ -14,14 +14,14 @@ locals {
     westeurope  = "weu"
   }
 
-  region_abbreviation = lookup(local.region_abbreviations, var.location, var.location)
+  region_abbreviation = lookup(local.region_abbreviations, var.azure_location, var.azure_location)
   name_suffix         = var.app_name_unique_suffix ? "-${random_string.suffix.result}" : ""
 
   resource_group_name = "rg-${var.workload}-${var.environment}-${local.region_abbreviation}"
   service_plan_name   = "plan-${var.workload}-${var.environment}-${local.region_abbreviation}"
   app_name            = "app-${var.workload}-${var.environment}${local.name_suffix}"
 
-  r2_bucket_name = "${var.workload}-${var.environment}"
+  r2_bucket_name = "r2-${var.workload}-${var.environment}"
 }
 
 # Only used when app_name_unique_suffix is true — App Service names are a

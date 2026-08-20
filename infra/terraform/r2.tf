@@ -36,3 +36,22 @@ resource "aws_s3_bucket_cors_configuration" "images" {
     allowed_headers = ["Content-Type", "Content-Length"]
   }
 }
+
+# Backstop for upload tickets under staging/ that never get confirmed —
+# CleanupOrphanedFilesCommand already sweeps these after a 2h grace period,
+# this just guarantees storage doesn't accumulate abandoned blobs if that
+# job ever stops running.
+resource "aws_s3_bucket_lifecycle_configuration" "images" {
+  bucket = cloudflare_r2_bucket.images.name
+
+  rule {
+    id     = "expire-staging"
+    status = "Enabled"
+    filter {
+      prefix = "staging/"
+    }
+    expiration {
+      days = 1
+    }
+  }
+}

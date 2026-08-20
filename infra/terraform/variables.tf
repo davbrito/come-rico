@@ -10,7 +10,7 @@ variable "environment" {
   default     = "prod"
 }
 
-variable "location" {
+variable "azure_location" {
   description = "Azure region for the resource group and App Service."
   type        = string
   default     = "eastus"
@@ -71,9 +71,9 @@ variable "cloudflare_zone_id" {
 }
 
 variable "r2_location_hint" {
-  description = "Optional R2 jurisdiction/location hint (e.g. \"enam\"). Leave empty to let Cloudflare choose."
+  description = "R2 location hint, one of apac/eeur/enam/weur/wnam/oc."
   type        = string
-  default     = "auto"
+  default     = "enam"
 }
 
 variable "r2_access_key_id" {

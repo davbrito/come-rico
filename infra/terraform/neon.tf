@@ -7,7 +7,7 @@ resource "neon_project" "this" {
   region_id  = var.neon_region_id
   pg_version = var.neon_pg_version
 
-  history_retention_seconds = 86400 # 1 day, free-tier default
+  history_retention_seconds = 21600 # 6h, free-tier max
 }
 
 locals {
