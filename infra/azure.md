@@ -108,20 +108,11 @@ Both must be set, or auth will work in the browser but not on first paint
 ## CI/CD
 
 `.github/workflows/deploy-backend.yml` deploys on pushes to `main` that
-touch `backend/**`, plus manual dispatch. Configure once:
-
-```bash
-az webapp deployment list-publishing-profiles \
-  --name "$(terraform -chdir=infra/terraform output -raw app_name)" \
-  --resource-group "$(terraform -chdir=infra/terraform output -raw resource_group_name)" \
-  --xml
-```
-
-- Paste that XML into the repo secret **`AZURE_WEBAPP_PUBLISH_PROFILE`**
-- Set the repo variable **`AZURE_WEBAPP_NAME`** to the `app_name` output
-
-Both under the `Production` GitHub Environment, matching the existing
-`migrate-database.yml` convention.
+touch `backend/**`, plus manual dispatch. It authenticates to Azure via
+OIDC — no stored credential — using an app registration Terraform creates
+in `infra/terraform/ci.tf`. Configure once, after `terraform apply`: see
+[`infra/terraform/README.md#cicd`](terraform/README.md#cicd) for the exact
+outputs to wire into the `Production` GitHub Environment's variables.
 
 Database migrations are unchanged — still `migrate-database.yml`
 (`dotnet ef database update`) run manually against Neon.

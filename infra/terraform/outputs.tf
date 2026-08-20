@@ -22,3 +22,10 @@ output "r2_bucket_name" {
 output "r2_public_base_url" {
   value = local.r2_public_base_url
 }
+
+# Informational only — ci.tf already pushes this (and the other Production
+# environment vars/secrets) straight into GitHub, nothing to copy by hand.
+output "github_actions_azure_client_id" {
+  description = "AZURE_CLIENT_ID, as set on the Production GitHub Environment"
+  value       = try(module.github_actions_ci[0].azure_client_id, null)
+}

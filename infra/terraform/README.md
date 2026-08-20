@@ -10,9 +10,7 @@ Manages, per environment (`var.environment`, default `prod`):
   custom domain (`storage-<environment>.<base_domain>`, e.g.
   `storage-prod.comerico.davbrito.dev` by default)
 
-State is local by default — this is a single-developer stack; switch to a
-remote backend (`azurerm` storage, or Terraform Cloud) if you add more
-environments or contributors.
+State lives in Cloudflare R2, not locally — see [Remote state](#remote-state).
 
 ## Naming
 
@@ -30,13 +28,35 @@ The App Service name gets a random 4-character suffix by default
 namespace; disable it once you've confirmed the plain name is free and
 want a stable hostname.
 
+## Remote state
+
+State lives in a dedicated R2 bucket (`come-rico-tfstate`), via the `s3`
+backend Cloudflare documents at
+[developers.cloudflare.com/terraform/advanced-topics/remote-backend](https://developers.cloudflare.com/terraform/advanced-topics/remote-backend/).
+Bootstrap it once — Terraform can't create the bucket it's about to store
+its own state in:
+
+```bash
+# Cloudflare dashboard → R2 → Create bucket → "come-rico-tfstate"
+# (or: npx wrangler r2 bucket create come-rico-tfstate)
+
+cd infra/terraform
+cp backend.hcl.example backend.hcl   # fill in your R2 access key + account id
+terraform init -backend-config=backend.hcl
+```
+
+Workspaces (`default` = prod, `dev`, ...) each get their own path in the
+bucket automatically — no per-environment backend config needed. If you're
+migrating a workspace that already had local state, add `-migrate-state`
+to the `init` above (once per workspace).
+
 ## Usage
 
 ```bash
 az login
 
 cd infra/terraform
-terraform init
+terraform init -backend-config=backend.hcl   # already ran once? just: terraform init
 
 cp terraform.tfvars.example terraform.tfvars   # fill in real secrets
 terraform plan
@@ -49,21 +69,48 @@ and the `BACKEND_URL` Vercel env var, as described in `../azure.md`.
 ## What's still manual
 
 - **R2 access keys** (`r2_access_key_id` / `r2_secret_access_key`) — the
-  Cloudflare Terraform provider can create and configure the R2 bucket
-  itself, but the S3-compatible credential pair used by the app is only
+  S3-compatible credential pair the app uses to sign uploads is only
   available from the dashboard (R2 → Manage API Tokens), not as a
-  Terraform resource. Those same keys authenticate the `aws` provider,
-  which manages the bucket's CORS policy against R2's S3-compatible API —
-  see [developers.cloudflare.com/r2/examples/terraform-aws](https://developers.cloudflare.com/r2/examples/terraform-aws/).
-- **CI/CD secrets**: `AZURE_WEBAPP_PUBLISH_PROFILE` and
-  `AZURE_WEBAPP_NAME` in the GitHub `Production` environment — fetch the
-  publish profile with `az webapp deployment list-publishing-profiles`
-  (see `../azure.md`) and paste it in by hand. Not modeled in Terraform;
-  it's a deploy credential, not infrastructure.
+  Terraform resource. Bucket, CORS, and lifecycle are all Terraform-managed
+  via the native `cloudflare_r2_bucket*` resources.
 - **Database migrations** — still `migrate-database.yml`, unrelated to
   provisioning.
 - **Uptime pinger** (UptimeRobot) — external service, nothing to manage
   here.
+
+## CI/CD
+
+`ci.tf` wires up everything `deploy-backend.yml` and `migrate-database.yml`
+need, end to end, via the `./modules/github_actions_ci` module —
+instantiated only for `prod`; `dev` deploys stay manual:
+
+- An Azure AD app registration + federated credential (GitHub Actions
+  OIDC, no stored secret), scoped to this repo's `Production` GitHub
+  Environment
+- `Website Contributor` on the web app (not the plan, resource group, or
+  anything else) granted to that identity
+- The `Production` GitHub Environment itself (`github_repository_environment`)
+- Its variables — `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`,
+  `AZURE_SUBSCRIPTION_ID`, `AZURE_WEBAPP_NAME` — and its `DATABASE_URL`
+  secret, all pushed via the `github` provider so nothing needs copy-pasting
+  from `terraform output` by hand
+
+`AZURE_WEBAPP_NAME` needs to be stable across applies, so prod should set
+`app_name_unique_suffix = false` once the plain name is confirmed free
+(see [Naming](#naming)) — otherwise a suffix rotation would need Terraform
+to re-push the variable (which it will, on the next apply, but the two
+would be out of sync until then).
+
+Applying this needs, beyond what the rest of the stack requires:
+
+- `Application.ReadWrite.All`-equivalent Azure AD rights (e.g. Application
+  Administrator) to create the app registration
+- `Microsoft.Authorization/roleAssignments/write` on the resource group
+  (Owner, or User Access Administrator) to grant `Website Contributor`
+- `gh auth login` run locally — the `github` provider picks up its token
+  from the gh CLI automatically (no `github_token` variable to manage);
+  the logged-in account needs admin on this repo to write Environments,
+  Secrets, and Variables
 
 ## Changing settings later
 
