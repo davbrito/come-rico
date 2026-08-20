@@ -19,21 +19,25 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      - name: Install dotnet-ef
-        run: dotnet tool install --global dotnet-ef
-
       - name: Restore
         working-directory: backend
         run: dotnet restore ComeRico.Api/ComeRico.Api.csproj
+
+      # dotnet-tools.json pins dotnet-ef for the repo — the SDK resolves
+      # `dotnet ef` against this local manifest (not a --global install)
+      # once one is present, so it has to actually be restored.
+      - name: Install dotnet-ef
+        working-directory: backend
+        run: dotnet tool restore
 
       - name: List pending migrations
         working-directory: backend
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: dotnet ef migrations list --project ComeRico.Core --startup-project ComeRico.Api
+        run: ./ef list
 
       - name: Apply migrations
         working-directory: backend
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: dotnet ef database update --project ComeRico.Core --startup-project ComeRico.Api
+        run: ./ef update
