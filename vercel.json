@@ -3,24 +3,15 @@
   "services": {
     "frontend": {
       "root": "frontend",
-      "framework": "tanstack-start",
-      "bindings": [
-        {
-          "type": "service",
-          "service": "backend",
-          "format": "url",
-          "env": "BACKEND_URL"
-        }
-      ]
-    },
-    "backend": {
-      "root": "backend",
-      "entrypoint": "Dockerfile.vercel"
+      "framework": "tanstack-start"
     }
   },
   "crons": [{ "path": "/api/images/cleanup", "schedule": "0 0 * * 0" }],
   "rewrites": [
-    { "source": "/api/(.*)", "destination": { "service": "backend" } },
+    {
+      "source": "/api/(.*)",
+      "destination": "https://REPLACE_WITH_AZURE_APP_NAME.azurewebsites.net/api/$1"
+    },
     { "source": "/(.*)", "destination": { "service": "frontend" } }
   ]
 }

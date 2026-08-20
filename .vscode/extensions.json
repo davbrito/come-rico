@@ -1,7 +1,8 @@
 {
-    "recommendations": [
-        "oxc.oxc-vscode",
-        "ms-dotnettools.csdevkit",
-        "csharpier.csharpier-vscode"
-    ]
+  "recommendations": [
+    "oxc.oxc-vscode",
+    "ms-dotnettools.csdevkit",
+    "csharpier.csharpier-vscode",
+    "hashicorp.terraform"
+  ]
 }

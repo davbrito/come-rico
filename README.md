@@ -74,3 +74,16 @@ cd frontend && pnpm exec tsc --noEmit
 # Frontend tests (Vitest)
 cd frontend && pnpm test
 ```
+
+## Deployment
+
+| Piece | Host |
+|---|---|
+| Frontend (TanStack Start) | Vercel — deploys from `main` via Vercel's Git integration |
+| Backend (ASP.NET Core) | Azure App Service (free F1) — see [`infra/azure.md`](infra/azure.md) |
+| Database | Neon (Postgres) |
+| Images | Cloudflare R2 |
+
+`vercel.json` rewrites `/api/*` through to the Azure backend, so everything
+is served from one origin. Backend deploys run via
+`.github/workflows/deploy-backend.yml`.
