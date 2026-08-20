@@ -4,23 +4,19 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 4.0"
+      version = "~> 5"
     }
     neon = {
       source  = "kislerdm/neon"
-      version = "~> 0.11"
+      version = "~> 0.15"
     }
     cloudflare = {
       source  = "cloudflare/cloudflare"
-      version = "~> 5.0"
+      version = "~> 5"
     }
     random = {
       source  = "hashicorp/random"
-      version = "~> 3.6"
-    }
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
+      version = "~> 3"
     }
   }
 }
@@ -35,22 +31,4 @@ provider "neon" {
 
 provider "cloudflare" {
   api_token = var.cloudflare_api_token
-}
-
-# Only used for R2 bucket sub-resources (CORS, lifecycle) that the
-# Cloudflare provider doesn't manage — the bucket itself stays a
-# cloudflare_r2_bucket resource. See https://developers.cloudflare.com/r2/examples/terraform-aws/
-provider "aws" {
-  region = "auto"
-
-  access_key = var.r2_access_key_id
-  secret_key = var.r2_secret_access_key
-
-  skip_credentials_validation = true
-  skip_region_validation      = true
-  skip_requesting_account_id  = true
-
-  endpoints {
-    s3 = local.r2_service_url
-  }
 }

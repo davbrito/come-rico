@@ -1,6 +1,14 @@
+locals {
+  azure_tags = {
+    project     = "come-rico"
+    environment = var.environment
+  }
+}
+
 resource "azurerm_resource_group" "this" {
   name     = local.resource_group_name
   location = var.azure_location
+  tags     = local.azure_tags
 }
 
 resource "azurerm_service_plan" "this" {
@@ -9,6 +17,7 @@ resource "azurerm_service_plan" "this" {
   location            = azurerm_resource_group.this.location
   os_type             = "Linux"
   sku_name            = var.sku_name
+  tags                = local.azure_tags
 }
 
 # Published self-contained (carries its own .NET runtime), so this only
@@ -19,6 +28,7 @@ resource "azurerm_linux_web_app" "api" {
   resource_group_name = azurerm_resource_group.this.name
   location            = azurerm_resource_group.this.location
   service_plan_id     = azurerm_service_plan.this.id
+  tags                = local.azure_tags
 
   site_config {
     app_command_line = "./ComeRico.Api"

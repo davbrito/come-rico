@@ -13,7 +13,7 @@ variable "environment" {
 variable "azure_location" {
   description = "Azure region for the resource group and App Service."
   type        = string
-  default     = "eastus"
+  default     = "canadaeast"
 }
 
 variable "sku_name" {
