@@ -1,0 +1,24 @@
+# Copy to terraform.tfvars (gitignored) and fill in real values, or pass
+# these as TF_VAR_* environment variables / -var flags instead.
+
+environment = "prod"
+base_domain = "comerico.davbrito.dev"
+
+# Neon — https://console.neon.tech/app/settings/api-keys
+neon_api_key = "..."
+
+# Cloudflare — API token needs Account.Workers R2 Storage: Edit and
+# Zone.DNS: Edit (for the R2 custom domain)
+cloudflare_api_token  = "..."
+cloudflare_account_id = "..."
+cloudflare_zone_id    = "..." # zone ID for the base_domain's DNS zone
+
+# R2 access keys are generated manually from the Cloudflare dashboard
+# (R2 > Manage API Tokens) — not something the Cloudflare Terraform
+# provider can create.
+r2_access_key_id     = "..."
+r2_secret_access_key = "..."
+# R2 custom domain is storage-<environment>.<base_domain>, e.g.
+# storage-prod.comerico.davbrito.dev.
+
+cron_secret = "..."

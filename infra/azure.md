@@ -12,10 +12,14 @@ The browser only ever talks to the Vercel origin — `vercel.json` rewrites
 `/api/*` to Azure server-side. That keeps the `__Host-` auth cookie
 same-origin, so there's no CORS config and no `SameSite=None` needed.
 
-No Terraform/Pulumi/SST here on purpose: this is one resource group, one
-plan, one web app, created once. The commands below *are* the
-infrastructure. (If reproducibility ever matters, the `azurerm` Terraform
-provider covers this in ~30 lines.)
+Infrastructure is managed with Terraform — see [`infra/terraform/`](terraform/README.md).
+It provisions the `azurerm` stack (resource group, App Service Plan, Linux
+Web App), the Neon Postgres project/branch, and the Cloudflare R2 bucket,
+all named per the [Azure CAF convention](terraform/README.md#naming) and
+templated by `environment` so a second environment is just a different
+`terraform.tfvars`. The sections below describe what it provisions and how
+to wire it up; use `terraform apply` instead of the raw `az`/dashboard
+steps they used to show.
 
 ## Cost
 
@@ -40,56 +44,50 @@ Upgrading is one flag if you outgrow it:
 ## One-time setup
 
 ```bash
-RG=come-rico
-APP=come-rico-api           # must be globally unique; this becomes <APP>.azurewebsites.net
-LOCATION=eastus
+az login
 
-az group create --name "$RG" --location "$LOCATION"
-
-az appservice plan create \
-  --name come-rico-plan --resource-group "$RG" \
-  --sku F1 --is-linux
-
-az webapp create \
-  --name "$APP" --resource-group "$RG" \
-  --plan come-rico-plan \
-  --runtime "DOTNETCORE:9.0"
+cd infra/terraform
+terraform init
+cp terraform.tfvars.example terraform.tfvars   # fill in real secrets
+terraform apply
 ```
 
-The app is published **self-contained** (it carries its own .NET 10
-runtime), so the `--runtime` above is just the Linux host image — it does
-not need to match .NET 10, which is still Preview-tagged on App Service in
-some regions. Point the startup command at the published binary:
+This creates, all named `<type>-come-rico-prod[-eus]` (see
+[naming](terraform/README.md#naming)):
 
-```bash
-az webapp config set \
-  --name "$APP" --resource-group "$RG" \
-  --startup-file "./ComeRico.Api"
-```
+- Resource group, App Service Plan (F1, Linux), and the Linux Web App —
+  startup command points at the published self-contained binary
+  (`./ComeRico.Api`, carries its own .NET 10 runtime, so the plan's host
+  image doesn't need to match)
+- A Neon project + branch + database + role for `prod`
+- A Cloudflare R2 bucket for images
+
+...and wires the Neon connection string + R2 bucket name straight into the
+web app's settings in one pass. See [`infra/terraform/README.md`](terraform/README.md)
+for details and what's intentionally left out of Terraform (R2 access
+keys, CI secrets, migrations).
 
 ### App settings
 
-Same environment variables the app already expects — nothing new:
+Set via `app_settings` in `infra/terraform/main.tf`, sourced from Terraform
+resources/variables — nothing to run by hand:
 
-```bash
-az webapp config appsettings set \
-  --name "$APP" --resource-group "$RG" \
-  --settings \
-    ASPNETCORE_ENVIRONMENT=Production \
-    ASPNETCORE_URLS="http://0.0.0.0:8080" \
-    WEBSITES_PORT=8080 \
-    ConnectionStrings__DefaultConnection="Host=...;Port=5432;Database=...;Username=...;Password=..." \
-    R2__ServiceUrl="https://<account_id>.r2.cloudflarestorage.com" \
-    R2__AccessKeyId="..." \
-    R2__SecretAccessKey="..." \
-    R2__BucketName="..." \
-    R2__PublicBaseUrl="https://..." \
-    CRON_SECRET="..."
+```
+ASPNETCORE_ENVIRONMENT               = "Production"
+ASPNETCORE_URLS                      = "http://0.0.0.0:8080"
+WEBSITES_PORT                        = "8080"
+ConnectionStrings__DefaultConnection = local.database_connection_string   # built from the Neon resources
+R2__ServiceUrl                       = local.r2_service_url               # <account_id>.r2.cloudflarestorage.com
+R2__AccessKeyId                      = var.r2_access_key_id
+R2__SecretAccessKey                  = var.r2_secret_access_key
+R2__BucketName                       = cloudflare_r2_bucket.images.name
+R2__PublicBaseUrl                    = local.r2_public_base_url                     # https://storage-<environment>.<base_domain>
+CRON_SECRET                          = var.cron_secret
 ```
 
-> The connection string must be ADO.NET `keyword=value` format, not a
-> `postgres://` URI — the app reads `ConnectionStrings:DefaultConnection`
-> directly and does no URI parsing. Neon's dashboard can emit this format.
+> The Neon connection string is assembled in ADO.NET `keyword=value`
+> format, not a `postgres://` URI — the app reads
+> `ConnectionStrings:DefaultConnection` directly and does no URI parsing.
 
 ## Wiring it to Vercel
 
@@ -97,10 +95,12 @@ Two places reference the backend, because the frontend reaches it two
 different ways (see `frontend/src/lib/api.ts`):
 
 1. **`vercel.json`** — replace `REPLACE_WITH_AZURE_APP_NAME` in the
-   `/api/(.*)` rewrite with your `$APP` name. This is the browser's path.
-2. **`BACKEND_URL`** env var in Vercel project settings →
-   `https://<APP>.azurewebsites.net`. This is the SSR path — TanStack
-   Start's server calls the backend directly during `beforeLoad`.
+   `/api/(.*)` rewrite with the `app_name` output (e.g.
+   `app-come-rico-prod-ab12`). This is the browser's path.
+2. **`BACKEND_URL`** env var in Vercel project settings → the
+   `app_hostname` output (`https://<app_name>.azurewebsites.net`). This is
+   the SSR path — TanStack Start's server calls the backend directly
+   during `beforeLoad`.
 
 Both must be set, or auth will work in the browser but not on first paint
 (or vice versa).
@@ -112,11 +112,13 @@ touch `backend/**`, plus manual dispatch. Configure once:
 
 ```bash
 az webapp deployment list-publishing-profiles \
-  --name "$APP" --resource-group "$RG" --xml
+  --name "$(terraform -chdir=infra/terraform output -raw app_name)" \
+  --resource-group "$(terraform -chdir=infra/terraform output -raw resource_group_name)" \
+  --xml
 ```
 
 - Paste that XML into the repo secret **`AZURE_WEBAPP_PUBLISH_PROFILE`**
-- Set the repo variable **`AZURE_WEBAPP_NAME`** to `$APP`
+- Set the repo variable **`AZURE_WEBAPP_NAME`** to the `app_name` output
 
 Both under the `Production` GitHub Environment, matching the existing
 `migrate-database.yml` convention.
@@ -131,7 +133,7 @@ visitor waits ~20–40s. Point a free uptime monitor
 ([UptimeRobot](https://uptimerobot.com) free tier does 5-minute checks) at:
 
 ```
-https://<APP>.azurewebsites.net/api/auth/me
+https://<app_hostname output>/api/auth/me
 ```
 
 It returns 401 unauthenticated, which is fine — it only needs to wake the
