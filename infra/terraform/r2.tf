@@ -54,4 +54,15 @@ resource "aws_s3_bucket_lifecycle_configuration" "images" {
       days = 1
     }
   }
+
+  rule {
+    id     = "abort-incomplete-multipart-uploads"
+    status = "Enabled"
+    filter {
+      prefix = null
+    }
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 7
+    }
+  }
 }

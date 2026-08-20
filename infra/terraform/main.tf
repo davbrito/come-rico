@@ -22,6 +22,9 @@ resource "azurerm_linux_web_app" "api" {
 
   site_config {
     app_command_line = "./ComeRico.Api"
+    # F1 doesn't support Always On — the azurerm provider defaults this to
+    # true, which Azure rejects on the free tier.
+    always_on = false
   }
 
   app_settings = {

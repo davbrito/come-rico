@@ -17,9 +17,14 @@ variable "azure_location" {
 }
 
 variable "sku_name" {
-  description = "App Service Plan SKU. F1 is the always-free tier (60 CPU-min/day, sleeps after 20min idle, no custom-domain SSL). B1 (~$13/mo) removes those limits."
+  description = "App Service Plan SKU. Pinned to F1, the only always-free tier (60 CPU-min/day, sleeps after 20min idle, no custom-domain SSL, no Always On). Change deliberately if you outgrow it — that's a billing decision, not something to default away from."
   type        = string
   default     = "F1"
+
+  validation {
+    condition     = var.sku_name == "F1"
+    error_message = "sku_name must stay \"F1\" (the free tier) — this stack is meant to run entirely within Azure's free tier."
+  }
 }
 
 variable "app_name_unique_suffix" {
