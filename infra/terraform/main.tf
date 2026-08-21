@@ -26,11 +26,13 @@ resource "azurerm_linux_web_app" "api" {
   location            = azurerm_resource_group.this.location
   service_plan_id     = azurerm_service_plan.this.id
   tags                = local.azure_tags
+  https_only          = true
 
   site_config {
     # F1 doesn't support Always On — the azurerm provider defaults this to
     # true, which Azure rejects on the free tier.
-    always_on = false
+    always_on     = false
+    http2_enabled = true
     # /health (app.MapHealthChecks in Program.cs) — pings DB connectivity
     # too via AddDbContextCheck. F1 only ever runs one instance, so this
     # doesn't drive load-balancer eviction here, but App Service still
@@ -43,10 +45,18 @@ resource "azurerm_linux_web_app" "api" {
     }
   }
 
+  identity {
+    type = "SystemAssigned"
+  }
+
   app_settings = {
-    ASPNETCORE_ENVIRONMENT               = var.environment == "prod" ? "Production" : "Staging"
-    ASPNETCORE_URLS                      = "http://0.0.0.0:8080"
-    WEBSITES_PORT                        = "8080"
+    ASPNETCORE_ENVIRONMENT = var.environment == "prod" ? "Production" : "Staging"
+    ASPNETCORE_URLS        = "http://0.0.0.0:8080"
+    WEBSITES_PORT          = "8080"
+    # Mounts the deployed zip read-only instead of extracting it to
+    # wwwroot — faster cold starts and avoids the file-attribute quirks
+    # (e.g. lost executable bits) that extraction can introduce.
+    WEBSITE_RUN_FROM_PACKAGE             = "1"
     ConnectionStrings__DefaultConnection = local.database_connection_string
     R2__ServiceUrl                       = local.r2_service_url
     R2__AccessKeyId                      = var.r2_access_key_id
