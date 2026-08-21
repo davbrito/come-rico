@@ -27,10 +27,10 @@ if (!string.IsNullOrEmpty(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_
     builder
         .Services.AddOpenTelemetry()
         .UseAzureMonitor()
-        // Npgsql doesn't get picked up by AddAzureMonitor's own instrumentation
-        // set (that covers ASP.NET Core + outgoing HttpClient) — add its
-        // ActivitySource explicitly so DB calls show up as dependencies.
-        .WithTracing(tracing => tracing.AddSource("Npgsql"));
+        // EF Core isn't covered by AddAzureMonitor's own instrumentation set
+        // (that's ASP.NET Core + outgoing HttpClient) — add it explicitly so
+        // DB calls show up as dependencies, tagged with the executed command.
+        .WithTracing(tracing => tracing.AddEntityFrameworkCoreInstrumentation());
 }
 
 // EF Core + PostgreSQL (DATABASE_URL from Neon/Vercel, or DefaultConnection locally)
