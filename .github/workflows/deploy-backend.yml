@@ -43,10 +43,9 @@ jobs:
           dotnet publish ComeRico.Api/ComeRico.Api.csproj \
             -c Release \
             -r linux-x64 \
-            --self-contained true \
             -o publish
 
-      - uses: azure/login@v2
+      - uses: azure/login@v3
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
@@ -56,3 +55,7 @@ jobs:
         with:
           app-name: ${{ vars.AZURE_WEBAPP_NAME }}
           package: backend/publish
+
+      - name: logout
+        run: |
+          az logout
