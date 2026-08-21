@@ -28,11 +28,6 @@ resource "azurerm_linux_web_app" "api" {
   tags                = local.azure_tags
 
   site_config {
-    # Not "./ComeRico.Api" (the apphost binary) — zip deploys don't reliably
-    # preserve its executable bit, which fails silently (exit 150, no app
-    # output) rather than with a clear "Permission denied". Invoking the
-    # managed .dll via `dotnet` sidesteps that entirely.
-    app_command_line = "dotnet ComeRico.Api.dll"
     # F1 doesn't support Always On — the azurerm provider defaults this to
     # true, which Azure rejects on the free tier.
     always_on = false
