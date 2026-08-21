@@ -106,6 +106,11 @@ builder
 // OpenAPI
 builder.Services.AddOpenApi();
 
+// Backs Azure App Service's health check (site_config.health_check_path in
+// infra/terraform/main.tf), which pings this on an interval and takes the
+// instance out of rotation if it stops responding 200.
+builder.Services.AddHealthChecks().AddDbContextCheck<AppDbContext>();
+
 // ---------- App ----------
 
 var app = builder.Build();
@@ -149,6 +154,9 @@ app.UseExceptionHandler(exceptionApp =>
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Unauthenticated — Azure's health check pinger has no cookie to send.
+app.MapHealthChecks("/health").AllowAnonymous();
 
 // Map endpoints
 app.MapAuthEndpoints();

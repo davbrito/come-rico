@@ -124,12 +124,15 @@ visitor waits ~20–40s. Point a free uptime monitor
 ([UptimeRobot](https://uptimerobot.com) free tier does 5-minute checks) at:
 
 ```
-https://<app_hostname output>/api/auth/me
+https://<app_hostname output>/health
 ```
 
-It returns 401 unauthenticated, which is fine — it only needs to wake the
-app. At ~5-minute intervals this costs a negligible slice of the 60
-CPU-min/day budget and removes cold starts entirely.
+That's the same path App Service's own health check (`site_config.health_check_path`
+in `infra/terraform/main.tf`) pings — it returns 200 with a DB connectivity
+check baked in (`AddDbContextCheck<AppDbContext>()` in `Program.cs`), so a
+failing response is also a real signal, not just a keep-warm ping. At
+~5-minute intervals this costs a negligible slice of the 60 CPU-min/day
+budget and removes cold starts entirely.
 
 > Don't use a GitHub Actions scheduled workflow for this on a private repo —
 > a 10-minute cron burns ~4,300 billed minutes/month against a 2,000-minute

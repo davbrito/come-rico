@@ -35,6 +35,13 @@ resource "azurerm_linux_web_app" "api" {
     # F1 doesn't support Always On — the azurerm provider defaults this to
     # true, which Azure rejects on the free tier.
     always_on = false
+    # /health (app.MapHealthChecks in Program.cs) — pings DB connectivity
+    # too via AddDbContextCheck. F1 only ever runs one instance, so this
+    # doesn't drive load-balancer eviction here, but App Service still
+    # surfaces it in the portal and restarts the instance on repeated
+    # failures.
+    health_check_path               = "/health"
+    health_check_eviction_time_in_min = 2
   }
 
   app_settings = {
