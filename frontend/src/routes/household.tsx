@@ -93,7 +93,7 @@ function HouseholdOnboard() {
         <h2 className="mb-3 text-base font-semibold text-[var(--sea-ink)]">Crear un hogar</h2>
         <Input
           required
-          placeholder="Nombre del hogar (ej. Los Brito Navas) *"
+          placeholder="Nombre del hogar (ej. Familia López) *"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
