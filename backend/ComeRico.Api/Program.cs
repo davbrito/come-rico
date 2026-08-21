@@ -1,3 +1,4 @@
+using Azure.Monitor.OpenTelemetry.AspNetCore;
 using ComeRico.Api.Auth;
 using ComeRico.Api.Endpoints;
 using ComeRico.Core.Auth;
@@ -11,10 +12,26 @@ using ComeRico.Infrastructure.Services;
 using FluentValidation;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
+using OpenTelemetry.Trace;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // ---------- Services ----------
+
+// Azure Monitor (OpenTelemetry) — requests, dependencies, exceptions, and
+// ILogger traces. Reads APPLICATIONINSIGHTS_CONNECTION_STRING (set in
+// infra/terraform/main.tf); UseAzureMonitor() throws at startup if it's
+// unset (rather than no-op), so this is skipped entirely in local dev.
+if (!string.IsNullOrEmpty(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]))
+{
+    builder
+        .Services.AddOpenTelemetry()
+        .UseAzureMonitor()
+        // Npgsql doesn't get picked up by AddAzureMonitor's own instrumentation
+        // set (that covers ASP.NET Core + outgoing HttpClient) — add its
+        // ActivitySource explicitly so DB calls show up as dependencies.
+        .WithTracing(tracing => tracing.AddSource("Npgsql"));
+}
 
 // EF Core + PostgreSQL (DATABASE_URL from Neon/Vercel, or DefaultConnection locally)
 builder.Services.AddDbContext<AppDbContext>(options =>

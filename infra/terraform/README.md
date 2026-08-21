@@ -9,6 +9,10 @@ Manages, per environment (`var.environment`, default `prod`):
 - **Cloudflare R2**: the image storage bucket, its CORS policy, and a
   custom domain (`storage-<environment>.<base_domain>`, e.g.
   `storage-prod.comerico.davbrito.dev` by default)
+- **Monitoring**: a Log Analytics workspace + workspace-based Application
+  Insights (`monitoring.tf`), wired into the web app via auto-instrumentation
+  app settings — no SDK/code changes. See [Monitoring](#monitoring) for the
+  free-tier guardrails.
 
 State lives in Cloudflare R2, not locally — see [Remote state](#remote-state).
 
@@ -111,6 +115,31 @@ Applying this needs, beyond what the rest of the stack requires:
   from the gh CLI automatically (no `github_token` variable to manage);
   the logged-in account needs admin on this repo to write Environments,
   Secrets, and Variables
+
+## Monitoring
+
+`monitoring.tf` creates a Log Analytics workspace + workspace-based
+Application Insights, wired into the web app via
+`APPLICATIONINSIGHTS_CONNECTION_STRING`. Instrumentation is code-based —
+`Program.cs` calls `AddOpenTelemetry().UseAzureMonitor()` (only when that
+connection string is set, so it's a no-op in local dev), which covers
+ASP.NET Core requests, outgoing HttpClient calls, exceptions, and ILogger
+traces out of the box; Npgsql's `ActivitySource` is added explicitly
+(`.WithTracing(t => t.AddSource("Npgsql"))`) since it isn't part of the
+default set.
+
+Stays within Azure Monitor's always-free 5 GB/month log ingestion (shared
+across the billing account, not per-workspace) — for a low-traffic
+household app this is far more headroom than needed, but
+`daily_quota_gb = 0.1` on the workspace is a hard stop (~3 GB/month) so a
+traffic spike or noisy logging bug can't turn into a bill. `retention_in_days = 30`
+on both resources stays inside the free retention window too — extending
+either costs extra.
+
+Don't also enable App Service's built-in "Application Insights" extension
+(`ApplicationInsightsAgent_EXTENSION_VERSION`) alongside this — mixing
+agent-based auto-instrumentation with the code-based SDK double-counts
+telemetry.
 
 ## Changing settings later
 

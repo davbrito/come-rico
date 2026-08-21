@@ -56,13 +56,17 @@ resource "azurerm_linux_web_app" "api" {
     # Mounts the deployed zip read-only instead of extracting it to
     # wwwroot — faster cold starts and avoids the file-attribute quirks
     # (e.g. lost executable bits) that extraction can introduce.
-    WEBSITE_RUN_FROM_PACKAGE             = "1"
-    ConnectionStrings__DefaultConnection = local.database_connection_string
-    R2__ServiceUrl                       = local.r2_service_url
-    R2__AccessKeyId                      = var.r2_access_key_id
-    R2__SecretAccessKey                  = var.r2_secret_access_key
-    R2__BucketName                       = cloudflare_r2_bucket.images.name
-    R2__PublicBaseUrl                    = local.r2_public_base_url
-    CRON_SECRET                          = var.cron_secret
+    WEBSITE_RUN_FROM_PACKAGE = "1"
+    # Read by Azure.Monitor.OpenTelemetry.AspNetCore's UseAzureMonitor() in
+    # Program.cs by convention — reports requests, dependencies, exceptions,
+    # and ILogger traces to Application Insights.
+    APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.api.connection_string
+    ConnectionStrings__DefaultConnection  = local.database_connection_string
+    R2__ServiceUrl                        = local.r2_service_url
+    R2__AccessKeyId                       = var.r2_access_key_id
+    R2__SecretAccessKey                   = var.r2_secret_access_key
+    R2__BucketName                        = cloudflare_r2_bucket.images.name
+    R2__PublicBaseUrl                          = local.r2_public_base_url
+    CRON_SECRET                                = var.cron_secret
   }
 }
