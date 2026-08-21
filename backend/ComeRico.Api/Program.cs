@@ -1,4 +1,5 @@
 using Azure.Monitor.OpenTelemetry.AspNetCore;
+using Azure.Monitor.OpenTelemetry.Exporter;
 using ComeRico.Api.Auth;
 using ComeRico.Api.Endpoints;
 using ComeRico.Core.Auth;
@@ -18,21 +19,12 @@ var builder = WebApplication.CreateBuilder(args);
 
 // ---------- Services ----------
 
-// Azure Monitor (OpenTelemetry) — requests, dependencies, exceptions, and
-// ILogger traces. Reads APPLICATIONINSIGHTS_CONNECTION_STRING (set in
-// infra/terraform/main.tf); UseAzureMonitor() throws at startup if it's
-// unset (rather than no-op), so this is skipped entirely in local dev.
 if (!string.IsNullOrEmpty(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]))
 {
     builder
         .Services.AddOpenTelemetry()
         .UseAzureMonitor()
-        // EF Core isn't covered by AddAzureMonitor's own instrumentation set
-        // (that's ASP.NET Core + outgoing HttpClient) — add it explicitly so
-        // DB calls show up as dependencies, tagged with the executed command.
-        .WithTracing(tracing =>
-            tracing.AddAspNetCoreInstrumentation().AddHttpClientInstrumentation().AddEntityFrameworkCoreInstrumentation()
-        );
+        .WithTracing(tracing => tracing.AddEntityFrameworkCoreInstrumentation().AddAzureMonitorTraceExporter());
 }
 
 // EF Core + PostgreSQL (DATABASE_URL from Neon/Vercel, or DefaultConnection locally)
