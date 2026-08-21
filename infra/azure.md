@@ -95,13 +95,16 @@ CRON_SECRET                          = var.cron_secret
 Two places reference the backend, because the frontend reaches it two
 different ways (see `frontend/src/lib/api.ts`):
 
-1. **`vercel.json`** — replace `REPLACE_WITH_AZURE_APP_NAME` in the
-   `/api/(.*)` rewrite with the `app_name` output (e.g.
-   `app-come-rico-prod-ab12`). This is the browser's path.
-2. **`BACKEND_URL`** env var in Vercel project settings → the
-   `app_hostname` output (`https://<app_name>.azurewebsites.net`). This is
-   the SSR path — TanStack Start's server calls the backend directly
-   during `beforeLoad`.
+1. **`vercel.json`** — the `/api/(.*)` rewrite destination, hardcoded to
+   `app_name`'s current value (stable since `app_name_unique_suffix =
+   false` in prod — see `infra/terraform/README.md#naming`). This is the
+   browser's path; it's a static file Vercel reads directly, not
+   Terraform-templated.
+2. **`BACKEND_URL`** env var on the Vercel project — Terraform-managed
+   (`infra/terraform/vercel.tf`, references the existing project by name
+   via a data source), kept in sync with `app_hostname` on every apply.
+   This is the SSR path — TanStack Start's server calls the backend
+   directly during `beforeLoad`.
 
 Both must be set, or auth will work in the browser but not on first paint
 (or vice versa).

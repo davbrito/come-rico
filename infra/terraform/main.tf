@@ -66,7 +66,7 @@ resource "azurerm_linux_web_app" "api" {
     R2__AccessKeyId                       = var.r2_access_key_id
     R2__SecretAccessKey                   = var.r2_secret_access_key
     R2__BucketName                        = cloudflare_r2_bucket.images.name
-    R2__PublicBaseUrl                          = local.r2_public_base_url
-    CRON_SECRET                                = var.cron_secret
+    R2__PublicBaseUrl                     = local.r2_public_base_url
+    CRON_SECRET                           = var.cron_secret
   }
 }

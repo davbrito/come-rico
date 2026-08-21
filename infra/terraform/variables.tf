@@ -108,3 +108,8 @@ variable "cron_secret" {
   type        = string
   sensitive   = true
 }
+
+variable "vercel_api_token" {
+  type      = string
+  sensitive = true
+}

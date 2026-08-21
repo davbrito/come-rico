@@ -116,6 +116,23 @@ Applying this needs, beyond what the rest of the stack requires:
   the logged-in account needs admin on this repo to write Environments,
   Secrets, and Variables
 
+## Vercel (frontend)
+
+`vercel.tf` references the existing Vercel project (`come-rico`, linked
+locally via `vercel link` — see `.vercel/repo.json`) by name, through a
+data source rather than importing it as a managed resource — a data
+source can't accidentally overwrite framework/build settings on apply the
+way `resource + terraform import` could if any attribute didn't match
+exactly. The only thing actually managed is the `BACKEND_URL` environment
+variable, kept in sync with the web app's real hostname. Requires
+`vercel_api_token` (a team-scoped token from
+vercel.com/account/tokens — no `team_id` variable needed, the token
+resolves it).
+
+vercel.json's `/api/(.*)` rewrite destination is a separate, static
+reference to the same hostname — Vercel reads that file directly, so it's
+not Terraform-templated; update it by hand if `app_name` ever changes.
+
 ## Monitoring
 
 `monitoring.tf` creates a Log Analytics workspace + workspace-based

@@ -26,6 +26,10 @@ terraform {
       source  = "integrations/github"
       version = "~> 6"
     }
+    vercel = {
+      source  = "vercel/vercel"
+      version = "~> 5"
+    }
   }
 
   # State lives in Cloudflare R2 (S3-compatible), not locally — see
@@ -65,4 +69,9 @@ provider "cloudflare" {
 # auth (`gh auth login`) automatically.
 provider "github" {
   owner = local.github_owner
+}
+
+
+provider "vercel" {
+  api_token = var.vercel_api_token
 }
