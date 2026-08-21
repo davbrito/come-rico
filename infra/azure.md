@@ -56,9 +56,10 @@ This creates, all named `<type>-come-rico-prod[-eus]` (see
 [naming](terraform/README.md#naming)):
 
 - Resource group, App Service Plan (F1, Linux), and the Linux Web App —
-  startup command points at the published self-contained binary
-  (`./ComeRico.Api`, carries its own .NET 10 runtime, so the plan's host
-  image doesn't need to match)
+  pinned to the .NET 10 runtime stack (`site_config.application_stack`),
+  startup command `dotnet ComeRico.Api.dll` (not the apphost binary — zip
+  deploys don't reliably preserve its executable bit, which fails silently
+  rather than with a clear permission error)
 - A Neon project + branch + database + role for `prod`
 - A Cloudflare R2 bucket for images
 

@@ -33,10 +33,12 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
-      # Published self-contained so the deploy doesn't depend on App Service
-      # having a .NET 10 runtime available (it's still Preview-tagged in some
-      # regions). The startup command is set once by Terraform — see
-      # infra/azure.md.
+      # Framework-dependent — the App Service plan pins the .NET 10 runtime
+      # via site_config.application_stack in infra/terraform/main.tf, so the
+      # deploy doesn't need to carry its own. The startup command
+      # ("dotnet ComeRico.Api.dll", not the apphost binary — zip deploys
+      # don't reliably preserve its executable bit) is set once by
+      # Terraform — see infra/azure.md.
       - name: Publish
         working-directory: backend
         run: |

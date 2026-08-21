@@ -20,9 +20,6 @@ resource "azurerm_service_plan" "this" {
   tags                = local.azure_tags
 }
 
-# Published self-contained (carries its own .NET runtime), so this only
-# needs to be a Linux host image the platform supports — it does not need
-# to match the app's actual .NET version.
 resource "azurerm_linux_web_app" "api" {
   name                = local.app_name
   resource_group_name = azurerm_resource_group.this.name
@@ -31,7 +28,11 @@ resource "azurerm_linux_web_app" "api" {
   tags                = local.azure_tags
 
   site_config {
-    app_command_line = "./ComeRico.Api"
+    # Not "./ComeRico.Api" (the apphost binary) — zip deploys don't reliably
+    # preserve its executable bit, which fails silently (exit 150, no app
+    # output) rather than with a clear "Permission denied". Invoking the
+    # managed .dll via `dotnet` sidesteps that entirely.
+    app_command_line = "dotnet ComeRico.Api.dll"
     # F1 doesn't support Always On — the azurerm provider defaults this to
     # true, which Azure rejects on the free tier.
     always_on = false
@@ -40,8 +41,11 @@ resource "azurerm_linux_web_app" "api" {
     # doesn't drive load-balancer eviction here, but App Service still
     # surfaces it in the portal and restarts the instance on repeated
     # failures.
-    health_check_path               = "/health"
+    health_check_path                 = "/health"
     health_check_eviction_time_in_min = 2
+    application_stack {
+      dotnet_version = "10.0"
+    }
   }
 
   app_settings = {
