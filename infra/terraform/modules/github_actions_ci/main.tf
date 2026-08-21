@@ -1,8 +1,9 @@
 # GitHub Actions OIDC — lets deploy-backend.yml authenticate to Azure
 # without a long-lived secret (azure/login federated credential flow) —
 # plus the GitHub-side wiring (Production environment, its vars, and its
-# DATABASE_URL secret) that deploy-backend.yml and migrate-database.yml
-# read from. Instantiated only for prod — see ../../ci.tf.
+# ConnectionStrings__DefaultConnection secret) that deploy-backend.yml and
+# migrate-database.yml read from. Instantiated only for prod — see
+# ../../ci.tf.
 
 locals {
   github_repo_name = split("/", var.github_repository)[1]
@@ -70,12 +71,15 @@ resource "github_actions_environment_variable" "azure_webapp_name" {
   value         = var.azure_web_app_name
 }
 
-# migrate-database.yml's DATABASE_URL — Terraform already computes this
-# exact value for the app's own connection string, so it's the source of
-# truth instead of a separately hand-maintained secret.
+# migrate-database.yml's connection string. Named to match the
+# ConnectionStrings:DefaultConnection config key via the double-underscore
+# env var convention — the app (and `dotnet ef`, which bootstraps the same
+# way) only ever reads that key, never a DATABASE_URL-style var, so the
+# secret name has to match exactly or migrations silently connect to
+# whatever's in appsettings.json instead.
 resource "github_actions_environment_secret" "database_url" {
   repository  = local.github_repo_name
   environment = github_repository_environment.production.environment
-  secret_name = "DATABASE_URL"
+  secret_name = "ConnectionStrings__DefaultConnection"
   value       = var.database_connection_string
 }
