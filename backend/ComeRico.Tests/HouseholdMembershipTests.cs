@@ -125,16 +125,4 @@ public class HouseholdMembershipTests
         Assert.Equal(HouseholdRole.Member, leavingUser.Role);
         Assert.Equal(HouseholdRole.Admin, oldestMember.Role);
     }
-
-    private sealed class FakeTenantService : ITenantService
-    {
-        public Guid HouseholdId => Guid.Empty;
-    }
-
-    private sealed class FakeCurrentUserService(Guid userId) : ICurrentUserService
-    {
-        public Guid UserId => userId;
-        public bool IsAuthenticated => true;
-        public HouseholdRole? Role => null;
-    }
 }

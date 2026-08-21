@@ -105,10 +105,8 @@ dotnet sln add ComeRico.Api/ComeRico.Api.csproj
 
 ## 5. Known Issues & Next Steps
 
-- **CSRF:** SameSite=Lax on the auth cookie blocks cross-site POSTs, which is a solid baseline for a JSON API. For defense in depth, add antiforgery tokens or require a custom header on mutating requests.
-- **Production cookies:** `CookieSecurePolicy.SameAsRequest` is dev-friendly; enforce `Always` (HTTPS-only) in production.
 - **Email confirmation / password reset:** Not implemented; `AddDefaultTokenProviders()` is already wired for when they're needed.
-- **Tests:** No automated tests yet. Add xUnit for backend and Vitest for frontend.
+- **Tests:** Backend has xUnit coverage (`backend/ComeRico.Tests`, xUnit v3 on Microsoft.Testing.Platform + EF Core InMemory, hand-rolled fakes instead of a mocking library) — run via `dotnet test --solution backend/ComeRico.slnx`. Covers household invite codes, membership/fallback-admin logic, the household create/join flow, EF Core household query-filter isolation (`TenantIsolationTests.cs`), and `ClaimsTenantService` claim resolution. Frontend still has no Vitest coverage.
 - **Database config:** the backend reads `ConnectionStrings:DefaultConnection` only, in ADO.NET `keyword=value` form (`Host=...;Port=...;Database=...;Username=...;Password=...`), set via the `ConnectionStrings__DefaultConnection` env var in production. There is **no** URI-style `DATABASE_URL` parsing in the codebase — earlier docs claimed a `ConnectionStringResolver` that has never existed. Neon's dashboard can emit the ADO.NET format directly.
 - **Migrations policy:** Migrations run exclusively via the dotnet CLI (`dotnet ef database update --project ComeRico.Core --startup-project ComeRico.Api`). The app never auto-migrates at startup, in any environment.
 

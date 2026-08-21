@@ -67,6 +67,7 @@ dotnet ef database update --project ComeRico.Core --startup-project ComeRico.Api
 ```bash
 # Backend
 dotnet build backend/ComeRico.slnx
+dotnet test --solution backend/ComeRico.slnx
 
 # Frontend type-check
 cd frontend && pnpm exec tsc --noEmit
