@@ -1,8 +1,21 @@
 # Infrastructure — come-rico
 
-Terragrunt orchestrates [`stack/`](stack) (a single module — see
-its README for what it actually provisions) across two environments,
-`dev` and `prod`, without duplicating config between them:
+Terragrunt orchestrates three units, without duplicating config between
+them:
+
+- [`stack/`](stack) — the per-environment module (Azure, Neon, R2,
+  Vercel, monitoring, and each environment's own GitHub Actions wiring —
+  see its README). Applied twice, independently: `live/dev` and
+  `live/prod`.
+- [`modules/github_actions_ci`](modules/github_actions_ci) — a single
+  Azure AD app + service principal, shared by both environments' CI
+  deploys. Applied once: `live/platform`. Everything
+  environment-*specific* about CI (federated credential, role assignment,
+  the GitHub Environment itself) lives in `stack/ci.tf` instead, which
+  reads this identity's outputs via a Terragrunt `dependency` block —
+  see `stack/README.md#cicd`.
+
+Config layout:
 
 - `root.hcl` (this directory) — shared remote-state backend config
   and the handful of inputs that are identical across every environment
@@ -10,7 +23,11 @@ its README for what it actually provisions) across two environments,
   `infisical_project_id`).
 - `live/dev/terragrunt.hcl`, `live/prod/terragrunt.hcl` — only what
   actually differs per environment (`environment`,
-  `app_name_unique_suffix`), plus `terraform { source = "../../stack" }`.
+  `app_name_unique_suffix`, `github_environment_name`), plus
+  `terraform { source = "../../stack" }` and a `dependency "platform"`
+  block for the CI identity's outputs.
+- `live/platform/terragrunt.hcl` — `terraform { source = "../../modules/github_actions_ci" }`,
+  no per-environment inputs.
 
 This replaces the old setup (Terraform workspaces + `terraform.tfvars` /
 `dev.tfvars` + a manually-maintained `backend.hcl`) — everything
@@ -23,7 +40,7 @@ it's never applied directly.
 1. Install [Terragrunt](https://terragrunt.gruntwork.io/docs/getting-started/install/)
    (and Terraform — already required by `stack/`).
 2. `az login` (Azure) and `gh auth login` (GitHub, needed by
-   `stack/ci.tf`, prod only).
+   `stack/ci.tf` and `modules/github_actions_ci`, both environments).
 3. Bootstrap the state bucket once — Terragrunt can't create the bucket
    it's about to store its own state in:
    ```bash
@@ -50,7 +67,10 @@ it's never applied directly.
 ## Usage
 
 ```bash
-cd infra/live/dev    # or live/prod
+cd infra/live/platform   # apply this first — dev/prod both depend on its outputs
+terragrunt apply
+
+cd infra/live/dev        # or live/prod
 terragrunt plan
 terragrunt apply
 ```
@@ -61,8 +81,10 @@ directory, generates `backend.tf` there from this root `root.hcl`'s
 `inputs` (from both this directory and the root) passed as variables —
 nothing to `cd` into `stack/` for.
 
-To run something across both environments (rare — usually you want one
-environment at a time), use `run-all` from this directory:
+To run something across every unit (rare — usually you want one
+environment at a time), use `run-all` from this directory; it applies
+`live/platform` before `live/dev`/`live/prod` automatically, since they
+declare a `dependency` on it:
 
 ```bash
 cd infra

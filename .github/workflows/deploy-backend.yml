@@ -5,17 +5,29 @@ name: deploy-backend
 # rewrites /api/* here — so the browser only ever sees the Vercel origin and
 # the auth cookie stays same-origin.
 #
-# Auth is OIDC (azure/login federated credential, no stored secret). The
-# app registration, its role assignment, the Production GitHub Environment,
-# and these vars are all provisioned by infra/stack/ci.tf — see
-# infra/stack/README.md#cicd. Nothing here is set by hand.
+# Pushes to main deploy Development; publishing a GitHub Release deploys
+# Production. Auth is OIDC (azure/login federated credential, no stored
+# secret) — one identity shared across both environments, but a separate
+# federated credential/role assignment/GitHub Environment per environment
+# (job `environment:` below selects which one's vars/secrets apply). All
+# of this — the shared identity, both GitHub Environments, and these vars
+# — is provisioned by infra/stack/ci.tf and infra/modules/github_actions_ci
+# — see infra/stack/README.md#cicd. Nothing here is set by hand.
 on:
   push:
     branches: [main]
     paths:
       - "backend/**"
       - ".github/workflows/deploy-backend.yml"
+  release:
+    types: [published]
   workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to deploy
+        type: choice
+        options: [Development, Production]
+        default: Development
 
 permissions:
   id-token: write
@@ -24,7 +36,7 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: Production
+    environment: ${{ github.event_name == 'release' && 'Production' || (github.event_name == 'workflow_dispatch' && inputs.environment || 'Development') }}
 
     steps:
       - uses: actions/checkout@v6

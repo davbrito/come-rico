@@ -39,9 +39,8 @@ terraform {
   }
 
   # No backend block here — Terragrunt generates it per environment (see
-  # infra/terragrunt/terragrunt.hcl#remote_state). This module is never
-  # applied directly; always run through `terragrunt` in
-  # infra/terragrunt/live/<env>/.
+  # ../root.hcl#remote_state). This module is never applied directly;
+  # always run through `terragrunt` in ../live/<env>/.
 }
 
 provider "azurerm" {
@@ -50,6 +49,12 @@ provider "azurerm" {
 
 provider "azuread" {}
 
+# No token configured — the provider picks it up from the gh CLI's stored
+# auth (`gh auth login`) automatically.
+provider "github" {
+  owner = split("/", var.github_repository)[0]
+}
+
 provider "neon" {
   api_key = ephemeral.infisical_secret.neon_api_key.value
 }
@@ -57,13 +62,6 @@ provider "neon" {
 provider "cloudflare" {
   api_token = ephemeral.infisical_secret.cloudflare_api_token.value
 }
-
-# No token configured — the provider picks it up from the gh CLI's stored
-# auth (`gh auth login`) automatically.
-provider "github" {
-  owner = local.github_owner
-}
-
 
 provider "vercel" {
   api_token = ephemeral.infisical_secret.vercel_api_token.value

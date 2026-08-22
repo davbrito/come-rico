@@ -5,6 +5,8 @@ locals {
   }
 }
 
+data "azurerm_client_config" "current" {}
+
 # Generated instead of hand-rolled — this is an arbitrary shared secret
 # (not tied to any third-party account like the other provider tokens),
 # so there's nothing to fetch from Infisical; Terraform can just create

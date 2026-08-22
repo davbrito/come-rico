@@ -51,31 +51,42 @@ and the `BACKEND_URL` Vercel env var, as described in `../azure.md`.
 
 ## CI/CD
 
-`ci.tf` wires up everything `deploy-backend.yml` and `migrate-database.yml`
-need, end to end, via the `./modules/github_actions_ci` module —
-instantiated only for `prod`; `dev` deploys stay manual:
+`deploy-backend.yml` and `migrate-database.yml` authenticate to Azure via
+one shared identity — a single Azure AD app + service principal — used by
+*both* `dev` and `prod`, so it's provisioned once by
+`../modules/github_actions_ci` as its own Terragrunt unit
+(`../live/platform`), not inside either environment's own state (see that
+module's `main.tf` for why). Everything environment-*specific* lives in
+this directory's `ci.tf` instead, applied once per environment
+(`../live/dev`, `../live/prod`), pulling the shared identity's
+`client_id`/`application_id`/`principal_id` in via a Terragrunt
+`dependency` block:
 
-- An Azure AD app registration + federated credential (GitHub Actions
-  OIDC, no stored secret), scoped to this repo's `Production` GitHub
-  Environment
-- `Website Contributor` on the web app (not the plan, resource group, or
-  anything else) granted to that identity
-- The `Production` GitHub Environment itself (`github_repository_environment`)
+- A federated credential (GitHub Actions OIDC, no stored secret) scoped
+  to *this* environment's GitHub Environment (`var.github_environment_name`
+  — `"Production"` for `prod`, `"Development"` for `dev`; set in
+  `../live/<env>/terragrunt.hcl`) — not a branch ref, so it only trusts
+  runs that went through that environment's protection rules
+- `Website Contributor` on *this* environment's web app (not the plan,
+  resource group, or anything else) granted to the shared identity
+- The GitHub Environment itself (`github_repository_environment`)
 - Its variables — `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`,
-  `AZURE_SUBSCRIPTION_ID`, `AZURE_WEBAPP_NAME` — and its `DATABASE_URL`
-  secret, all pushed via the `github` provider so nothing needs copy-pasting
-  from `terraform output` by hand
+  `AZURE_SUBSCRIPTION_ID`, `AZURE_WEBAPP_NAME` — and its
+  `ConnectionStrings__DefaultConnection` secret, all pushed via the
+  `github` provider so nothing needs copy-pasting from `terraform output`
+  by hand
 
-`AZURE_WEBAPP_NAME` needs to be stable across applies, so prod should set
+`AZURE_WEBAPP_NAME` needs to be stable across applies, so prod sets
 `app_name_unique_suffix = false` once the plain name is confirmed free
 (see [Naming](#naming)) — otherwise a suffix rotation would need Terraform
 to re-push the variable (which it will, on the next apply, but the two
 would be out of sync until then).
 
-Applying this needs, beyond what the rest of the stack requires:
+Applying `../live/platform` and either env's `ci.tf` needs, beyond what
+the rest of the stack requires:
 
 - `Application.ReadWrite.All`-equivalent Azure AD rights (e.g. Application
-  Administrator) to create the app registration
+  Administrator) to create the app registration (`../live/platform` only)
 - `Microsoft.Authorization/roleAssignments/write` on the resource group
   (Owner, or User Access Administrator) to grant `Website Contributor`
 - `gh auth login` run locally — the `github` provider picks up its token
