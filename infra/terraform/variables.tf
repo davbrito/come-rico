@@ -40,12 +40,6 @@ variable "base_domain" {
 
 # --- Neon (Postgres) ---------------------------------------------------
 
-variable "neon_api_key" {
-  description = "Neon API key (https://console.neon.tech/app/settings/api-keys)."
-  type        = string
-  sensitive   = true
-}
-
 variable "neon_region_id" {
   description = "Neon region for this environment's project. See https://neon.com/docs/introduction/regions."
   type        = string
@@ -58,12 +52,6 @@ variable "neon_pg_version" {
 }
 
 # --- Cloudflare R2 -------------------------------------------------------
-
-variable "cloudflare_api_token" {
-  description = "Cloudflare API token scoped to R2 (Account.Workers R2 Storage: Edit) and, if managing DNS for r2_public_base_url, Zone.DNS: Edit."
-  type        = string
-  sensitive   = true
-}
 
 variable "cloudflare_account_id" {
   description = "Cloudflare account ID that owns the R2 bucket."
@@ -81,18 +69,6 @@ variable "r2_location_hint" {
   default     = "enam"
 }
 
-variable "r2_access_key_id" {
-  description = "R2 S3-compatible access key ID. Generated from the Cloudflare dashboard (R2 > Manage API Tokens) — not managed by the Cloudflare Terraform provider."
-  type        = string
-  sensitive   = true
-}
-
-variable "r2_secret_access_key" {
-  description = "R2 S3-compatible secret access key, paired with r2_access_key_id."
-  type        = string
-  sensitive   = true
-}
-
 variable "r2_cors_allowed_origins" {
   description = "Extra origins allowed to GET/PUT objects directly against the R2 bucket (browser uploads/downloads), besides https://<base_domain>."
   type        = list(string)
@@ -101,15 +77,24 @@ variable "r2_cors_allowed_origins" {
   ]
 }
 
-# --- App secrets not otherwise modeled -----------------------------------
+# --- Infisical -----------------------------------------------------------
+# Provider tokens (neon_api_key, cloudflare_api_token, vercel_api_token,
+# r2_access_key_id, r2_secret_access_key, cron_secret) live in Infisical
+# instead of tfvars — see infisical.tf.
 
-variable "cron_secret" {
-  description = "Shared secret that authorizes calls to the app's scheduled/cron endpoints."
+variable "infisical_project_id" {
+  description = "Infisical project ID holding come-rico's provider tokens."
+  type        = string
+}
+
+variable "infisical_client_id" {
+  description = "Client ID of the Infisical Universal Auth machine identity used to fetch provider tokens."
   type        = string
   sensitive   = true
 }
 
-variable "vercel_api_token" {
-  type      = string
-  sensitive = true
+variable "infisical_client_secret" {
+  description = "Client secret of the Infisical Universal Auth machine identity used to fetch provider tokens."
+  type        = string
+  sensitive   = true
 }

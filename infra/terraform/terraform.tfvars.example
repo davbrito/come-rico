@@ -8,29 +8,22 @@ base_domain = "comerico.davbrito.dev"
 # output, so prod shouldn't carry a random suffix.
 app_name_unique_suffix = false
 
-# Neon — https://console.neon.tech/app/settings/api-keys
-neon_api_key = "..."
-
-# Cloudflare — API token needs Account.Workers R2 Storage: Edit and
-# Zone.DNS: Edit (for the R2 custom domain)
-cloudflare_api_token  = "..."
+# Cloudflare — account ID that owns the R2 bucket, and the DNS zone ID for
+# base_domain (used to attach the R2 custom domain).
 cloudflare_account_id = "..."
 cloudflare_zone_id    = "..." # zone ID for the base_domain's DNS zone
-
-# R2 access keys are generated manually from the Cloudflare dashboard
-# (R2 > Manage API Tokens) — not something the Cloudflare Terraform
-# provider can create.
-r2_access_key_id     = "..."
-r2_secret_access_key = "..."
 # R2 custom domain is storage-<environment>.<base_domain>, e.g.
 # storage-prod.comerico.davbrito.dev.
-
-cron_secret = "..."
 
 # GitHub — the github provider authenticates via the gh CLI's stored login
 # (`gh auth login` once, needs the repo, admin:repo_hook-equivalent scope
 # for Environments/Secrets/Variables), no token variable needed here.
 
-# Vercel — team-scoped token from vercel.com/account/tokens. No team_id
-# variable needed, the token resolves it.
-vercel_api_token = "..."
+# Provider tokens (neon_api_key, cloudflare_api_token, vercel_api_token,
+# r2_access_key_id, r2_secret_access_key, cron_secret) live in Infisical,
+# not here — see infisical.tf and README.md#infisical-provider-tokens.
+# infisical_client_id/_secret are the Universal Auth machine identity
+# credentials used to fetch them.
+infisical_project_id    = "..."
+infisical_client_id     = "..."
+infisical_client_secret = "..."

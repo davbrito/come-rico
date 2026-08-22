@@ -62,7 +62,7 @@ az login
 cd infra/terraform
 terraform init -backend-config=backend.hcl   # already ran once? just: terraform init
 
-cp terraform.tfvars.example terraform.tfvars   # fill in real secrets
+cp terraform.tfvars.example terraform.tfvars   # fill in real values
 terraform plan
 terraform apply
 ```
@@ -72,11 +72,6 @@ and the `BACKEND_URL` Vercel env var, as described in `../azure.md`.
 
 ## What's still manual
 
-- **R2 access keys** (`r2_access_key_id` / `r2_secret_access_key`) — the
-  S3-compatible credential pair the app uses to sign uploads is only
-  available from the dashboard (R2 → Manage API Tokens), not as a
-  Terraform resource. Bucket, CORS, and lifecycle are all Terraform-managed
-  via the native `cloudflare_r2_bucket*` resources.
 - **Database migrations** — still `migrate-database.yml`, unrelated to
   provisioning.
 - **Uptime pinger** (UptimeRobot) — external service, nothing to manage
@@ -116,6 +111,50 @@ Applying this needs, beyond what the rest of the stack requires:
   the logged-in account needs admin on this repo to write Environments,
   Secrets, and Variables
 
+## Infisical (provider tokens)
+
+Provider tokens — `NEON_API_KEY`, `CLOUDFLARE_API_TOKEN`,
+`VERCEL_API_TOKEN` — live in an Infisical project rather than
+`terraform.tfvars`, one per environment slug (`dev`/`prod`) matching the
+Terraform workspace. `infisical.tf` reads them via an
+`ephemeral "infisical_secret"` resource each, since they only ever flow
+into `provider` blocks (`versions.tf`) — ephemeral values are never
+written to state or plan files.
+
+`CRON_SECRET` goes the other direction — a `random_password` resource
+(`main.tf`) generates it and writes it *into* Infisical via
+`resource "infisical_secret"`, purely so it's discoverable outside this
+Terraform run (e.g. `infisical run` for local scripts); it's an arbitrary
+shared secret, not tied to any third-party account, so there's nothing to
+fetch. `app_settings` (`main.tf`) uses `random_password.cron_secret.result`
+directly, not a round-trip back through Infisical — it's a plain map
+attribute with no write-only variant, so it couldn't consume an ephemeral
+value anyway.
+
+`R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` aren't in Infisical at all:
+`r2.tf` generates them (a `cloudflare_api_token` scoped to just this
+bucket — R2's S3-compatible credentials are access_key_id = token ID,
+secret_access_key = SHA-256(token value), see
+[developers.cloudflare.com/r2/api/tokens](https://developers.cloudflare.com/r2/api/tokens))
+and passes the locals straight into `app_settings`. This needs the
+Cloudflare token Terraform authenticates with (`CLOUDFLARE_API_TOKEN` in
+Infisical) to also carry `Account.API Tokens: Edit`, beyond the R2/DNS
+scopes described under [Usage](#usage).
+
+Setup:
+
+1. Create an Infisical project, add `NEON_API_KEY`, `CLOUDFLARE_API_TOKEN`,
+   `VERCEL_API_TOKEN` under `dev` and `prod` environments (folder `/`) —
+   `CRON_SECRET` gets created by the first `terraform apply`, not by hand.
+2. Create a Universal Auth machine identity, scoped read+write to that
+   project, and set `infisical_project_id` / `infisical_client_id` /
+   `infisical_client_secret` in `terraform.tfvars` / `dev.tfvars`
+   (`infisical_client_id`/`_secret` authenticate to Infisical itself, kept
+   as sensitive tfvars rather than env vars — same as every other
+   provider token here).
+
+Requires Terraform >= 1.10 (ephemeral resources).
+
 ## Vercel (frontend)
 
 `vercel.tf` references the existing Vercel project (`come-rico`, linked
@@ -125,9 +164,9 @@ source can't accidentally overwrite framework/build settings on apply the
 way `resource + terraform import` could if any attribute didn't match
 exactly. The only thing actually managed is the `BACKEND_URL` environment
 variable, kept in sync with the web app's real hostname. Requires
-`vercel_api_token` (a team-scoped token from
-vercel.com/account/tokens — no `team_id` variable needed, the token
-resolves it).
+`VERCEL_API_TOKEN` (a team-scoped token from vercel.com/account/tokens,
+stored in Infisical — see [Infisical](#infisical-provider-tokens)) — no
+`team_id` variable needed, the token resolves it.
 
 vercel.json's `/api/(.*)` rewrite destination is a separate, static
 reference to the same hostname — Vercel reads that file directly, so it's

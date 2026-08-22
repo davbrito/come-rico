@@ -5,6 +5,16 @@ locals {
   }
 }
 
+# Generated instead of hand-rolled — this is an arbitrary shared secret
+# (not tied to any third-party account like the other provider tokens),
+# so there's nothing to fetch from Infisical; Terraform can just create
+# it. Mirrored into Infisical (infisical.tf) so it's discoverable outside
+# this Terraform run, same as the R2 credentials in r2.tf.
+resource "random_password" "cron_secret" {
+  length  = 32
+  special = false
+}
+
 resource "azurerm_resource_group" "this" {
   name     = local.resource_group_name
   location = var.azure_location
@@ -63,10 +73,10 @@ resource "azurerm_linux_web_app" "api" {
     APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.api.connection_string
     ConnectionStrings__DefaultConnection  = local.database_connection_string
     R2__ServiceUrl                        = local.r2_service_url
-    R2__AccessKeyId                       = var.r2_access_key_id
-    R2__SecretAccessKey                   = var.r2_secret_access_key
+    R2__AccessKeyId                       = local.r2_access_key_id
+    R2__SecretAccessKey                   = local.r2_secret_access_key
     R2__BucketName                        = cloudflare_r2_bucket.images.name
     R2__PublicBaseUrl                     = local.r2_public_base_url
-    CRON_SECRET                           = var.cron_secret
+    CRON_SECRET                           = random_password.cron_secret.result
   }
 }

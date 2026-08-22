@@ -1,5 +1,7 @@
 terraform {
-  required_version = ">= 1.9"
+  # >= 1.10 for ephemeral resources (infisical.tf) — used so provider
+  # tokens never get written to state.
+  required_version = ">= 1.10"
 
   required_providers {
     azurerm = {
@@ -30,6 +32,10 @@ terraform {
       source  = "vercel/vercel"
       version = "~> 5"
     }
+    infisical = {
+      source  = "infisical/infisical"
+      version = "~> 0.15"
+    }
   }
 
   # State lives in Cloudflare R2 (S3-compatible), not locally — see
@@ -58,11 +64,11 @@ provider "azurerm" {
 provider "azuread" {}
 
 provider "neon" {
-  api_key = var.neon_api_key
+  api_key = ephemeral.infisical_secret.neon_api_key.value
 }
 
 provider "cloudflare" {
-  api_token = var.cloudflare_api_token
+  api_token = ephemeral.infisical_secret.cloudflare_api_token.value
 }
 
 # No token configured — the provider picks it up from the gh CLI's stored
@@ -73,5 +79,18 @@ provider "github" {
 
 
 provider "vercel" {
-  api_token = var.vercel_api_token
+  api_token = ephemeral.infisical_secret.vercel_api_token.value
+}
+
+# Infisical itself — authenticates via Universal Auth machine identity,
+# credentials from tfvars rather than env vars.
+provider "infisical" {
+  host = "https://app.infisical.com"
+
+  auth = {
+    universal = {
+      client_id     = var.infisical_client_id
+      client_secret = var.infisical_client_secret
+    }
+  }
 }
