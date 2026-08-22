@@ -7,7 +7,7 @@ terraform {
 }
 
 dependency "platform" {
-  config_path = "../platform"
+  config_path = "../platform/ci"
 
   mock_outputs = {
     client_id      = "00000000-0000-0000-0000-000000000000"
@@ -19,6 +19,11 @@ dependency "platform" {
 
 inputs = {
   environment = "dev"
+  # Dev is now also the staging target every Vercel preview deployment's
+  # API rewrite points at (../platform/vercel, via a Terragrunt
+  # `dependency` on this unit's app_hostname output) — a stable hostname
+  # here just makes for a nicer, predictable staging URL, same as prod.
+  app_name_unique_suffix = false
 
   github_environment_name       = "Development"
   github_actions_client_id      = dependency.platform.outputs.client_id

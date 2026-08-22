@@ -1,6 +1,6 @@
 terraform {
   # No backend block — Terragrunt generates it (see
-  # ../../live/platform/terragrunt.hcl and ../../root.hcl).
+  # ../../live/platform/ci/terragrunt.hcl and ../../root.hcl).
   required_version = ">= 1.10"
 
   required_providers {

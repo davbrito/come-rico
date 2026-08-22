@@ -1,19 +1,31 @@
 # Infrastructure — come-rico
 
-Terragrunt orchestrates three units, without duplicating config between
+Terragrunt orchestrates four units, without duplicating config between
 them:
 
 - [`stack/`](stack) — the per-environment module (Azure, Neon, R2,
-  Vercel, monitoring, and each environment's own GitHub Actions wiring —
-  see its README). Applied twice, independently: `live/dev` and
-  `live/prod`.
+  monitoring, and each environment's own GitHub Actions wiring — see its
+  README). Applied twice, independently: `live/dev` and `live/prod`.
 - [`modules/github_actions_ci`](modules/github_actions_ci) — a single
   Azure AD app + service principal, shared by both environments' CI
-  deploys. Applied once: `live/platform`. Everything
+  deploys. Applied once: `live/platform/ci`. Everything
   environment-*specific* about CI (federated credential, role assignment,
   the GitHub Environment itself) lives in `stack/ci.tf` instead, which
   reads this identity's outputs via a Terragrunt `dependency` block —
   see `stack/README.md#cicd`.
+- [`modules/vercel`](modules/vercel) — the one Vercel project
+  (`come-rico`), also shared rather than per-environment. Applied once:
+  `live/platform/vercel`, which depends on both `live/prod`'s and
+  `live/dev`'s `app_hostname` outputs — production Vercel traffic
+  (host matches `base_domain`) routes to prod, everything else
+  (previews, the default `*.vercel.app` alias) routes to dev as a
+  staging target.
+
+`live/platform/ci` and `live/platform/vercel` are deliberately two
+separate units, not one — `live/dev`/`live/prod` both depend on `ci`
+(for the identity), and `vercel` depends on `live/prod`/`live/dev` (for
+their backend hostnames); merging them into a single "platform" unit
+would make that a cycle (`prod` → `platform` → `prod`).
 
 Config layout:
 
@@ -25,9 +37,12 @@ Config layout:
   actually differs per environment (`environment`,
   `app_name_unique_suffix`, `github_environment_name`), plus
   `terraform { source = "../../stack" }` and a `dependency "platform"`
-  block for the CI identity's outputs.
-- `live/platform/terragrunt.hcl` — `terraform { source = "../../modules/github_actions_ci" }`,
-  no per-environment inputs.
+  block (`config_path = "../platform/ci"`) for the CI identity's outputs.
+- `live/platform/ci/terragrunt.hcl` — `terraform { source = "../../../modules/github_actions_ci" }`,
+  no inputs of its own.
+- `live/platform/vercel/terragrunt.hcl` — `terraform { source = "../../../modules/vercel" }`,
+  plus `dependency "prod"` and `dependency "dev"` blocks for the
+  prod/preview backend split.
 
 This replaces the old setup (Terraform workspaces + `terraform.tfvars` /
 `dev.tfvars` + a manually-maintained `backend.hcl`) — everything
@@ -67,24 +82,27 @@ it's never applied directly.
 ## Usage
 
 ```bash
-cd infra/live/platform   # apply this first — dev/prod both depend on its outputs
+cd infra/live/platform/ci   # apply this first — dev/prod both depend on its outputs
 terragrunt apply
 
-cd infra/live/dev        # or live/prod
-terragrunt plan
+cd infra/live/dev           # or live/prod
+terragrunt apply
+
+cd infra/live/platform/vercel   # last — depends on live/prod's and live/dev's output
 terragrunt apply
 ```
 
-`terragrunt` copies `stack/` into a `.terragrunt-cache/` working
-directory, generates `backend.tf` there from this root `root.hcl`'s
-`remote_state` block, and runs the equivalent `terraform` command with
-`inputs` (from both this directory and the root) passed as variables —
-nothing to `cd` into `stack/` for.
+`terragrunt` copies the relevant module (`stack/`,
+`modules/github_actions_ci`, or `modules/vercel`) into a
+`.terragrunt-cache/` working directory, generates `backend.tf` there from
+this root `root.hcl`'s `remote_state` block, and runs the equivalent
+`terraform` command with `inputs` (from both the unit's own
+`terragrunt.hcl` and the root) passed as variables.
 
-To run something across every unit (rare — usually you want one
-environment at a time), use `run-all` from this directory; it applies
-`live/platform` before `live/dev`/`live/prod` automatically, since they
-declare a `dependency` on it:
+To run something across every unit (rare — usually you want one at a
+time), use `run-all` from this directory; it resolves the right order
+automatically from the `dependency` blocks above (`ci` before
+`dev`/`prod` before `vercel`):
 
 ```bash
 cd infra

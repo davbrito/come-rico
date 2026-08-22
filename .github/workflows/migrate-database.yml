@@ -1,20 +1,26 @@
 name: migrate-database
 
 # Manually-dispatched: applies pending EF Core migrations to the database
-# configured in the ConnectionStrings__DefaultConnection secret (Production
-# environment) — named to match the config key the app (and `dotnet ef`,
-# which bootstraps via the same Program.cs) actually reads; a DATABASE_URL
-# env var is not understood anywhere in the codebase. Migrations are never
+# configured in the target GitHub Environment's ConnectionStrings__DefaultConnection
+# secret — named to match the config key the app (and `dotnet ef`, which
+# bootstraps via the same Program.cs) actually reads; a DATABASE_URL env
+# var is not understood anywhere in the codebase. Migrations are never
 # applied automatically by the app itself — this workflow (run via the
-# dotnet CLI) is the only supported way to apply them outside a developer's
-# machine.
+# dotnet CLI) is the only supported way to apply them outside a
+# developer's machine.
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to migrate
+        type: choice
+        options: [Development, Production]
+        default: Development
 
 jobs:
   migrate:
     runs-on: ubuntu-latest
-    environment: Production
+    environment: ${{ inputs.environment }}
     steps:
       - uses: actions/checkout@v4
 

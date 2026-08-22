@@ -28,10 +28,6 @@ terraform {
       source  = "integrations/github"
       version = "~> 6"
     }
-    vercel = {
-      source  = "vercel/vercel"
-      version = "~> 5"
-    }
     infisical = {
       source  = "infisical/infisical"
       version = "~> 0.15"
@@ -55,19 +51,8 @@ provider "github" {
   owner = split("/", var.github_repository)[0]
 }
 
-provider "neon" {
-  api_key = ephemeral.infisical_secret.neon_api_key.value
-}
+provider "neon" {}
 
-provider "cloudflare" {
-  api_token = ephemeral.infisical_secret.cloudflare_api_token.value
-}
+provider "cloudflare" {}
 
-provider "vercel" {
-  api_token = ephemeral.infisical_secret.vercel_api_token.value
-}
-
-# Infisical itself — authenticates via Universal Auth machine identity,
-# picked up automatically from INFISICAL_UNIVERSAL_AUTH_CLIENT_ID /
-# _CLIENT_SECRET (see .envrc, direnv-loaded — not a tfvars value).
 provider "infisical" {}

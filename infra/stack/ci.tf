@@ -10,9 +10,8 @@
 # ../live/<env>/terragrunt.hcl, not managed here.
 
 variable "github_repository" {
-  description = "GitHub \"owner/repo\" this environment's CI is allowed to deploy from."
+  description = "GitHub \"owner/repo\" this environment's CI is allowed to deploy from. Set once, in ../root.hcl's shared inputs."
   type        = string
-  default     = "davbrito/come-rico"
 }
 
 variable "github_environment_name" {

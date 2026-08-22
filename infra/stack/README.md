@@ -53,21 +53,21 @@ and the `BACKEND_URL` Vercel env var, as described in `../azure.md`.
 
 `deploy-backend.yml` and `migrate-database.yml` authenticate to Azure via
 one shared identity — a single Azure AD app + service principal — used by
-*both* `dev` and `prod`, so it's provisioned once by
+_both_ `dev` and `prod`, so it's provisioned once by
 `../modules/github_actions_ci` as its own Terragrunt unit
-(`../live/platform`), not inside either environment's own state (see that
-module's `main.tf` for why). Everything environment-*specific* lives in
+(`../live/platform/ci`), not inside either environment's own state (see
+that module's `main.tf` for why). Everything environment-_specific_ lives in
 this directory's `ci.tf` instead, applied once per environment
 (`../live/dev`, `../live/prod`), pulling the shared identity's
 `client_id`/`application_id`/`principal_id` in via a Terragrunt
 `dependency` block:
 
 - A federated credential (GitHub Actions OIDC, no stored secret) scoped
-  to *this* environment's GitHub Environment (`var.github_environment_name`
+  to _this_ environment's GitHub Environment (`var.github_environment_name`
   — `"Production"` for `prod`, `"Development"` for `dev`; set in
   `../live/<env>/terragrunt.hcl`) — not a branch ref, so it only trusts
   runs that went through that environment's protection rules
-- `Website Contributor` on *this* environment's web app (not the plan,
+- `Website Contributor` on _this_ environment's web app (not the plan,
   resource group, or anything else) granted to the shared identity
 - The GitHub Environment itself (`github_repository_environment`)
 - Its variables — `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`,
@@ -82,11 +82,11 @@ this directory's `ci.tf` instead, applied once per environment
 to re-push the variable (which it will, on the next apply, but the two
 would be out of sync until then).
 
-Applying `../live/platform` and either env's `ci.tf` needs, beyond what
-the rest of the stack requires:
+Applying `../live/platform/ci` and either env's `ci.tf` needs, beyond
+what the rest of the stack requires:
 
 - `Application.ReadWrite.All`-equivalent Azure AD rights (e.g. Application
-  Administrator) to create the app registration (`../live/platform` only)
+  Administrator) to create the app registration (`../live/platform/ci` only)
 - `Microsoft.Authorization/roleAssignments/write` on the resource group
   (Owner, or User Access Administrator) to grant `Website Contributor`
 - `gh auth login` run locally — the `github` provider picks up its token
@@ -94,54 +94,23 @@ the rest of the stack requires:
   the logged-in account needs admin on this repo to write Environments,
   Secrets, and Variables
 
-## Infisical (provider tokens)
-
-Provider tokens — `NEON_API_KEY`, `CLOUDFLARE_API_TOKEN`,
-`VERCEL_API_TOKEN` — live in an Infisical project rather than tfvars, one
-per environment slug (`dev`/`prod`, matching `var.environment` as set by
-`../live/<env>/terragrunt.hcl`). `infisical.tf` reads them via
-an `ephemeral "infisical_secret"` resource each, since they only ever flow
-into `provider` blocks (`versions.tf`) — ephemeral values are never
-written to state or plan files.
-
-`CRON_SECRET` goes the other direction — a `random_password` resource
-(`main.tf`) generates it and writes it *into* Infisical via
-`resource "infisical_secret"`, purely so it's discoverable outside this
-Terraform run (e.g. `infisical run` for local scripts); it's an arbitrary
-shared secret, not tied to any third-party account, so there's nothing to
-fetch. `app_settings` (`main.tf`) uses `random_password.cron_secret.result`
-directly, not a round-trip back through Infisical — it's a plain map
-attribute with no write-only variant, so it couldn't consume an ephemeral
-value anyway.
-
-`R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` aren't in Infisical at all:
-`r2.tf` generates them (a `cloudflare_api_token` scoped to just this
-bucket — R2's S3-compatible credentials are access_key_id = token ID,
-secret_access_key = SHA-256(token value), see
-[developers.cloudflare.com/r2/api/tokens](https://developers.cloudflare.com/r2/api/tokens))
-and passes the locals straight into `app_settings`. This needs the
-Cloudflare token Terraform authenticates with (`CLOUDFLARE_API_TOKEN` in
-Infisical) to also carry `Account.API Tokens: Edit`, beyond the R2/DNS
-scopes described in `../README.md`.
-
-Setup: see `../README.md` — creating the Infisical project,
-its secrets, and the `.envrc` that authenticates to it is all part of the
-Terragrunt bootstrap, not something done from this directory.
-
-Requires Terraform >= 1.10 (ephemeral resources).
-
 ## Vercel (frontend)
 
-`vercel.tf` references the existing Vercel project (`come-rico`, linked
-locally via `vercel link` — see `.vercel/repo.json`) by name, through a
-data source rather than importing it as a managed resource — a data
-source can't accidentally overwrite framework/build settings on apply the
-way `resource + terraform import` could if any attribute didn't match
-exactly. The only thing actually managed is the `BACKEND_URL` environment
-variable, kept in sync with the web app's real hostname. Requires
-`VERCEL_API_TOKEN` (a team-scoped token from vercel.com/account/tokens,
-stored in Infisical — see [Infisical](#infisical-provider-tokens)) — no
-`team_id` variable needed, the token resolves it.
+Not managed here — like the CI identity, there's exactly one Vercel
+project (`come-rico`), not one per environment, so it lives in
+`../modules/vercel` as its own Terragrunt unit (`../live/platform/vercel`),
+not this stack. It depends on both `../live/prod`'s and `../live/dev`'s
+`app_hostname` outputs (via Terragrunt `dependency` blocks): the
+production Vercel deployment (host matches `base_domain`) routes to prod,
+every other deployment (previews, the default `*.vercel.app` alias)
+routes to dev as a staging target — both the `BACKEND_URL` env var and the
+`/api/*` rewrite are split this way, built from those `dependency`
+outputs. Dev also sets `app_name_unique_suffix = false` (see
+[Naming](#naming), same as prod) — not strictly required for this, but a
+stable hostname makes for a nicer staging URL. See
+`../modules/vercel/vercel.tf` for the full picture, including why the
+dependency has to point *at* prod/dev rather than the other way around
+(the CI identity's dependency already runs the other direction).
 
 vercel.json's `/api/(.*)` rewrite destination is a separate, static
 reference to the same hostname — Vercel reads that file directly, so it's

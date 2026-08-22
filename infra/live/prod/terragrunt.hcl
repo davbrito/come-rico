@@ -7,7 +7,7 @@ terraform {
 }
 
 dependency "platform" {
-  config_path = "../platform"
+  config_path = "../platform/ci"
 
   mock_outputs = {
     client_id      = "00000000-0000-0000-0000-000000000000"
