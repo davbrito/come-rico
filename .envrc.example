@@ -1,0 +1,16 @@
+# Copy to .envrc (gitignored) at the repo root and fill in real values,
+# then `direnv allow`. Used by infra/terraform — see
+# infra/terraform/README.md#infisical-provider-tokens.
+
+# Universal Auth machine identity credentials that authenticate the
+# `infisical` Terraform provider (infra/terraform/versions.tf) to Infisical
+# itself — the six provider tokens it fetches/writes live in Infisical, not
+# here.
+export INFISICAL_UNIVERSAL_AUTH_CLIENT_ID=...
+export INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET=...
+
+# Same across every environment/workspace, so they're env vars instead of
+# being repeated in terraform.tfvars / dev.tfvars.
+export TF_VAR_cloudflare_account_id=...
+export TF_VAR_cloudflare_zone_id=...   # zone ID for base_domain's DNS zone
+export TF_VAR_infisical_project_id=...

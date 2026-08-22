@@ -86,15 +86,3 @@ variable "infisical_project_id" {
   description = "Infisical project ID holding come-rico's provider tokens."
   type        = string
 }
-
-variable "infisical_client_id" {
-  description = "Client ID of the Infisical Universal Auth machine identity used to fetch provider tokens."
-  type        = string
-  sensitive   = true
-}
-
-variable "infisical_client_secret" {
-  description = "Client secret of the Infisical Universal Auth machine identity used to fetch provider tokens."
-  type        = string
-  sensitive   = true
-}

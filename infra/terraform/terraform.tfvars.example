@@ -8,10 +8,6 @@ base_domain = "comerico.davbrito.dev"
 # output, so prod shouldn't carry a random suffix.
 app_name_unique_suffix = false
 
-# Cloudflare — account ID that owns the R2 bucket, and the DNS zone ID for
-# base_domain (used to attach the R2 custom domain).
-cloudflare_account_id = "..."
-cloudflare_zone_id    = "..." # zone ID for the base_domain's DNS zone
 # R2 custom domain is storage-<environment>.<base_domain>, e.g.
 # storage-prod.comerico.davbrito.dev.
 
@@ -19,11 +15,11 @@ cloudflare_zone_id    = "..." # zone ID for the base_domain's DNS zone
 # (`gh auth login` once, needs the repo, admin:repo_hook-equivalent scope
 # for Environments/Secrets/Variables), no token variable needed here.
 
+# cloudflare_account_id, cloudflare_zone_id, and infisical_project_id are
+# the same across workspaces, so they're not set here — copy
+# .envrc.example to .envrc at the repo root and fill in TF_VAR_* for them
+# instead (along with the Infisical Universal Auth credentials).
+#
 # Provider tokens (neon_api_key, cloudflare_api_token, vercel_api_token,
 # r2_access_key_id, r2_secret_access_key, cron_secret) live in Infisical,
 # not here — see infisical.tf and README.md#infisical-provider-tokens.
-# infisical_client_id/_secret are the Universal Auth machine identity
-# credentials used to fetch them.
-infisical_project_id    = "..."
-infisical_client_id     = "..."
-infisical_client_secret = "..."

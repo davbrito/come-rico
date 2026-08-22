@@ -83,14 +83,6 @@ provider "vercel" {
 }
 
 # Infisical itself — authenticates via Universal Auth machine identity,
-# credentials from tfvars rather than env vars.
-provider "infisical" {
-  host = "https://app.infisical.com"
-
-  auth = {
-    universal = {
-      client_id     = var.infisical_client_id
-      client_secret = var.infisical_client_secret
-    }
-  }
-}
+# picked up automatically from INFISICAL_UNIVERSAL_AUTH_CLIENT_ID /
+# _CLIENT_SECRET (see .envrc, direnv-loaded — not a tfvars value).
+provider "infisical" {}

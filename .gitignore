@@ -25,6 +25,7 @@ frontend/.env.*.local
 .env
 .env.local
 .env.*.local
+.envrc
 
 # ─── Editor / OS ───────────────────────────────────────────────────────────────
 .idea/

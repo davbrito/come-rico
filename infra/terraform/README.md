@@ -147,11 +147,14 @@ Setup:
    `VERCEL_API_TOKEN` under `dev` and `prod` environments (folder `/`) —
    `CRON_SECRET` gets created by the first `terraform apply`, not by hand.
 2. Create a Universal Auth machine identity, scoped read+write to that
-   project, and set `infisical_project_id` / `infisical_client_id` /
-   `infisical_client_secret` in `terraform.tfvars` / `dev.tfvars`
-   (`infisical_client_id`/`_secret` authenticate to Infisical itself, kept
-   as sensitive tfvars rather than env vars — same as every other
-   provider token here).
+   project.
+3. Copy `.envrc.example` (repo root) to `.envrc`, fill in that machine
+   identity's `INFISICAL_UNIVERSAL_AUTH_CLIENT_ID`/`_CLIENT_SECRET`, plus
+   `TF_VAR_infisical_project_id` and `TF_VAR_cloudflare_account_id`/
+   `TF_VAR_cloudflare_zone_id` — these three are the same across every
+   workspace, so they live here instead of being repeated in
+   `terraform.tfvars`/`dev.tfvars`. Then `direnv allow` so they're loaded
+   automatically instead of exporting them by hand every session.
 
 Requires Terraform >= 1.10 (ephemeral resources).
 
