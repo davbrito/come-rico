@@ -19,6 +19,12 @@ variable "github_environment_name" {
   type        = string
 }
 
+variable "github_environment_reviewer_user_ids" {
+  description = "GitHub numeric user IDs (not usernames) required to approve runs against this GitHub Environment before deploy-backend.yml/migrate-database.yml can proceed. Empty means no approval gate — deploy-backend.yml's workflow_dispatch and migrate-database.yml both run unattended, so leave this empty only for environments where that's acceptable (e.g. Development)."
+  type        = list(number)
+  default     = []
+}
+
 variable "github_actions_client_id" {
   description = "Shared CI identity's client ID — from ../live/<env>/terragrunt.hcl's dependency on ../live/platform."
   type        = string
@@ -61,6 +67,13 @@ resource "azurerm_role_assignment" "github_actions_deploy" {
 resource "github_repository_environment" "this" {
   repository  = local.github_repo_name
   environment = var.github_environment_name
+
+  dynamic "reviewers" {
+    for_each = length(var.github_environment_reviewer_user_ids) > 0 ? [1] : []
+    content {
+      users = var.github_environment_reviewer_user_ids
+    }
+  }
 }
 
 resource "github_actions_environment_variable" "azure_client_id" {

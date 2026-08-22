@@ -15,6 +15,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Tags aren't covered by test.yml's own triggers (push-to-main, PRs),
+      # so nothing otherwise stops a tag on a red or unbuilt commit from
+      # cutting a release and dispatching a Production deploy. Require the
+      # tagged commit's checks to have already passed on main first.
+      - name: Verify tagged commit passed CI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          status=$(gh api repos/${{ github.repository }}/commits/${{ github.sha }}/check-runs \
+            --jq '[.check_runs[] | select(.name != "release")] | if length == 0 then "missing" elif all(.conclusion == "success") then "success" else "failure" end')
+
+          if [ "$status" != "success" ]; then
+            echo "::error::Tagged commit ${{ github.sha }} has no successful CI checks (status: $status) — refusing to release."
+            exit 1
+          fi
+
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}

@@ -37,8 +37,16 @@ resource "azurerm_linux_web_app" "api" {
   resource_group_name = azurerm_resource_group.this.name
   location            = azurerm_resource_group.this.location
   service_plan_id     = azurerm_service_plan.this.id
-  tags                = local.azure_tags
   https_only          = true
+
+  # Portal-only marker, mirroring the reverse link on
+  # azurerm_application_insights.api in monitoring.tf — makes the App
+  # Service's "Application Insights" blade show this instance as already
+  # linked instead of blank/prompting to create one. Doesn't affect
+  # anything functional (that's APPLICATIONINSIGHTS_CONNECTION_STRING below).
+  tags = merge(local.azure_tags, {
+    "hidden-link: /app-insights-resource-id" = azurerm_application_insights.api.id
+  })
 
   site_config {
     # F1 doesn't support Always On — the azurerm provider defaults this to
@@ -73,6 +81,7 @@ resource "azurerm_linux_web_app" "api" {
     # Program.cs by convention — reports requests, dependencies, exceptions,
     # and ILogger traces to Application Insights.
     APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.api.connection_string
+    APPINSIGHTS_INSTRUMENTATIONKEY        = azurerm_application_insights.api.instrumentation_key
     ConnectionStrings__DefaultConnection  = local.database_connection_string
     R2__ServiceUrl                        = local.r2_service_url
     R2__AccessKeyId                       = local.r2_access_key_id

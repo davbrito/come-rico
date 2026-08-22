@@ -51,13 +51,17 @@ jobs:
       # ("dotnet ComeRico.Api.dll", not the apphost binary — zip deploys
       # don't reliably preserve its executable bit) is set once by
       # Terraform — see infra/azure.md.
+      # InformationalVersion carries the commit SHA into the built assembly
+      # so a Production incident can be traced back to what's actually
+      # deployed (App Service's Kudu shows the zip contents, not git).
       - name: Publish
         working-directory: backend
         run: |
           dotnet publish ComeRico.Api/ComeRico.Api.csproj \
             -c Release \
             -r linux-x64 \
-            -o publish
+            -o publish \
+            -p:InformationalVersion=${{ github.sha }}
 
       - uses: azure/login@v3
         with:
@@ -71,5 +75,6 @@ jobs:
           package: backend/publish
 
       - name: logout
+        if: always()
         run: |
           az logout
