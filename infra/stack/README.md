@@ -1,6 +1,12 @@
-# Terraform — Azure backend hosting
+# infra/stack — Terraform module
 
-Manages, per environment (`var.environment`, default `prod`):
+This is the Terraform **module**: no backend block, no per-environment
+values baked in. It's never applied directly — always through Terragrunt
+(`../root.hcl`, `../live/<env>/`), which supplies `environment` and
+every other input and generates the remote-state backend per environment.
+See `../README.md` for how to actually run `plan`/`apply`.
+
+Manages, per environment (`var.environment`):
 
 - **Azure**: resource group, App Service Plan (F1 by default) and Linux
   Web App described in `../azure.md`
@@ -14,58 +20,24 @@ Manages, per environment (`var.environment`, default `prod`):
   app settings — no SDK/code changes. See [Monitoring](#monitoring) for the
   free-tier guardrails.
 
-State lives in Cloudflare R2, not locally — see [Remote state](#remote-state).
+State lives in Cloudflare R2, not locally — see
+`../root.hcl`'s `remote_state` block, not this module.
 
 ## Naming
 
 Resource names follow the [Azure CAF abbreviation
 convention](https://learn.microsoft.com/azure/cloud-adoption-framework/ready/azure-best-practices/resource-abbreviations):
 `<type>-<workload>-<environment>[-<region>]`, e.g. `rg-come-rico-prod-eus`,
-`plan-come-rico-prod-eus`, `app-come-rico-prod-<random>`. Change
-`workload`/`environment` in `terraform.tfvars` to deploy a second
-environment (`staging`, `dev`, ...) as a fully separate stack — use a
-different local state file or workspace per environment so they don't
-collide.
+`plan-come-rico-prod-eus`, `app-come-rico-prod-<random>`. `environment`
+(and everything else) comes from
+`../live/<env>/terragrunt.hcl` — that's what defines each
+environment as a fully separate stack, with its own state path.
 
 The App Service name gets a random 4-character suffix by default
 (`app_name_unique_suffix`) since `*.azurewebsites.net` is a global
 namespace; disable it once you've confirmed the plain name is free and
-want a stable hostname.
-
-## Remote state
-
-State lives in a dedicated R2 bucket (`come-rico-tfstate`), via the `s3`
-backend Cloudflare documents at
-[developers.cloudflare.com/terraform/advanced-topics/remote-backend](https://developers.cloudflare.com/terraform/advanced-topics/remote-backend/).
-Bootstrap it once — Terraform can't create the bucket it's about to store
-its own state in:
-
-```bash
-# Cloudflare dashboard → R2 → Create bucket → "come-rico-tfstate"
-# (or: npx wrangler r2 bucket create come-rico-tfstate)
-
-cd infra/terraform
-cp backend.hcl.example backend.hcl   # fill in your R2 access key + account id
-terraform init -backend-config=backend.hcl
-```
-
-Workspaces (`default` = prod, `dev`, ...) each get their own path in the
-bucket automatically — no per-environment backend config needed. If you're
-migrating a workspace that already had local state, add `-migrate-state`
-to the `init` above (once per workspace).
-
-## Usage
-
-```bash
-az login
-
-cd infra/terraform
-terraform init -backend-config=backend.hcl   # already ran once? just: terraform init
-
-cp terraform.tfvars.example terraform.tfvars   # fill in real values
-terraform plan
-terraform apply
-```
+want a stable hostname (already done for `prod`, see
+`../live/prod/terragrunt.hcl`).
 
 Outputs `app_hostname` — wire it into `vercel.json`'s `/api/(.*)` rewrite
 and the `BACKEND_URL` Vercel env var, as described in `../azure.md`.
@@ -114,10 +86,10 @@ Applying this needs, beyond what the rest of the stack requires:
 ## Infisical (provider tokens)
 
 Provider tokens — `NEON_API_KEY`, `CLOUDFLARE_API_TOKEN`,
-`VERCEL_API_TOKEN` — live in an Infisical project rather than
-`terraform.tfvars`, one per environment slug (`dev`/`prod`) matching the
-Terraform workspace. `infisical.tf` reads them via an
-`ephemeral "infisical_secret"` resource each, since they only ever flow
+`VERCEL_API_TOKEN` — live in an Infisical project rather than tfvars, one
+per environment slug (`dev`/`prod`, matching `var.environment` as set by
+`../live/<env>/terragrunt.hcl`). `infisical.tf` reads them via
+an `ephemeral "infisical_secret"` resource each, since they only ever flow
 into `provider` blocks (`versions.tf`) — ephemeral values are never
 written to state or plan files.
 
@@ -139,22 +111,11 @@ secret_access_key = SHA-256(token value), see
 and passes the locals straight into `app_settings`. This needs the
 Cloudflare token Terraform authenticates with (`CLOUDFLARE_API_TOKEN` in
 Infisical) to also carry `Account.API Tokens: Edit`, beyond the R2/DNS
-scopes described under [Usage](#usage).
+scopes described in `../README.md`.
 
-Setup:
-
-1. Create an Infisical project, add `NEON_API_KEY`, `CLOUDFLARE_API_TOKEN`,
-   `VERCEL_API_TOKEN` under `dev` and `prod` environments (folder `/`) —
-   `CRON_SECRET` gets created by the first `terraform apply`, not by hand.
-2. Create a Universal Auth machine identity, scoped read+write to that
-   project.
-3. Copy `.envrc.example` (repo root) to `.envrc`, fill in that machine
-   identity's `INFISICAL_UNIVERSAL_AUTH_CLIENT_ID`/`_CLIENT_SECRET`, plus
-   `TF_VAR_infisical_project_id` and `TF_VAR_cloudflare_account_id`/
-   `TF_VAR_cloudflare_zone_id` — these three are the same across every
-   workspace, so they live here instead of being repeated in
-   `terraform.tfvars`/`dev.tfvars`. Then `direnv allow` so they're loaded
-   automatically instead of exporting them by hand every session.
+Setup: see `../README.md` — creating the Infisical project,
+its secrets, and the `.envrc` that authenticates to it is all part of the
+Terragrunt bootstrap, not something done from this directory.
 
 Requires Terraform >= 1.10 (ephemeral resources).
 

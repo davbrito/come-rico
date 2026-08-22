@@ -7,8 +7,8 @@ name: deploy-backend
 #
 # Auth is OIDC (azure/login federated credential, no stored secret). The
 # app registration, its role assignment, the Production GitHub Environment,
-# and these vars are all provisioned by infra/terraform/ci.tf — see
-# infra/terraform/README.md#cicd. Nothing here is set by hand.
+# and these vars are all provisioned by infra/stack/ci.tf — see
+# infra/stack/README.md#cicd. Nothing here is set by hand.
 on:
   push:
     branches: [main]
@@ -34,7 +34,7 @@ jobs:
           dotnet-version: 10.0.x
 
       # Framework-dependent — the App Service plan pins the .NET 10 runtime
-      # via site_config.application_stack in infra/terraform/main.tf, so the
+      # via site_config.application_stack in infra/stack/main.tf, so the
       # deploy doesn't need to carry its own. The startup command
       # ("dotnet ComeRico.Api.dll", not the apphost binary — zip deploys
       # don't reliably preserve its executable bit) is set once by

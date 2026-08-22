@@ -12,14 +12,15 @@ The browser only ever talks to the Vercel origin — `vercel.json` rewrites
 `/api/*` to Azure server-side. That keeps the `__Host-` auth cookie
 same-origin, so there's no CORS config and no `SameSite=None` needed.
 
-Infrastructure is managed with Terraform — see [`infra/terraform/`](terraform/README.md).
+Infrastructure is managed with Terraform — see [`infra/stack/`](stack/README.md).
 It provisions the `azurerm` stack (resource group, App Service Plan, Linux
 Web App), the Neon Postgres project/branch, and the Cloudflare R2 bucket,
-all named per the [Azure CAF convention](terraform/README.md#naming) and
-templated by `environment` so a second environment is just a different
-`terraform.tfvars`. The sections below describe what it provisions and how
-to wire it up; use `terraform apply` instead of the raw `az`/dashboard
-steps they used to show.
+all named per the [Azure CAF convention](stack/README.md#naming) and
+templated by `environment` so a second environment is just a new
+`infra/live/<env>/terragrunt.hcl` (see [`infra/README.md`](README.md)).
+The sections below describe what it provisions and how to wire it up; use
+`terragrunt apply` instead of the raw `az`/dashboard steps they used to
+show.
 
 ## Cost
 
@@ -43,17 +44,11 @@ Upgrading is one flag if you outgrow it:
 
 ## One-time setup
 
-```bash
-az login
-
-cd infra/terraform
-terraform init
-cp terraform.tfvars.example terraform.tfvars   # fill in real secrets
-terraform apply
-```
+See [`infra/README.md`](README.md) — provisioning goes through Terragrunt
+now (`cd infra/live/prod && terragrunt apply`), not `terraform` directly.
 
 This creates, all named `<type>-come-rico-prod[-eus]` (see
-[naming](terraform/README.md#naming)):
+[naming](stack/README.md#naming)):
 
 - Resource group, App Service Plan (F1, Linux), and the Linux Web App —
   pinned to the .NET 10 runtime stack (`site_config.application_stack`),
@@ -64,13 +59,13 @@ This creates, all named `<type>-come-rico-prod[-eus]` (see
 - A Cloudflare R2 bucket for images
 
 ...and wires the Neon connection string + R2 bucket name straight into the
-web app's settings in one pass. See [`infra/terraform/README.md`](terraform/README.md)
+web app's settings in one pass. See [`infra/stack/README.md`](stack/README.md)
 for details and what's intentionally left out of Terraform (R2 access
 keys, CI secrets, migrations).
 
 ### App settings
 
-Set via `app_settings` in `infra/terraform/main.tf`, sourced from Terraform
+Set via `app_settings` in `infra/stack/main.tf`, sourced from Terraform
 resources/variables — nothing to run by hand:
 
 ```
@@ -79,11 +74,11 @@ ASPNETCORE_URLS                      = "http://0.0.0.0:8080"
 WEBSITES_PORT                        = "8080"
 ConnectionStrings__DefaultConnection = local.database_connection_string   # built from the Neon resources
 R2__ServiceUrl                       = local.r2_service_url               # <account_id>.r2.cloudflarestorage.com
-R2__AccessKeyId                      = var.r2_access_key_id
-R2__SecretAccessKey                  = var.r2_secret_access_key
+R2__AccessKeyId                      = local.r2_access_key_id             # generated Cloudflare API token, see stack/r2.tf
+R2__SecretAccessKey                  = local.r2_secret_access_key
 R2__BucketName                       = cloudflare_r2_bucket.images.name
 R2__PublicBaseUrl                    = local.r2_public_base_url                     # https://storage-<environment>.<base_domain>
-CRON_SECRET                          = var.cron_secret
+CRON_SECRET                          = random_password.cron_secret.result
 ```
 
 > The Neon connection string is assembled in ADO.NET `keyword=value`
@@ -97,11 +92,11 @@ different ways (see `frontend/src/lib/api.ts`):
 
 1. **`vercel.json`** — the `/api/(.*)` rewrite destination, hardcoded to
    `app_name`'s current value (stable since `app_name_unique_suffix =
-   false` in prod — see `infra/terraform/README.md#naming`). This is the
+   false` in prod — see `infra/stack/README.md#naming`). This is the
    browser's path; it's a static file Vercel reads directly, not
    Terraform-templated.
 2. **`BACKEND_URL`** env var on the Vercel project — Terraform-managed
-   (`infra/terraform/vercel.tf`, references the existing project by name
+   (`infra/stack/vercel.tf`, references the existing project by name
    via a data source), kept in sync with `app_hostname` on every apply.
    This is the SSR path — TanStack Start's server calls the backend
    directly during `beforeLoad`.
@@ -114,8 +109,8 @@ Both must be set, or auth will work in the browser but not on first paint
 `.github/workflows/deploy-backend.yml` deploys on pushes to `main` that
 touch `backend/**`, plus manual dispatch. It authenticates to Azure via
 OIDC — no stored credential — using an app registration Terraform creates
-in `infra/terraform/ci.tf`. Configure once, after `terraform apply`: see
-[`infra/terraform/README.md#cicd`](terraform/README.md#cicd) for the exact
+in `infra/stack/ci.tf`. Configure once, after `terragrunt apply`: see
+[`infra/stack/README.md#cicd`](stack/README.md#cicd) for the exact
 outputs to wire into the `Production` GitHub Environment's variables.
 
 Database migrations are unchanged — still `migrate-database.yml`
@@ -132,7 +127,7 @@ https://<app_hostname output>/health
 ```
 
 That's the same path App Service's own health check (`site_config.health_check_path`
-in `infra/terraform/main.tf`) pings — it returns 200 with a DB connectivity
+in `infra/stack/main.tf`) pings — it returns 200 with a DB connectivity
 check baked in (`AddDbContextCheck<AppDbContext>()` in `Program.cs`), so a
 failing response is also a real signal, not just a keep-warm ping. At
 ~5-minute intervals this costs a negligible slice of the 60 CPU-min/day

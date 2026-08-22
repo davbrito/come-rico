@@ -12,30 +12,35 @@
 # attribute with no write-only variant) use the local/resource values
 # directly, not a round-trip back through Infisical.
 #
-# All reads/writes target the same project, mapping the Terraform
-# workspace (dev/default) to an Infisical environment slug (dev/prod).
-
-locals {
-  infisical_env_slug = terraform.workspace == "default" ? "prod" : terraform.workspace
-}
+# All reads/writes target the same project, using var.environment
+# (dev/prod, set by Terragrunt per live/<env>) directly as the Infisical
+# environment slug.
 
 ephemeral "infisical_secret" "neon_api_key" {
   name         = "NEON_API_KEY"
-  env_slug     = local.infisical_env_slug
+  env_slug     = var.environment
   folder_path  = "/"
   workspace_id = var.infisical_project_id
 }
 
 ephemeral "infisical_secret" "cloudflare_api_token" {
   name         = "CLOUDFLARE_API_TOKEN"
-  env_slug     = local.infisical_env_slug
+  env_slug     = var.environment
   folder_path  = "/"
   workspace_id = var.infisical_project_id
 }
 
 ephemeral "infisical_secret" "vercel_api_token" {
   name         = "VERCEL_API_TOKEN"
-  env_slug     = local.infisical_env_slug
+  env_slug     = var.environment
   folder_path  = "/"
   workspace_id = var.infisical_project_id
+}
+
+resource "infisical_secret" "cron_secret" {
+  name         = "CRON_SECRET"
+  env_slug     = var.environment
+  folder_path  = "/"
+  workspace_id = var.infisical_project_id
+  value        = random_password.cron_secret.result
 }

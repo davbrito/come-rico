@@ -1,0 +1,24 @@
+# Copy to .envrc (gitignored) at the repo root and fill in real values,
+# then `direnv allow`. Used by infra/terragrunt (which drives
+# infra/terraform) — see infra/terragrunt/README.md.
+
+# Universal Auth machine identity credentials that authenticate the
+# `infisical` Terraform provider (infra/terraform/versions.tf) to Infisical
+# itself — the actual provider tokens it fetches/writes live in Infisical,
+# not here.
+export INFISICAL_UNIVERSAL_AUTH_CLIENT_ID=...
+export INFISICAL_UNIVERSAL_AUTH_CLIENT_SECRET=...
+
+# R2 API token credentials for the come-rico-tfstate bucket Terragrunt's
+# remote_state block (infra/terragrunt/terragrunt.hcl) reads/writes state
+# to — can reuse the same R2 API token as below, or a separate one scoped
+# to just this bucket (Object Read & Write) for tighter isolation.
+export R2_TFSTATE_ACCESS_KEY_ID=...
+export R2_TFSTATE_SECRET_ACCESS_KEY=...
+
+# Same across every environment — read directly by
+# infra/terragrunt/terragrunt.hcl's root `inputs`, so they're not repeated
+# in infra/terragrunt/live/dev|prod/terragrunt.hcl.
+export CLOUDFLARE_ACCOUNT_ID=...
+export CLOUDFLARE_ZONE_ID=...   # zone ID for base_domain's DNS zone
+export INFISICAL_PROJECT_ID=...

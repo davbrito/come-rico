@@ -38,23 +38,10 @@ terraform {
     }
   }
 
-  # State lives in Cloudflare R2 (S3-compatible), not locally — see
-  # README.md#remote-state. bucket/key are fixed and non-sensitive, so they
-  # stay here; access_key/secret_key/endpoints are account-specific and
-  # supplied at init time via -backend-config=backend.hcl (gitignored, see
-  # backend.hcl.example). Workspaces (dev/default) get separate state paths
-  # automatically under this bucket.
-  backend "s3" {
-    bucket                      = "come-rico-tfstate"
-    key                         = "terraform.tfstate"
-    region                      = "auto"
-    skip_credentials_validation = true
-    skip_metadata_api_check     = true
-    skip_region_validation      = true
-    skip_requesting_account_id  = true
-    skip_s3_checksum            = true
-    use_path_style              = true
-  }
+  # No backend block here — Terragrunt generates it per environment (see
+  # infra/terragrunt/terragrunt.hcl#remote_state). This module is never
+  # applied directly; always run through `terragrunt` in
+  # infra/terragrunt/live/<env>/.
 }
 
 provider "azurerm" {
