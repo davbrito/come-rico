@@ -1,5 +1,4 @@
 using Azure.Monitor.OpenTelemetry.AspNetCore;
-using Azure.Monitor.OpenTelemetry.Exporter;
 using ComeRico.Api.Auth;
 using ComeRico.Api.Endpoints;
 using ComeRico.Core.Auth;
@@ -24,7 +23,7 @@ if (!string.IsNullOrEmpty(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_
     builder
         .Services.AddOpenTelemetry()
         .UseAzureMonitor()
-        .WithTracing(tracing => tracing.AddEntityFrameworkCoreInstrumentation().AddAzureMonitorTraceExporter());
+        .WithTracing(tracing => tracing.AddEntityFrameworkCoreInstrumentation());
 }
 
 // EF Core + PostgreSQL (DATABASE_URL from Neon/Vercel, or DefaultConnection locally)
