@@ -1,10 +1,10 @@
 output "app_hostname" {
-  description = "The App Service's default hostname, e.g. app-come-rico-prod-ab12.azurewebsites.net"
-  value       = azurerm_linux_web_app.api.default_hostname
+  description = "The Container App's ingress FQDN, e.g. ca-come-rico-prod.<env-id>.<region>.azurecontainerapps.io. Unlike App Service's fully predictable *.azurewebsites.net name, this includes an environment-generated label only known after the first apply."
+  value       = azurerm_container_app.api.ingress[0].fqdn
 }
 
 output "app_name" {
-  value = azurerm_linux_web_app.api.name
+  value = azurerm_container_app.api.name
 }
 
 output "resource_group_name" {

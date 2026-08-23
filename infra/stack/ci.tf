@@ -1,8 +1,9 @@
 # Everything environment-specific about GitHub Actions deploys: the
 # federated credential scoped to this environment's GitHub Environment,
-# the Website Contributor role assignment scoped to this environment's own
-# web app (kept in the same state as that web app, not passed around as a
-# bare ID string), and the GitHub Environment itself with its vars/secret.
+# the Container Apps Contributor role assignment scoped to this
+# environment's own Container App (kept in the same state as that
+# Container App, not passed around as a bare ID string), and the GitHub
+# Environment itself with its vars/secret.
 #
 # The identity these all point at (client_id/application_id/principal_id)
 # is shared across every environment — see ../modules/github_actions_ci —
@@ -55,12 +56,13 @@ resource "azuread_application_federated_identity_credential" "github_actions" {
   subject        = "repo:${var.github_repository}:environment:${var.github_environment_name}"
 }
 
-# Website Contributor is enough to publish code (what azure/webapps-deploy
-# does) without granting control over the plan, networking, or other
+# Container Apps Contributor is enough to update the running image
+# (az containerapp update, what azure/container-apps-deploy-action does)
+# without granting control over the environment, networking, or other
 # resources in the group.
 resource "azurerm_role_assignment" "github_actions_deploy" {
-  scope                = azurerm_linux_web_app.api.id
-  role_definition_name = "Website Contributor"
+  scope                = azurerm_container_app.api.id
+  role_definition_name = "Container Apps Contributor"
   principal_id         = var.github_actions_principal_id
 }
 
@@ -97,11 +99,18 @@ resource "github_actions_environment_variable" "azure_subscription_id" {
   value         = data.azurerm_client_config.current.subscription_id
 }
 
-resource "github_actions_environment_variable" "azure_webapp_name" {
+resource "github_actions_environment_variable" "azure_container_app_name" {
   repository    = local.github_repo_name
   environment   = github_repository_environment.this.environment
-  variable_name = "AZURE_WEBAPP_NAME"
-  value         = azurerm_linux_web_app.api.name
+  variable_name = "AZURE_CONTAINER_APP_NAME"
+  value         = azurerm_container_app.api.name
+}
+
+resource "github_actions_environment_variable" "azure_resource_group_name" {
+  repository    = local.github_repo_name
+  environment   = github_repository_environment.this.environment
+  variable_name = "AZURE_RESOURCE_GROUP_NAME"
+  value         = azurerm_resource_group.this.name
 }
 
 # migrate-database.yml's connection string. Named to match the

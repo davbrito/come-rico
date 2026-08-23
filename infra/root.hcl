@@ -47,6 +47,7 @@ remote_state {
 inputs = {
   base_domain           = "comerico.davbrito.dev"
   github_repository     = "davbrito/come-rico"
+  ghcr_owner            = "davbrito"
   cloudflare_account_id = local.cloudflare_account_id
   cloudflare_zone_id    = get_env("CLOUDFLARE_ZONE_ID")
   infisical_project_id  = get_env("INFISICAL_PROJECT_ID")

@@ -8,8 +8,8 @@ See `../README.md` for how to actually run `plan`/`apply`.
 
 Manages, per environment (`var.environment`):
 
-- **Azure**: resource group, App Service Plan (F1 by default) and Linux
-  Web App described in `../azure.md`
+- **Azure**: resource group, Container Apps Environment, and Container
+  App described in `../azure.md`
 - **Neon**: a Postgres project/branch/database/role (see
   [neon.com/docs/reference/terraform](https://neon.com/docs/reference/terraform))
 - **Cloudflare R2**: the image storage bucket, its CORS policy, and a
@@ -28,26 +28,32 @@ State lives in Cloudflare R2, not locally — see
 Resource names follow the [Azure CAF abbreviation
 convention](https://learn.microsoft.com/azure/cloud-adoption-framework/ready/azure-best-practices/resource-abbreviations):
 `<type>-<workload>-<environment>[-<region>]`, e.g. `rg-come-rico-prod-eus`,
-`plan-come-rico-prod-eus`, `app-come-rico-prod-<random>`. `environment`
-(and everything else) comes from
-`../live/<env>/terragrunt.hcl` — that's what defines each
-environment as a fully separate stack, with its own state path.
+`cae-come-rico-prod-eus`, `ca-come-rico-prod`. `environment` (and
+everything else) comes from `../live/<env>/terragrunt.hcl` — that's what
+defines each environment as a fully separate stack, with its own state
+path.
 
-The App Service name gets a random 4-character suffix by default
-(`app_name_unique_suffix`) since `*.azurewebsites.net` is a global
-namespace; disable it once you've confirmed the plain name is free and
-want a stable hostname (already done for `prod`, see
-`../live/prod/terragrunt.hcl`).
+`app_name_unique_suffix` still exists for extra insurance against a name
+collision within the resource group, but Container Apps ingress FQDNs are
+already unique per environment on their own (they carry an
+environment-generated label) — disable it once you've confirmed the
+plain name works and want a stable *resource* name (already done for
+`prod`, see `../live/prod/terragrunt.hcl`).
 
-Outputs `app_hostname` — wire it into `vercel.json`'s `/api/(.*)` rewrite
-and the `BACKEND_URL` Vercel env var, as described in `../azure.md`.
+Outputs `app_hostname` (the Container App's ingress FQDN) — wire it into
+the Vercel routes and the `BACKEND_URL` Vercel env var, as described in
+`../azure.md`. Unlike App Service's fully predictable
+`<name>.azurewebsites.net`, this value is only known after the first
+`terragrunt apply`.
 
 ## What's still manual
 
 - **Database migrations** — still `migrate-database.yml`, unrelated to
   provisioning.
-- **Uptime pinger** (UptimeRobot) — external service, nothing to manage
-  here.
+- **`GHCR_PAT`** — a GitHub PAT (`read:packages` scope) created by hand in
+  GitHub's settings, not something Terraform can generate; store it in
+  Infisical under the `GHCR_PAT` key for each environment (see
+  [Secrets](#secrets)).
 
 ## CI/CD
 
@@ -67,16 +73,18 @@ this directory's `ci.tf` instead, applied once per environment
   — `"Production"` for `prod`, `"Development"` for `dev`; set in
   `../live/<env>/terragrunt.hcl`) — not a branch ref, so it only trusts
   runs that went through that environment's protection rules
-- `Website Contributor` on _this_ environment's web app (not the plan,
-  resource group, or anything else) granted to the shared identity
+- `Container Apps Contributor` on _this_ environment's Container App (not
+  the environment resource, resource group, or anything else) granted to
+  the shared identity
 - The GitHub Environment itself (`github_repository_environment`)
 - Its variables — `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`,
-  `AZURE_SUBSCRIPTION_ID`, `AZURE_WEBAPP_NAME` — and its
+  `AZURE_SUBSCRIPTION_ID`, `AZURE_CONTAINER_APP_NAME`,
+  `AZURE_RESOURCE_GROUP_NAME` — and its
   `ConnectionStrings__DefaultConnection` secret, all pushed via the
   `github` provider so nothing needs copy-pasting from `terraform output`
   by hand
 
-`AZURE_WEBAPP_NAME` needs to be stable across applies, so prod sets
+`AZURE_CONTAINER_APP_NAME` needs to be stable across applies, so prod sets
 `app_name_unique_suffix = false` once the plain name is confirmed free
 (see [Naming](#naming)) — otherwise a suffix rotation would need Terraform
 to re-push the variable (which it will, on the next apply, but the two
@@ -88,11 +96,18 @@ what the rest of the stack requires:
 - `Application.ReadWrite.All`-equivalent Azure AD rights (e.g. Application
   Administrator) to create the app registration (`../live/platform/ci` only)
 - `Microsoft.Authorization/roleAssignments/write` on the resource group
-  (Owner, or User Access Administrator) to grant `Website Contributor`
+  (Owner, or User Access Administrator) to grant `Container Apps Contributor`
 - `gh auth login` run locally — the `github` provider picks up its token
   from the gh CLI automatically (no `github_token` variable to manage);
   the logged-in account needs admin on this repo to write Environments,
   Secrets, and Variables
+
+CI itself needs a `GHCR_PAT` (see `../.envrc.example`) — a GitHub PAT with
+`read:packages` scope, stored as a Container App secret so it can pull the
+image at runtime. `deploy-backend.yml`'s own pushes use the workflow's
+ephemeral `GITHUB_TOKEN` instead (`packages: write` permission), since
+that's sufficient for pushing and doesn't need to be a long-lived
+credential.
 
 ## Vercel (frontend)
 
@@ -112,15 +127,33 @@ stable hostname makes for a nicer staging URL. See
 dependency has to point *at* prod/dev rather than the other way around
 (the CI identity's dependency already runs the other direction).
 
-vercel.json's `/api/(.*)` rewrite destination is a separate, static
-reference to the same hostname — Vercel reads that file directly, so it's
-not Terraform-templated; update it by hand if `app_name` ever changes.
+The `/api/(.*)` rewrite is a `vercel_project_route` resource in
+`../modules/vercel/vercel.tf`, not a static `vercel.json` entry — its
+`dest` field is a hardcoded literal (the Vercel provider panics on an
+interpolated one), so it needs a one-time hand-edit to the real
+`app_hostname` after each environment's first apply; see the comment on
+those resources.
+
+## Secrets
+
+`infisical.tf` reads externally-issued tokens that Terraform can't
+generate itself — currently just `GHCR_PAT`, read per-environment via
+`data "infisical_secrets"` (`env_slug = var.environment`, `folder_path =
+"/"`) and wired into the Container App's `ghcr-pat` secret. Deliberately
+the ordinary (state-backed) data source, not the ephemeral
+`infisical_secret` resource: `azurerm_container_app`'s `secret.value`
+attribute isn't write-only/ephemeral-capable, so an ephemeral value can't
+flow into it — same tradeoff every other secret here already makes (R2
+keys, the Neon connection string, `cron_secret` all land in state via
+plain resource attributes too).
 
 ## Monitoring
 
 `monitoring.tf` creates a Log Analytics workspace + workspace-based
-Application Insights, wired into the web app via
-`APPLICATIONINSIGHTS_CONNECTION_STRING`. Instrumentation is code-based —
+Application Insights, wired into the Container App via
+`APPLICATIONINSIGHTS_CONNECTION_STRING` and consumed directly as the
+Container Apps Environment's own Log Analytics workspace. Instrumentation
+is code-based —
 `Program.cs` calls `AddOpenTelemetry().UseAzureMonitor()` (only when that
 connection string is set, so it's a no-op in local dev), which covers
 ASP.NET Core requests, outgoing HttpClient calls, exceptions, and ILogger
@@ -136,15 +169,17 @@ traffic spike or noisy logging bug can't turn into a bill. `retention_in_days = 
 on both resources stays inside the free retention window too — extending
 either costs extra.
 
-Don't also enable App Service's built-in "Application Insights" extension
-(`ApplicationInsightsAgent_EXTENSION_VERSION`) alongside this — mixing
-agent-based auto-instrumentation with the code-based SDK double-counts
-telemetry.
+Don't also enable an agent-based auto-instrumentation sidecar alongside
+this — mixing that with the code-based SDK double-counts telemetry.
 
 ## Changing settings later
 
-Anything under `app_settings` in `main.tf` (env vars, connection strings)
-is the single source of truth now — don't hand-edit them in the Azure
-Portal or with `az webapp config appsettings set`, and don't hand-edit the
-Neon branch/role/database or R2 bucket in their dashboards either;
-`terraform apply` will revert manual changes on the next run (by design).
+Anything under `template.container.env` in `main.tf` (env vars, connection
+strings) is the single source of truth now — don't hand-edit them in the
+Azure Portal or with `az containerapp update --set-env-vars`, and don't
+hand-edit the Neon branch/role/database or R2 bucket in their dashboards
+either; `terraform apply` will revert manual changes on the next run (by
+design). The one deliberate exception is the container `image` itself —
+`main.tf`'s `lifecycle.ignore_changes` lets `deploy-backend.yml` move it
+via `az containerapp update --image` without Terraform fighting it back
+to whatever tag main.tf seeds on the first apply.

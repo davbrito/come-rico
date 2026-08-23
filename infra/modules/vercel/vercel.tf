@@ -89,11 +89,16 @@ resource "vercel_project_crons" "frontend" {
 # ("Missing route action" — treats any interpolated value, even a
 # fully-static var/local, as unset) when it was
 # `"${var.prod_backend_url}/api/$1"`, not just a theoretical provider
-# quirk. Safe to hardcode regardless: both hostnames are stable
-# (app_name_unique_suffix = false in both prod and dev, see
-# ../../stack/README.md#naming and ../../live/dev/terragrunt.hcl) — same
-# values var.prod_backend_url/var.dev_backend_url resolve to. Keep these
-# in sync by hand if either naming convention ever changes.
+# quirk.
+#
+# Unlike App Service's fully predictable `<name>.azurewebsites.net`,
+# Container Apps ingress FQDNs carry an environment-generated unique
+# label (see infra/stack/outputs.tf's app_hostname) that's only known
+# after that environment's first `terragrunt apply` — so these two
+# literals can't be filled in until then. Grab the real values from
+# `terragrunt output app_hostname` in infra/live/prod and infra/live/dev
+# and hand-edit both `dest` fields below (they're stable afterwards,
+# same as the old App Service hostnames were).
 resource "vercel_project_route" "api_rewrite_production" {
   project_id = vercel_project.frontend.id
   name       = "api-rewrite-production"
@@ -110,7 +115,10 @@ resource "vercel_project_route" "api_rewrite_production" {
       type  = "host"
       value = var.base_domain
     }]
-    dest = "https://app-come-rico-prod.azurewebsites.net/api/$1"
+    # TODO(container-apps-migration): replace with prod's real
+    # `terragrunt output app_hostname` once infra/live/prod has been
+    # applied with the Container Apps main.tf.
+    dest = "https://REPLACE-WITH-PROD-CONTAINER-APP-FQDN/api/$1"
   }
 }
 
@@ -124,8 +132,11 @@ resource "vercel_project_route" "api_rewrite_preview" {
   }
 
   route = {
-    src  = "/api/(.*)"
-    dest = "https://app-come-rico-dev.azurewebsites.net/api/$1"
+    src = "/api/(.*)"
+    # TODO(container-apps-migration): replace with dev's real
+    # `terragrunt output app_hostname` once infra/live/dev has been
+    # applied with the Container Apps main.tf.
+    dest = "https://REPLACE-WITH-DEV-CONTAINER-APP-FQDN/api/$1"
   }
 }
 

@@ -22,17 +22,5 @@ resource "azurerm_application_insights" "api" {
   workspace_id        = azurerm_log_analytics_workspace.this.id
   application_type    = "web"
   retention_in_days   = 30
-
-  tags = merge(local.azure_tags, {
-    # Portal-only marker — makes the App Service's "Application Insights"
-    # blade show this instance as already linked instead of blank/prompting
-    # to create one. Doesn't affect anything functional (that's the
-    # APPLICATIONINSIGHTS_CONNECTION_STRING app setting in main.tf).
-    #
-    # Built as a literal string, not azurerm_linux_web_app.api.id — that
-    # reference would create a cycle, since the web app's app_settings
-    # already depend on this resource's connection_string. The web app's ID
-    # is fully deterministic from its name/RG/subscription regardless.
-    "hidden-link:/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${azurerm_resource_group.this.name}/providers/Microsoft.Web/sites/${local.app_name}" = "Resource"
-  })
+  tags                = local.azure_tags
 }

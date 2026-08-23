@@ -1,7 +1,11 @@
 locals {
+  # Applied to every azurerm resource in this stack (see each resource's
+  # `tags = local.azure_tags`) — add a new tag here once and every
+  # resource picks it up, instead of repeating it per-resource.
   azure_tags = {
     project     = "come-rico"
     environment = var.environment
+    managed_by  = "terraform"
   }
 }
 
@@ -23,71 +27,165 @@ resource "azurerm_resource_group" "this" {
   tags     = local.azure_tags
 }
 
-resource "azurerm_service_plan" "this" {
-  name                = local.service_plan_name
-  resource_group_name = azurerm_resource_group.this.name
-  location            = azurerm_resource_group.this.location
-  os_type             = "Linux"
-  sku_name            = var.sku_name
-  tags                = local.azure_tags
+# Container Apps environments take a Log Analytics workspace directly —
+# reuses the same workspace monitoring.tf already provisions for
+# Application Insights, instead of App Service's separate hidden-link tag
+# hack to associate the two.
+resource "azurerm_container_app_environment" "this" {
+  name                       = local.container_app_env_name
+  resource_group_name        = azurerm_resource_group.this.name
+  location                   = azurerm_resource_group.this.location
+  logs_destination           = "log-analytics"
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.this.id
+  tags                       = local.azure_tags
 }
 
-resource "azurerm_linux_web_app" "api" {
-  name                = local.app_name
-  resource_group_name = azurerm_resource_group.this.name
-  location            = azurerm_resource_group.this.location
-  service_plan_id     = azurerm_service_plan.this.id
-  https_only          = true
+resource "azurerm_container_app" "api" {
+  name                         = local.container_app_name
+  resource_group_name          = azurerm_resource_group.this.name
+  container_app_environment_id = azurerm_container_app_environment.this.id
+  revision_mode                = "Single"
+  tags                         = local.azure_tags
 
-  # Portal-only marker, mirroring the reverse link on
-  # azurerm_application_insights.api in monitoring.tf — makes the App
-  # Service's "Application Insights" blade show this instance as already
-  # linked instead of blank/prompting to create one. Doesn't affect
-  # anything functional (that's APPLICATIONINSIGHTS_CONNECTION_STRING below).
-  tags = merge(local.azure_tags, {
-    "hidden-link: /app-insights-resource-id" = azurerm_application_insights.api.id
-  })
+  ingress {
+    external_enabled = true
+    target_port      = 8080
+    transport        = "http"
 
-  site_config {
-    # F1 doesn't support Always On — the azurerm provider defaults this to
-    # true, which Azure rejects on the free tier.
-    always_on     = false
-    http2_enabled = true
-    # /health (app.MapHealthChecks in Program.cs) — pings DB connectivity
-    # too via AddDbContextCheck. F1 only ever runs one instance, so this
-    # doesn't drive load-balancer eviction here, but App Service still
-    # surfaces it in the portal and restarts the instance on repeated
-    # failures.
-    health_check_path                 = "/health"
-    health_check_eviction_time_in_min = 2
-    application_stack {
-      dotnet_version = "10.0"
+    traffic_weight {
+      latest_revision = true
+      percentage      = 100
     }
   }
 
-  identity {
-    type = "SystemAssigned"
+  # GHCR pull credential — GITHUB_TOKEN (used by deploy-backend.yml to
+  # push) expires with the workflow run, so runtime pulls need a
+  # longer-lived PAT instead.
+  secret {
+    name  = "ghcr-pat"
+    value = local.ghcr_pat
   }
 
-  app_settings = {
-    ASPNETCORE_ENVIRONMENT = var.environment == "prod" ? "Production" : "Staging"
-    ASPNETCORE_URLS        = "http://0.0.0.0:8080"
-    WEBSITES_PORT          = "8080"
-    # Mounts the deployed zip read-only instead of extracting it to
-    # wwwroot — faster cold starts and avoids the file-attribute quirks
-    # (e.g. lost executable bits) that extraction can introduce.
-    WEBSITE_RUN_FROM_PACKAGE = "1"
-    # Read by Azure.Monitor.OpenTelemetry.AspNetCore's UseAzureMonitor() in
-    # Program.cs by convention — reports requests, dependencies, exceptions,
-    # and ILogger traces to Application Insights.
-    APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.api.connection_string
-    APPINSIGHTS_INSTRUMENTATIONKEY        = azurerm_application_insights.api.instrumentation_key
-    ConnectionStrings__DefaultConnection  = local.database_connection_string
-    R2__ServiceUrl                        = local.r2_service_url
-    R2__AccessKeyId                       = local.r2_access_key_id
-    R2__SecretAccessKey                   = local.r2_secret_access_key
-    R2__BucketName                        = cloudflare_r2_bucket.images.name
-    R2__PublicBaseUrl                     = local.r2_public_base_url
-    CRON_SECRET                           = random_password.cron_secret.result
+  registry {
+    server               = "ghcr.io"
+    username             = var.ghcr_owner
+    password_secret_name = "ghcr-pat"
+  }
+
+  # Everything credential-shaped goes through a Container App secret
+  # (referenced from `env` via `secret_name`) instead of a plain `env.value`
+  # — keeps these out of the revision's visible env list in the portal/CLI,
+  # unlike App Service's app_settings where there was no such split. They
+  # still land in Terraform state either way, same as every other secret in
+  # this stack (see infisical.tf's comment on that tradeoff).
+  secret {
+    name  = "appinsights-connection-string"
+    value = azurerm_application_insights.api.connection_string
+  }
+  secret {
+    name  = "appinsights-instrumentation-key"
+    value = azurerm_application_insights.api.instrumentation_key
+  }
+  secret {
+    name  = "db-connection-string"
+    value = local.database_connection_string
+  }
+  secret {
+    name  = "r2-access-key-id"
+    value = local.r2_access_key_id
+  }
+  secret {
+    name  = "r2-secret-access-key"
+    value = local.r2_secret_access_key
+  }
+  secret {
+    name  = "cron-secret"
+    value = random_password.cron_secret.result
+  }
+
+  template {
+    container {
+      name = "api"
+      # Public placeholder — only seeds the *first* revision. Terraform
+      # can't seed the real ghcr.io/<owner>/<repo>-backend image here: on
+      # a from-scratch environment nothing has pushed it yet (chicken-and-
+      # egg — deploy-backend.yml's `az containerapp update --image` needs
+      # this Container App to already exist), and Azure fails the create
+      # outright ("MANIFEST_UNKNOWN") if the image doesn't exist, unlike a
+      # failing health probe. `lifecycle.ignore_changes` below means
+      # Terraform never looks at this again after creation — the very
+      # first deploy-backend.yml run replaces it with the real image.
+      image  = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
+      cpu    = 0.25
+      memory = "0.5Gi"
+
+      # /health (app.MapHealthChecks in Program.cs) — pings DB connectivity
+      # too via AddDbContextCheck.
+      liveness_probe {
+        transport = "HTTP"
+        path      = "/health"
+        port      = 8080
+      }
+
+      readiness_probe {
+        transport = "HTTP"
+        path      = "/health"
+        port      = 8080
+      }
+
+      env {
+        name  = "ASPNETCORE_ENVIRONMENT"
+        value = var.environment == "prod" ? "Production" : "Staging"
+      }
+      env {
+        name  = "ASPNETCORE_URLS"
+        value = "http://+:8080"
+      }
+      # Read by Azure.Monitor.OpenTelemetry.AspNetCore's UseAzureMonitor()
+      # in Program.cs by convention — reports requests, dependencies,
+      # exceptions, and ILogger traces to Application Insights.
+      env {
+        name        = "APPLICATIONINSIGHTS_CONNECTION_STRING"
+        secret_name = "appinsights-connection-string"
+      }
+      env {
+        name        = "APPINSIGHTS_INSTRUMENTATIONKEY"
+        secret_name = "appinsights-instrumentation-key"
+      }
+      env {
+        name        = "ConnectionStrings__DefaultConnection"
+        secret_name = "db-connection-string"
+      }
+      env {
+        name  = "R2__ServiceUrl"
+        value = local.r2_service_url
+      }
+      env {
+        name        = "R2__AccessKeyId"
+        secret_name = "r2-access-key-id"
+      }
+      env {
+        name        = "R2__SecretAccessKey"
+        secret_name = "r2-secret-access-key"
+      }
+      env {
+        name  = "R2__BucketName"
+        value = cloudflare_r2_bucket.images.name
+      }
+      env {
+        name  = "R2__PublicBaseUrl"
+        value = local.r2_public_base_url
+      }
+      env {
+        name        = "CRON_SECRET"
+        secret_name = "cron-secret"
+      }
+    }
+  }
+
+  lifecycle {
+    # deploy-backend.yml moves the image via `az containerapp update`
+    # outside Terraform — don't fight it back to :latest on every apply.
+    ignore_changes = [template[0].container[0].image]
   }
 }

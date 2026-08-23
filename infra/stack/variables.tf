@@ -16,21 +16,21 @@ variable "azure_location" {
   default     = "canadaeast"
 }
 
-variable "sku_name" {
-  description = "App Service Plan SKU. Pinned to F1, the only always-free tier (60 CPU-min/day, sleeps after 20min idle, no custom-domain SSL, no Always On). Change deliberately if you outgrow it — that's a billing decision, not something to default away from."
-  type        = string
-  default     = "F1"
-
-  validation {
-    condition     = var.sku_name == "F1"
-    error_message = "sku_name must stay \"F1\" (the free tier) — this stack is meant to run entirely within Azure's free tier."
-  }
-}
-
 variable "app_name_unique_suffix" {
-  description = "Append a random 4-char suffix to the App Service name to help it stay globally unique. Set false once you've confirmed the plain name is available and want a stable hostname."
+  description = "Append a random 4-char suffix to the Container App name. Set false once you've confirmed the plain name is available and want a stable hostname."
   type        = bool
   default     = true
+}
+
+# --- GitHub Container Registry ------------------------------------------
+# Free image registry — avoids needing a paid Azure Container Registry SKU.
+# Images are pushed by deploy-backend.yml (GITHUB_TOKEN, scoped to that
+# run); Container Apps needs a longer-lived credential to *pull* at
+# runtime, since GITHUB_TOKEN expires with the workflow run.
+
+variable "ghcr_owner" {
+  description = "GitHub org/user that owns the backend image's GHCR package, e.g. \"davbrito\". Set once, in ../root.hcl's shared inputs."
+  type        = string
 }
 
 variable "base_domain" {

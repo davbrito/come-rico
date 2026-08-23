@@ -1,18 +1,21 @@
 name: deploy-backend
 
-# Deploys the .NET backend to Azure App Service. The frontend continues to
-# deploy to Vercel on its own (Vercel's Git integration), and vercel.json
-# rewrites /api/* here — so the browser only ever sees the Vercel origin and
-# the auth cookie stays same-origin.
+# Deploys the .NET backend, containerized, to Azure Container Apps. The
+# frontend continues to deploy to Vercel on its own (Vercel's Git
+# integration), and vercel.json rewrites /api/* here — so the browser only
+# ever sees the Vercel origin and the auth cookie stays same-origin.
 #
-# Pushes to main deploy Development; publishing a GitHub Release deploys
-# Production. Auth is OIDC (azure/login federated credential, no stored
-# secret) — one identity shared across both environments, but a separate
-# federated credential/role assignment/GitHub Environment per environment
-# (job `environment:` below selects which one's vars/secrets apply). All
-# of this — the shared identity, both GitHub Environments, and these vars
-# — is provisioned by infra/stack/ci.tf and infra/modules/github_actions_ci
-# — see infra/stack/README.md#cicd. Nothing here is set by hand.
+# Image is built and pushed to GitHub Container Registry (ghcr.io) — free,
+# no Azure Container Registry needed. Pushes to main deploy Development;
+# publishing a GitHub Release deploys Production. Auth to Azure is OIDC
+# (azure/login federated credential, no stored secret) — one identity
+# shared across both environments, but a separate federated
+# credential/role assignment/GitHub Environment per environment (job
+# `environment:` below selects which one's vars/secrets apply). All of
+# this — the shared identity, both GitHub Environments, these vars, and
+# the Container App itself — is provisioned by infra/stack/ci.tf and
+# infra/modules/github_actions_ci — see infra/stack/README.md#cicd.
+# Nothing here is set by hand.
 on:
   push:
     branches: [main]
@@ -32,6 +35,7 @@ on:
 permissions:
   id-token: write
   contents: read
+  packages: write
 
 jobs:
   deploy:
@@ -41,27 +45,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-dotnet@v5
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
-          dotnet-version: 10.0.x
-
-      # Framework-dependent — the App Service plan pins the .NET 10 runtime
-      # via site_config.application_stack in infra/stack/main.tf, so the
-      # deploy doesn't need to carry its own. The startup command
-      # ("dotnet ComeRico.Api.dll", not the apphost binary — zip deploys
-      # don't reliably preserve its executable bit) is set once by
-      # Terraform — see infra/azure.md.
-      # InformationalVersion carries the commit SHA into the built assembly
-      # so a Production incident can be traced back to what's actually
-      # deployed (App Service's Kudu shows the zip contents, not git).
-      - name: Publish
-        working-directory: backend
-        run: |
-          dotnet publish ComeRico.Api/ComeRico.Api.csproj \
-            -c Release \
-            -r linux-x64 \
-            -o publish \
-            -p:InformationalVersion=${{ github.sha }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: azure/login@v3
         with:
@@ -69,10 +58,20 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-      - uses: azure/webapps-deploy@v3
+      # Builds backend/Dockerfile, pushes it to ghcr.io (already
+      # authenticated above), and points the Container App at the new
+      # image (az containerapp update under the hood) — all in one step.
+      # InformationalVersion carries the commit SHA into the built
+      # assembly so a Production incident can be traced back to what's
+      # actually deployed.
+      - uses: azure/container-apps-deploy-action@v2
         with:
-          app-name: ${{ vars.AZURE_WEBAPP_NAME }}
-          package: backend/publish
+          appSourcePath: backend
+          dockerfilePath: Dockerfile
+          imageToBuild: ghcr.io/${{ github.repository }}-backend:${{ github.sha }}
+          buildArguments: INFORMATIONAL_VERSION=${{ github.sha }}
+          resourceGroup: ${{ vars.AZURE_RESOURCE_GROUP_NAME }}
+          containerAppName: ${{ vars.AZURE_CONTAINER_APP_NAME }}
 
       - name: logout
         if: always()
