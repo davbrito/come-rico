@@ -37,19 +37,32 @@ permissions:
   contents: read
   packages: write
 
-# One in-flight deploy per environment — a second push (or a manual
-# dispatch racing an automatic one, see .github#4) cancels the older run
-# instead of letting two `az containerapp update`/`az containerapp
-# registry set` calls land on the same Container App at once, which fails
-# with ContainerAppOperationInProgress.
-concurrency:
-  group: deploy-backend-${{ github.event_name == 'release' && 'Production' || (github.event_name == 'workflow_dispatch' && inputs.environment || 'Development') }}
-  cancel-in-progress: true
-
 jobs:
-  deploy:
+  # Computes which GitHub Environment this run targets exactly once — the
+  # `environment:` job attribute and top-level `concurrency:` block can
+  # each only see `github`/`inputs` context (not a shared `env`), so
+  # without this every consumer would repeat the same three-way ternary.
+  resolve-environment:
     runs-on: ubuntu-latest
-    environment: ${{ github.event_name == 'release' && 'Production' || (github.event_name == 'workflow_dispatch' && inputs.environment || 'Development') }}
+    outputs:
+      name: ${{ steps.resolve.outputs.name }}
+    steps:
+      - id: resolve
+        run: echo "name=${{ github.event_name == 'release' && 'Production' || (github.event_name == 'workflow_dispatch' && inputs.environment || 'Development') }}" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: resolve-environment
+    runs-on: ubuntu-latest
+    environment: ${{ needs.resolve-environment.outputs.name }}
+
+    # One in-flight deploy per environment — a second push (or a manual
+    # dispatch racing an automatic one) cancels the older run instead of
+    # letting two `az containerapp update`/`az containerapp registry set`
+    # calls land on the same Container App at once, which fails with
+    # ContainerAppOperationInProgress.
+    concurrency:
+      group: deploy-backend-${{ needs.resolve-environment.outputs.name }}
+      cancel-in-progress: true
 
     steps:
       - uses: actions/checkout@v6
@@ -59,7 +72,7 @@ jobs:
       # about to touch without digging through the deploy step's output.
       - name: Show target environment
         run: |
-          echo "GitHub Environment: ${{ github.event_name == 'release' && 'Production' || (github.event_name == 'workflow_dispatch' && inputs.environment || 'Development') }}"
+          echo "GitHub Environment: ${{ needs.resolve-environment.outputs.name }}"
           echo "Resource group:     ${{ vars.AZURE_RESOURCE_GROUP_NAME }}"
           echo "Container App:      ${{ vars.AZURE_CONTAINER_APP_NAME }}"
           echo "Image:              ghcr.io/${{ github.repository }}-backend:${{ github.sha }}"
