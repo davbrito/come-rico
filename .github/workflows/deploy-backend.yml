@@ -37,6 +37,15 @@ permissions:
   contents: read
   packages: write
 
+# One in-flight deploy per environment — a second push (or a manual
+# dispatch racing an automatic one, see .github#4) cancels the older run
+# instead of letting two `az containerapp update`/`az containerapp
+# registry set` calls land on the same Container App at once, which fails
+# with ContainerAppOperationInProgress.
+concurrency:
+  group: deploy-backend-${{ github.event_name == 'release' && 'Production' || (github.event_name == 'workflow_dispatch' && inputs.environment || 'Development') }}
+  cancel-in-progress: true
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
