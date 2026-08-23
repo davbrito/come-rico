@@ -1,44 +1,21 @@
-# Everything environment-specific about GitHub Actions deploys: the
-# federated credential scoped to this environment's GitHub Environment,
-# the Container Apps Contributor role assignment scoped to this
-# environment's own Container App (kept in the same state as that
-# Container App, not passed around as a bare ID string), and the GitHub
-# Environment itself with its vars/secret.
+# Everything environment-specific about GitHub Actions deploys: the IAM
+# role and its trust policy scoped to this environment's GitHub
+# Environment, the policy scoped to this environment's own Lambda
+# function, and the GitHub Environment itself with its vars/secret.
 #
-# The identity these all point at (client_id/application_id/principal_id)
-# is shared across every environment — see ../modules/github_actions_ci —
-# and comes in via a Terragrunt `dependency` block from
-# ../live/<env>/terragrunt.hcl, not managed here.
-
-variable "github_repository" {
-  description = "GitHub \"owner/repo\" this environment's CI is allowed to deploy from. Set once, in ../root.hcl's shared inputs."
-  type        = string
-}
+# The OIDC provider these all point at is shared across every environment
+# — see ../modules/aws_oidc — and comes in via a Terragrunt `dependency`
+# block from ../live/<env>/terragrunt.hcl, not managed here.
 
 variable "github_environment_name" {
-  description = "GitHub Environment name deploy-backend.yml/migrate-database.yml run under for this environment (e.g. \"Production\", \"Development\") — also what the OIDC federated credential's subject is scoped to."
+  description = "GitHub Environment name deploy-backend.yml/migrate-database.yml run under for this environment (e.g. \"Production\", \"Development\") — also what the OIDC role's trust policy subject is scoped to."
   type        = string
 }
 
 variable "github_environment_reviewer_user_ids" {
-  description = "GitHub numeric user IDs (not usernames) required to approve runs against this GitHub Environment before deploy-backend.yml/migrate-database.yml can proceed. Empty means no approval gate — deploy-backend.yml's workflow_dispatch and migrate-database.yml both run unattended, so leave this empty only for environments where that's acceptable (e.g. Development)."
+  description = "GitHub numeric user IDs (not usernames) required to approve runs against this GitHub Environment before deploy-backend.yml/migrate-database.yml can proceed. Empty means no approval gate — leave this empty only for environments where that's acceptable (e.g. Development)."
   type        = list(number)
   default     = []
-}
-
-variable "github_actions_client_id" {
-  description = "Shared CI identity's client ID — from ../live/<env>/terragrunt.hcl's dependency on ../live/platform."
-  type        = string
-}
-
-variable "github_actions_application_id" {
-  description = "Shared CI identity's application (object) ID — from ../live/<env>/terragrunt.hcl's dependency on ../live/platform."
-  type        = string
-}
-
-variable "github_actions_principal_id" {
-  description = "Shared CI identity's service principal object ID — from ../live/<env>/terragrunt.hcl's dependency on ../live/platform."
-  type        = string
 }
 
 locals {
@@ -46,26 +23,43 @@ locals {
 }
 
 # Subject matches this environment's GitHub Environment — not a branch
-# ref — so this credential is scoped to runs that went through that
-# environment's protection rules, however they're configured.
-resource "azuread_application_federated_identity_credential" "github_actions" {
-  application_id = var.github_actions_application_id
-  display_name   = "github-actions-${var.environment}"
-  audiences      = ["api://AzureADTokenExchange"]
-  issuer         = "https://token.actions.githubusercontent.com"
-  subject        = "repo:${var.github_repository}:environment:${var.github_environment_name}"
+# ref — so this role only trusts runs that went through that environment's
+# protection rules, however they're configured.
+resource "aws_iam_role" "github_actions" {
+  name = "${local.function_name}-github-actions"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Federated = var.oidc_provider_arn }
+      Action    = "sts:AssumeRoleWithWebIdentity"
+      Condition = {
+        StringEquals = {
+          "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
+          "token.actions.githubusercontent.com:sub" = "repo:${var.github_repository}:environment:${var.github_environment_name}"
+        }
+      }
+    }]
+  })
 }
 
-# Scoped to the resource group, not just the Container App itself:
-# azure/container-apps-deploy-action reads the Container Apps Environment
-# too (`az containerapp env show`, to resolve where the app lives) before
-# it'll touch the app — a scope narrowed to just the Container App's own
-# ID 403s on that read. Still bounded to this environment's own resource
-# group, nothing wider.
-resource "azurerm_role_assignment" "github_actions_deploy" {
-  scope                = azurerm_resource_group.this.id
-  role_definition_name = "Container Apps Contributor"
-  principal_id         = var.github_actions_principal_id
+# Scoped to just this environment's own Lambda function — narrower than
+# Azure's resource-group-wide "Container Apps Contributor" was, since
+# Lambda functions (unlike Container Apps) don't need a read on some
+# shared parent resource to be updated.
+resource "aws_iam_role_policy" "github_actions_deploy" {
+  name = "${local.function_name}-deploy"
+  role = aws_iam_role.github_actions.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["lambda:UpdateFunctionCode", "lambda:GetFunction", "lambda:GetFunctionConfiguration"]
+      Resource = aws_lambda_function.api.arn
+    }]
+  })
 }
 
 resource "github_repository_environment" "this" {
@@ -80,39 +74,25 @@ resource "github_repository_environment" "this" {
   }
 }
 
-resource "github_actions_environment_variable" "azure_client_id" {
+resource "github_actions_environment_variable" "aws_role_arn" {
   repository    = local.github_repo_name
   environment   = github_repository_environment.this.environment
-  variable_name = "AZURE_CLIENT_ID"
-  value         = var.github_actions_client_id
+  variable_name = "AWS_ROLE_ARN"
+  value         = aws_iam_role.github_actions.arn
 }
 
-resource "github_actions_environment_variable" "azure_tenant_id" {
+resource "github_actions_environment_variable" "aws_region" {
   repository    = local.github_repo_name
   environment   = github_repository_environment.this.environment
-  variable_name = "AZURE_TENANT_ID"
-  value         = data.azurerm_client_config.current.tenant_id
+  variable_name = "AWS_REGION"
+  value         = var.aws_region
 }
 
-resource "github_actions_environment_variable" "azure_subscription_id" {
+resource "github_actions_environment_variable" "aws_lambda_function_name" {
   repository    = local.github_repo_name
   environment   = github_repository_environment.this.environment
-  variable_name = "AZURE_SUBSCRIPTION_ID"
-  value         = data.azurerm_client_config.current.subscription_id
-}
-
-resource "github_actions_environment_variable" "azure_container_app_name" {
-  repository    = local.github_repo_name
-  environment   = github_repository_environment.this.environment
-  variable_name = "AZURE_CONTAINER_APP_NAME"
-  value         = azurerm_container_app.api.name
-}
-
-resource "github_actions_environment_variable" "azure_resource_group_name" {
-  repository    = local.github_repo_name
-  environment   = github_repository_environment.this.environment
-  variable_name = "AZURE_RESOURCE_GROUP_NAME"
-  value         = azurerm_resource_group.this.name
+  variable_name = "AWS_LAMBDA_FUNCTION_NAME"
+  value         = aws_lambda_function.api.function_name
 }
 
 # migrate-database.yml's connection string. Named to match the

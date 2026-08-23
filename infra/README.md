@@ -3,16 +3,15 @@
 Terragrunt orchestrates four units, without duplicating config between
 them:
 
-- [`stack/`](stack) — the per-environment module (Azure, Neon, R2,
-  monitoring, and each environment's own GitHub Actions wiring — see its
-  README). Applied twice, independently: `live/dev` and `live/prod`.
-- [`modules/github_actions_ci`](modules/github_actions_ci) — a single
-  Azure AD app + service principal, shared by both environments' CI
-  deploys. Applied once: `live/platform/ci`. Everything
-  environment-*specific* about CI (federated credential, role assignment,
-  the GitHub Environment itself) lives in `stack/ci.tf` instead, which
-  reads this identity's outputs via a Terragrunt `dependency` block —
-  see `stack/README.md#cicd`.
+- [`stack/`](stack) — the per-environment module (AWS Lambda, Neon, R2,
+  and each environment's own GitHub Actions wiring — see its README).
+  Applied twice, independently: `live/dev` and `live/prod`.
+- [`modules/aws_oidc`](modules/aws_oidc) — a single GitHub Actions OIDC
+  provider, shared by both environments' CI deploys. Applied once:
+  `live/platform/aws-oidc`. Everything environment-*specific* about CI
+  (the IAM role, its trust policy, the GitHub Environment itself) lives in
+  `stack/ci.tf` instead, which reads this provider's ARN via a Terragrunt
+  `dependency` block — see `stack/README.md#cicd`.
 - [`modules/vercel`](modules/vercel) — the one Vercel project
   (`come-rico`), also shared rather than per-environment. Applied once:
   `live/platform/vercel`, which depends on both `live/prod`'s and
@@ -21,9 +20,9 @@ them:
   (previews, the default `*.vercel.app` alias) routes to dev as a
   staging target.
 
-`live/platform/ci` and `live/platform/vercel` are deliberately two
-separate units, not one — `live/dev`/`live/prod` both depend on `ci`
-(for the identity), and `vercel` depends on `live/prod`/`live/dev` (for
+`live/platform/aws-oidc` and `live/platform/vercel` are deliberately two
+separate units, not one — `live/dev`/`live/prod` both depend on `aws-oidc`
+(for the provider), and `vercel` depends on `live/prod`/`live/dev` (for
 their backend hostnames); merging them into a single "platform" unit
 would make that a cycle (`prod` → `platform` → `prod`).
 
@@ -37,8 +36,9 @@ Config layout:
   actually differs per environment (`environment`,
   `app_name_unique_suffix`, `github_environment_name`), plus
   `terraform { source = "../../stack" }` and a `dependency "platform"`
-  block (`config_path = "../platform/ci"`) for the CI identity's outputs.
-- `live/platform/ci/terragrunt.hcl` — `terraform { source = "../../../modules/github_actions_ci" }`,
+  block (`config_path = "../platform/aws-oidc"`) for the OIDC provider's
+  ARN.
+- `live/platform/aws-oidc/terragrunt.hcl` — `terraform { source = "../../../modules/aws_oidc" }`,
   no inputs of its own.
 - `live/platform/vercel/terragrunt.hcl` — `terraform { source = "../../../modules/vercel" }`,
   plus `dependency "prod"` and `dependency "dev"` blocks for the
@@ -54,8 +54,10 @@ it's never applied directly.
 
 1. Install [Terragrunt](https://terragrunt.gruntwork.io/docs/getting-started/install/)
    (and Terraform — already required by `stack/`).
-2. `az login` (Azure) and `gh auth login` (GitHub, needed by
-   `stack/ci.tf` and `modules/github_actions_ci`, both environments).
+2. `aws configure` / `AWS_PROFILE` set (AWS credentials with rights to
+   create IAM roles/policies/OIDC providers and Lambda resources) and
+   `gh auth login` (GitHub, needed by `stack/ci.tf` and
+   `modules/aws_oidc`, both environments).
 3. Bootstrap the state bucket once — Terragrunt can't create the bucket
    it's about to store its own state in:
    ```bash
@@ -82,7 +84,7 @@ it's never applied directly.
 ## Usage
 
 ```bash
-cd infra/live/platform/ci   # apply this first — dev/prod both depend on its outputs
+cd infra/live/platform/aws-oidc   # apply this first — dev/prod both depend on its outputs
 terragrunt apply
 
 cd infra/live/dev           # or live/prod
@@ -93,7 +95,7 @@ terragrunt apply
 ```
 
 `terragrunt` copies the relevant module (`stack/`,
-`modules/github_actions_ci`, or `modules/vercel`) into a
+`modules/aws_oidc`, or `modules/vercel`) into a
 `.terragrunt-cache/` working directory, generates `backend.tf` there from
 this root `root.hcl`'s `remote_state` block, and runs the equivalent
 `terraform` command with `inputs` (from both the unit's own
@@ -101,7 +103,7 @@ this root `root.hcl`'s `remote_state` block, and runs the equivalent
 
 To run something across every unit (rare — usually you want one at a
 time), use `run-all` from this directory; it resolves the right order
-automatically from the `dependency` blocks above (`ci` before
+automatically from the `dependency` blocks above (`aws-oidc` before
 `dev`/`prod` before `vercel`):
 
 ```bash

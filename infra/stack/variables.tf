@@ -1,45 +1,39 @@
 variable "workload" {
-  description = "Short workload/project name used to build resource names (Azure CAF convention: <resource-type>-<workload>-<environment>[-<region>])."
+  description = "Short workload/project name used to build resource names."
   type        = string
   default     = "come-rico"
 }
 
 variable "environment" {
-  description = "Deployment environment, e.g. prod, staging, dev. Used in resource names and to namespace Neon branches / R2 buckets."
+  description = "Deployment environment, e.g. prod, dev. Used in resource names and to namespace Neon branches / R2 buckets."
   type        = string
   default     = "prod"
 }
 
-variable "azure_location" {
-  description = "Azure region for this environment's own resource group (Neon-adjacent resources, R2 aside). Independent of the shared Container Apps Environment's region (see container_apps_environment_id) — Azure allows a Container App and the environment it belongs to to live in different resource groups/regions."
+variable "aws_region" {
+  description = "AWS region for this environment's Lambda function."
   type        = string
-  default     = "canadaeast"
+  default     = "us-east-1"
 }
 
 variable "app_name_unique_suffix" {
-  description = "Append a random 4-char suffix to the Container App name. Set false once you've confirmed the plain name is available and want a stable hostname."
+  description = "Append a random 4-char suffix to the Lambda function name. Set false once you've confirmed the plain name is available and want a stable name."
   type        = bool
   default     = true
 }
 
-variable "container_apps_environment_id" {
-  description = "Resource ID of the shared Container Apps Environment every environment's Container App deploys into — this subscription caps Container App Environments at 1 per subscription (MaxNumberOfGlobalEnvironmentsInSubExceeded), so it's provisioned once by ../modules/container_apps_environment (../live/platform/container-apps-environment) and passed in via a Terragrunt `dependency` block, not created per-environment here."
-  type        = string
-}
-
-# --- GitHub Container Registry ------------------------------------------
-# Free image registry — avoids needing a paid Azure Container Registry SKU.
-# Images are pushed by deploy-backend.yml (GITHUB_TOKEN, scoped to that
-# run); Container Apps needs a longer-lived credential to *pull* at
-# runtime, since GITHUB_TOKEN expires with the workflow run.
-
-variable "ghcr_owner" {
-  description = "GitHub org/user that owns the backend image's GHCR package, e.g. \"davbrito\". Set once, in ../root.hcl's shared inputs."
+variable "oidc_provider_arn" {
+  description = "ARN of the shared GitHub Actions OIDC provider — AWS allows only one per issuer URL per account, so it's provisioned once by ../modules/aws_oidc (../live/platform/aws-oidc) and passed in via a Terragrunt `dependency` block, not created per-environment here."
   type        = string
 }
 
 variable "base_domain" {
   description = "Base domain the app is served from. Used to derive the R2 custom domain (storage-<environment>.<base_domain>) and the frontend origin allowed through R2 CORS."
+  type        = string
+}
+
+variable "github_repository" {
+  description = "GitHub \"owner/repo\" this environment's CI is allowed to deploy from. Set once, in ../root.hcl's shared inputs."
   type        = string
 }
 
@@ -83,9 +77,8 @@ variable "r2_cors_allowed_origins" {
 }
 
 # --- Infisical -----------------------------------------------------------
-# Provider tokens (neon_api_key, cloudflare_api_token, vercel_api_token,
-# r2_access_key_id, r2_secret_access_key, cron_secret) live in Infisical
-# instead of tfvars — see infisical.tf.
+# Externally-issued provider tokens live in Infisical instead of tfvars —
+# see infisical.tf.
 
 variable "infisical_project_id" {
   description = "Infisical project ID holding come-rico's provider tokens."

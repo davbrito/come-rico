@@ -1,14 +1,10 @@
 output "app_hostname" {
-  description = "The Container App's ingress FQDN, e.g. ca-come-rico-prod.<env-id>.<region>.azurecontainerapps.io. Unlike App Service's fully predictable *.azurewebsites.net name, this includes an environment-generated label only known after the first apply."
-  value       = azurerm_container_app.api.ingress[0].fqdn
+  description = "The Lambda Function URL, e.g. https://<url-id>.lambda-url.<region>.on.aws/."
+  value       = aws_lambda_function_url.api.function_url
 }
 
 output "app_name" {
-  value = azurerm_container_app.api.name
-}
-
-output "resource_group_name" {
-  value = azurerm_resource_group.this.name
+  value = aws_lambda_function.api.function_name
 }
 
 output "neon_project_id" {

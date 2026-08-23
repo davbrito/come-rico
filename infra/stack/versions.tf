@@ -1,11 +1,9 @@
 terraform {
-  # >= 1.10 for ephemeral resources (infisical.tf) — used so provider
-  # tokens never get written to state.
   required_version = ">= 1.10"
 
   required_providers {
-    azurerm = {
-      source  = "hashicorp/azurerm"
+    aws = {
+      source  = "hashicorp/aws"
       version = "~> 5"
     }
     neon = {
@@ -20,10 +18,6 @@ terraform {
       source  = "hashicorp/random"
       version = "~> 3"
     }
-    azuread = {
-      source  = "hashicorp/azuread"
-      version = "~> 3"
-    }
     github = {
       source  = "integrations/github"
       version = "~> 6"
@@ -32,6 +26,14 @@ terraform {
       source  = "infisical/infisical"
       version = "~> 0.15"
     }
+    archive = {
+      source  = "hashicorp/archive"
+      version = "~> 2"
+    }
+    local = {
+      source  = "hashicorp/local"
+      version = "~> 2"
+    }
   }
 
   # No backend block here — Terragrunt generates it per environment (see
@@ -39,11 +41,9 @@ terraform {
   # always run through `terragrunt` in ../live/<env>/.
 }
 
-provider "azurerm" {
-  features {}
+provider "aws" {
+  region = var.aws_region
 }
-
-provider "azuread" {}
 
 # No token configured — the provider picks it up from the gh CLI's stored
 # auth (`gh auth login`) automatically.

@@ -3,7 +3,7 @@
 # var.base_domain) talks to prod's backend, every other deployment
 # (previews, and the default *.vercel.app alias) talks to dev's, as a
 # staging target. Lives here, not in stack, for the same reason
-# ../github_actions_ci's identity does: if this were in stack, both dev's
+# ../aws_oidc's provider does: if this were in stack, both dev's
 # and prod's applies would fight over the same Vercel project's env
 # vars/crons/domain, since Vercel doesn't have a per-environment project
 # here the way Azure/Neon/R2 do.
@@ -21,7 +21,7 @@
 # ../../live/dev's `app_hostname` outputs via Terragrunt `dependency`
 # blocks in ../../live/platform/vercel/terragrunt.hcl — not computed here,
 # and not the other way around (prod/dev depending on this unit) since
-# both already depend on ../github_actions_ci and that would make a cycle
+# both already depend on ../aws_oidc and that would make a cycle
 # between the same two units.
 
 
@@ -84,14 +84,12 @@ resource "vercel_project_crons" "frontend" {
 # `"${var.prod_backend_url}/api/$1"`, not just a theoretical provider
 # quirk.
 #
-# Unlike App Service's fully predictable `<name>.azurewebsites.net`,
-# Container Apps ingress FQDNs carry an environment-generated unique
-# label (see infra/stack/outputs.tf's app_hostname) that's only known
-# after that environment's first `terragrunt apply` — so these two
-# literals can't be filled in until then. Grab the real values from
-# `terragrunt output app_hostname` in infra/live/prod and infra/live/dev
-# and hand-edit both `dest` fields below (they're stable afterwards,
-# same as the old App Service hostnames were).
+# Lambda Function URLs aren't predictable before creation (see
+# infra/stack/outputs.tf's app_hostname) — only known after that
+# environment's first `terragrunt apply` — so these two literals can't be
+# filled in until then. Grab the real values from `terragrunt output
+# app_hostname` in infra/live/prod and infra/live/dev and hand-edit both
+# `dest` fields below (they're stable afterwards).
 resource "vercel_project_route" "api_rewrite_production" {
   project_id = data.vercel_project.frontend.id
   name       = "api-rewrite-production"
@@ -108,9 +106,11 @@ resource "vercel_project_route" "api_rewrite_production" {
       type  = "host"
       value = var.base_domain
     }]
-    # From infra/live/prod's app_hostname output — see the comment above
-    # for why this has to be a literal instead of a reference to
-    # var.prod_backend_url.
+    # TODO: replace with the real value of `terragrunt output app_hostname`
+    # from infra/live/prod after that environment's first apply against
+    # AWS Lambda — see the comment above for why this has to be a literal
+    # instead of a reference to var.prod_backend_url. Stale Azure Container
+    # Apps URL left here from before the Lambda migration.
     dest = "https://ca-come-rico-prod.wittystone-b6cf8c79.canadaeast.azurecontainerapps.io/api/$1"
   }
 }

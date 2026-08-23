@@ -1,21 +1,18 @@
 name: deploy-backend
 
-# Deploys the .NET backend, containerized, to Azure Container Apps. The
-# frontend continues to deploy to Vercel on its own (Vercel's Git
-# integration), and vercel.json rewrites /api/* here — so the browser only
-# ever sees the Vercel origin and the auth cookie stays same-origin.
+# Deploys the .NET backend to AWS Lambda (managed dotnet10 runtime, zip
+# package, no container/ECR). The frontend continues to deploy to Vercel
+# on its own (Vercel's Git integration), and vercel.json rewrites /api/*
+# here — so the browser only ever sees the Vercel origin and the auth
+# cookie stays same-origin.
 #
-# Image is built and pushed to GitHub Container Registry (ghcr.io) — free,
-# no Azure Container Registry needed. Pushes to main deploy Development;
-# publishing a GitHub Release deploys Production. Auth to Azure is OIDC
-# (azure/login federated credential, no stored secret) — one identity
-# shared across both environments, but a separate federated
-# credential/role assignment/GitHub Environment per environment (job
-# `environment:` below selects which one's vars/secrets apply). All of
-# this — the shared identity, both GitHub Environments, these vars, and
-# the Container App itself — is provisioned by infra/stack/ci.tf and
-# infra/modules/github_actions_ci — see infra/stack/README.md#cicd.
-# Nothing here is set by hand.
+# Auth to AWS is OIDC (aws-actions/configure-aws-credentials, no stored
+# secret) — one IAM role per environment, shared OIDC provider across both
+# (job `environment:` below selects which environment's vars apply). All
+# of this — the OIDC provider, both GitHub Environments, these vars, and
+# the Lambda function itself — is provisioned by infra/stack/ci.tf and
+# infra/modules/aws_oidc — see infra/stack/README.md#cicd. Nothing here is
+# set by hand.
 on:
   push:
     branches: [main]
@@ -35,7 +32,6 @@ on:
 permissions:
   id-token: write
   contents: read
-  packages: write
 
 jobs:
   # Computes which GitHub Environment this run targets exactly once — the
@@ -58,9 +54,8 @@ jobs:
 
     # One in-flight deploy per environment — a second push (or a manual
     # dispatch racing an automatic one) cancels the older run instead of
-    # letting two `az containerapp update`/`az containerapp registry set`
-    # calls land on the same Container App at once, which fails with
-    # ContainerAppOperationInProgress.
+    # letting two `aws lambda update-function-code` calls land on the same
+    # function at once.
     concurrency:
       group: deploy-backend-${{ needs.resolve-environment.outputs.name }}
       cancel-in-progress: true
@@ -68,44 +63,37 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+      - uses: actions/setup-dotnet@v5
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          dotnet-version: 10.0.x
 
-      # InformationalVersion carries the commit SHA into the built
-      # assembly so a Production incident can be traced back to what's
-      # actually deployed.
-      - uses: docker/build-push-action@v6
-        with:
-          context: backend
-          push: true
-          tags: ghcr.io/${{ github.repository }}-backend:${{ github.sha }}
-          build-args: INFORMATIONAL_VERSION=${{ github.sha }}
-
-      - uses: azure/login@v3
-        with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-
-      # imageToDeploy only — no dockerfilePath/registryUrl/Username/Password
-      # here. Passing those makes the action *also* call `az containerapp
-      # registry set` to (re)configure the app's registry credentials, which
-      # are already fully managed by Terraform (main.tf's registry/secret
-      # blocks) — that redundant call races with the image update this same
-      # run just triggered and fails with ContainerAppOperationInProgress.
-      # imageToDeploy skips both the build and the registry reconfiguration,
-      # so this step is just `az containerapp update --image ...`.
-      - uses: azure/container-apps-deploy-action@v2
-        with:
-          imageToDeploy: ghcr.io/${{ github.repository }}-backend:${{ github.sha }}
-          resourceGroup: ${{ vars.AZURE_RESOURCE_GROUP_NAME }}
-          containerAppName: ${{ vars.AZURE_CONTAINER_APP_NAME }}
-
-      - name: logout
-        if: always()
+      # linux-arm64 to match the function's arm64 architecture
+      # (infra/modules/lambda_backend/main.tf). InformationalVersion
+      # carries the commit SHA into the built assembly so a Production
+      # incident can be traced back to what's actually deployed.
+      - name: Publish
+        working-directory: backend
         run: |
-          az logout
+          dotnet publish ComeRico.Api/ComeRico.Api.csproj \
+            -c Release \
+            -r linux-arm64 \
+            --self-contained false \
+            -p:InformationalVersion=${{ github.sha }} \
+            -o publish
+
+      - name: Zip package
+        working-directory: backend/publish
+        run: zip -r ../function.zip .
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Deploy to Lambda
+        working-directory: backend
+        run: |
+          aws lambda update-function-code \
+            --function-name "${{ vars.AWS_LAMBDA_FUNCTION_NAME }}" \
+            --zip-file fileb://function.zip \
+            --no-cli-pager
