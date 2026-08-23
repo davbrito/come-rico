@@ -45,6 +45,16 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # No secrets here — just the resolved GitHub Environment and target
+      # resource names, so a failed run's log shows what it was actually
+      # about to touch without digging through the deploy step's output.
+      - name: Show target environment
+        run: |
+          echo "GitHub Environment: ${{ github.event_name == 'release' && 'Production' || (github.event_name == 'workflow_dispatch' && inputs.environment || 'Development') }}"
+          echo "Resource group:     ${{ vars.AZURE_RESOURCE_GROUP_NAME }}"
+          echo "Container App:      ${{ vars.AZURE_CONTAINER_APP_NAME }}"
+          echo "Image:              ghcr.io/${{ github.repository }}-backend:${{ github.sha }}"
+
       - uses: azure/login@v3
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
