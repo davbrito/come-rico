@@ -13,7 +13,6 @@
     "browser": true
   },
   "rules": {
-    "react/react-compiler": "error",
     "react/react-in-jsx-scope": "off"
   }
 }

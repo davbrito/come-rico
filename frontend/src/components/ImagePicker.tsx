@@ -1,4 +1,4 @@
-import cn from "cnfast";
+import { cn } from "cnfast";
 import { useState, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
 
