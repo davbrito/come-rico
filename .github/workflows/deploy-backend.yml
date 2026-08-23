@@ -51,6 +51,7 @@ jobs:
         run: echo "name=${{ github.event_name == 'release' && 'Production' || (github.event_name == 'workflow_dispatch' && inputs.environment || 'Development') }}" >> "$GITHUB_OUTPUT"
 
   deploy:
+    name: Deploy (${{ needs.resolve-environment.outputs.name }})
     needs: resolve-environment
     runs-on: ubuntu-latest
     environment: ${{ needs.resolve-environment.outputs.name }}
