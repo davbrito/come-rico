@@ -25,15 +25,8 @@
 # between the same two units.
 
 
-resource "vercel_project" "frontend" {
+data "vercel_project" "frontend" {
   name = var.vercel_project_name
-
-  git_repository = {
-    type = "github"
-    repo = var.github_repository
-  }
-  node_version = "24.x"
-  framework    = "services"
 }
 
 locals {
@@ -58,7 +51,7 @@ locals {
 # prod/preview split.
 resource "vercel_project_environment_variable" "backend_url" {
   for_each   = local.vercel_envs
-  project_id = vercel_project.frontend.id
+  project_id = data.vercel_project.frontend.id
   key        = "BACKEND_URL"
   value      = each.value.backend_url
   target     = [each.key]
@@ -70,7 +63,7 @@ resource "vercel_project_environment_variable" "backend_url" {
 # (Vercel has no API to define individual cron jobs outside deployment
 # config; this resource just enables/disables cron execution project-wide).
 resource "vercel_project_crons" "frontend" {
-  project_id = vercel_project.frontend.id
+  project_id = data.vercel_project.frontend.id
   enabled    = true
 }
 
@@ -100,7 +93,7 @@ resource "vercel_project_crons" "frontend" {
 # and hand-edit both `dest` fields below (they're stable afterwards,
 # same as the old App Service hostnames were).
 resource "vercel_project_route" "api_rewrite_production" {
-  project_id = vercel_project.frontend.id
+  project_id = data.vercel_project.frontend.id
   name       = "api-rewrite-production"
 
   # Omitting this entirely crashes the provider (v5.12.0) — its validator
@@ -123,7 +116,7 @@ resource "vercel_project_route" "api_rewrite_production" {
 }
 
 resource "vercel_project_route" "api_rewrite_preview" {
-  project_id = vercel_project.frontend.id
+  project_id = data.vercel_project.frontend.id
   name       = "api-rewrite-preview"
 
   position = {
@@ -141,6 +134,6 @@ resource "vercel_project_route" "api_rewrite_preview" {
 }
 
 resource "vercel_project_domain" "frontend" {
-  project_id = vercel_project.frontend.id
+  project_id = data.vercel_project.frontend.id
   domain     = var.base_domain
 }
