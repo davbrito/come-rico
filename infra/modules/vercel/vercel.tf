@@ -115,23 +115,23 @@ resource "vercel_project_route" "api_rewrite_production" {
   }
 }
 
-resource "vercel_project_route" "api_rewrite_preview" {
-  project_id = data.vercel_project.frontend.id
-  name       = "api-rewrite-preview"
+# resource "vercel_project_route" "api_rewrite_preview" {
+#   project_id = data.vercel_project.frontend.id
+#   name       = "api-rewrite-preview"
 
-  position = {
-    placement          = "after"
-    reference_route_id = vercel_project_route.api_rewrite_production.id
-  }
+#   position = {
+#     placement          = "after"
+#     reference_route_id = vercel_project_route.api_rewrite_production.id
+#   }
 
-  route = {
-    src = "/api/(.*)"
-    # From infra/live/dev's app_hostname output — see the comment on
-    # api_rewrite_production above for why this has to be a literal
-    # instead of a reference to var.dev_backend_url.
-    dest = "https://ca-come-rico-dev.wittystone-b6cf8c79.canadaeast.azurecontainerapps.io/api/$1"
-  }
-}
+#   route = {
+#     src = "/api/(.*)"
+#     # From infra/live/dev's app_hostname output — see the comment on
+#     # api_rewrite_production above for why this has to be a literal
+#     # instead of a reference to var.dev_backend_url.
+#     dest = "https://ca-come-rico-dev.wittystone-b6cf8c79.canadaeast.azurecontainerapps.io/api/$1"
+#   }
+# }
 
 resource "vercel_project_domain" "frontend" {
   project_id = data.vercel_project.frontend.id
