@@ -108,10 +108,10 @@ resource "vercel_project_route" "api_rewrite_production" {
       type  = "host"
       value = var.base_domain
     }]
-    # TODO(container-apps-migration): replace with prod's real
-    # `terragrunt output app_hostname` once infra/live/prod has been
-    # applied with the Container Apps main.tf.
-    dest = "https://REPLACE-WITH-PROD-CONTAINER-APP-FQDN/api/$1"
+    # From infra/live/prod's app_hostname output — see the comment above
+    # for why this has to be a literal instead of a reference to
+    # var.prod_backend_url.
+    dest = "https://ca-come-rico-prod.wittystone-b6cf8c79.canadaeast.azurecontainerapps.io/api/$1"
   }
 }
 
@@ -129,7 +129,7 @@ resource "vercel_project_route" "api_rewrite_preview" {
     # From infra/live/dev's app_hostname output — see the comment on
     # api_rewrite_production above for why this has to be a literal
     # instead of a reference to var.dev_backend_url.
-    dest = "https://ca-come-rico-dev.ashybay-52d52a45.canadaeast.azurecontainerapps.io/api/$1"
+    dest = "https://ca-come-rico-dev.wittystone-b6cf8c79.canadaeast.azurecontainerapps.io/api/$1"
   }
 }
 
