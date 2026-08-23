@@ -11,7 +11,7 @@ variable "environment" {
 }
 
 variable "azure_location" {
-  description = "Azure region for the resource group and App Service."
+  description = "Azure region for this environment's own resource group (Neon-adjacent resources, R2 aside). Independent of the shared Container Apps Environment's region (see container_apps_environment_id) — Azure allows a Container App and the environment it belongs to to live in different resource groups/regions."
   type        = string
   default     = "canadaeast"
 }
@@ -20,6 +20,11 @@ variable "app_name_unique_suffix" {
   description = "Append a random 4-char suffix to the Container App name. Set false once you've confirmed the plain name is available and want a stable hostname."
   type        = bool
   default     = true
+}
+
+variable "container_apps_environment_id" {
+  description = "Resource ID of the shared Container Apps Environment every environment's Container App deploys into — this subscription caps Container App Environments at 1 per subscription (MaxNumberOfGlobalEnvironmentsInSubExceeded), so it's provisioned once by ../modules/container_apps_environment (../live/platform/container-apps-environment) and passed in via a Terragrunt `dependency` block, not created per-environment here."
+  type        = string
 }
 
 # --- GitHub Container Registry ------------------------------------------

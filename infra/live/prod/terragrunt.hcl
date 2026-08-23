@@ -17,8 +17,22 @@ dependency "platform" {
   mock_outputs_allowed_terraform_commands = ["validate", "plan", "init"]
 }
 
+# The subscription caps Container App Environments at 1 total, so dev and
+# prod share the one ../platform/container-apps-environment provisions —
+# see that unit's comment and stack/variables.tf's
+# container_apps_environment_id description.
+dependency "container_apps_environment" {
+  config_path = "../platform/container-apps-environment"
+
+  mock_outputs = {
+    environment_id = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/mock/providers/Microsoft.App/managedEnvironments/mock"
+  }
+  mock_outputs_allowed_terraform_commands = ["validate", "plan", "init"]
+}
+
 inputs = {
-  environment = "prod"
+  environment                   = "prod"
+  container_apps_environment_id = dependency.container_apps_environment.outputs.environment_id
   # Stable hostname once app-come-rico-prod is confirmed free — CI deploys
   # reference AZURE_WEBAPP_NAME by fixed value, not a Terraform output, so
   # prod shouldn't carry a random suffix.

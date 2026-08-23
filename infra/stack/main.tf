@@ -27,23 +27,15 @@ resource "azurerm_resource_group" "this" {
   tags     = local.azure_tags
 }
 
-# Container Apps environments take a Log Analytics workspace directly —
-# reuses the same workspace monitoring.tf already provisions for
-# Application Insights, instead of App Service's separate hidden-link tag
-# hack to associate the two.
-resource "azurerm_container_app_environment" "this" {
-  name                       = local.container_app_env_name
-  resource_group_name        = azurerm_resource_group.this.name
-  location                   = azurerm_resource_group.this.location
-  logs_destination           = "log-analytics"
-  log_analytics_workspace_id = azurerm_log_analytics_workspace.this.id
-  tags                       = local.azure_tags
-}
-
 resource "azurerm_container_app" "api" {
-  name                         = local.container_app_name
+  name = local.container_app_name
+  # Shared across every environment — this subscription caps Container
+  # App Environments at 1 per subscription, so it can't be provisioned
+  # here per-environment like the App Service Plan it replaced was. See
+  # ../modules/container_apps_environment and var.container_apps_environment_id's
+  # description.
+  container_app_environment_id = var.container_apps_environment_id
   resource_group_name          = azurerm_resource_group.this.name
-  container_app_environment_id = azurerm_container_app_environment.this.id
   revision_mode                = "Single"
   tags                         = local.azure_tags
 

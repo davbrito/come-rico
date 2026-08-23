@@ -17,9 +17,8 @@ locals {
   region_abbreviation = lookup(local.region_abbreviations, var.azure_location, var.azure_location)
   name_suffix         = var.app_name_unique_suffix ? "-${random_string.suffix.result}" : ""
 
-  resource_group_name    = "rg-${var.workload}-${var.environment}-${local.region_abbreviation}"
-  container_app_env_name = "cae-${var.workload}-${var.environment}-${local.region_abbreviation}"
-  container_app_name     = "ca-${var.workload}-${var.environment}${local.name_suffix}"
+  resource_group_name = "rg-${var.workload}-${var.environment}-${local.region_abbreviation}"
+  container_app_name  = "ca-${var.workload}-${var.environment}${local.name_suffix}"
 
   r2_bucket_name = "r2-${var.workload}-${var.environment}"
 }
