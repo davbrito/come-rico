@@ -133,10 +133,10 @@ resource "vercel_project_route" "api_rewrite_preview" {
 
   route = {
     src = "/api/(.*)"
-    # TODO(container-apps-migration): replace with dev's real
-    # `terragrunt output app_hostname` once infra/live/dev has been
-    # applied with the Container Apps main.tf.
-    dest = "https://REPLACE-WITH-DEV-CONTAINER-APP-FQDN/api/$1"
+    # From infra/live/dev's app_hostname output — see the comment on
+    # api_rewrite_production above for why this has to be a literal
+    # instead of a reference to var.dev_backend_url.
+    dest = "https://ca-come-rico-dev.ashybay-52d52a45.canadaeast.azurecontainerapps.io/api/$1"
   }
 }
 
