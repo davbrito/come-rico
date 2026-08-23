@@ -45,31 +45,31 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - uses: azure/login@v3
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-      # Builds backend/Dockerfile, pushes it to ghcr.io (already
-      # authenticated above), and points the Container App at the new
-      # image (az containerapp update under the hood) — all in one step.
-      # InformationalVersion carries the commit SHA into the built
-      # assembly so a Production incident can be traced back to what's
-      # actually deployed.
+      # Builds backend/Dockerfile, pushes it to ghcr.io, and points the
+      # Container App at the new image (az containerapp update under the
+      # hood) — all in one step. registryUrl/Username/Password are what
+      # actually make it push to ghcr.io instead of falling back to
+      # Azure's own remote Oryx build (`az containerapp update --source`,
+      # which ignores dockerfilePath/imageToBuild entirely) — a prior
+      # `docker/login-action` step isn't enough, this action does its own
+      # registry auth. InformationalVersion carries the commit SHA into
+      # the built assembly so a Production incident can be traced back to
+      # what's actually deployed.
       - uses: azure/container-apps-deploy-action@v2
         with:
           appSourcePath: backend
           dockerfilePath: Dockerfile
           imageToBuild: ghcr.io/${{ github.repository }}-backend:${{ github.sha }}
           buildArguments: INFORMATIONAL_VERSION=${{ github.sha }}
+          registryUrl: ghcr.io
+          registryUsername: ${{ github.actor }}
+          registryPassword: ${{ secrets.GITHUB_TOKEN }}
           resourceGroup: ${{ vars.AZURE_RESOURCE_GROUP_NAME }}
           containerAppName: ${{ vars.AZURE_CONTAINER_APP_NAME }}
 

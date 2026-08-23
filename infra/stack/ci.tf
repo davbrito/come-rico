@@ -56,12 +56,14 @@ resource "azuread_application_federated_identity_credential" "github_actions" {
   subject        = "repo:${var.github_repository}:environment:${var.github_environment_name}"
 }
 
-# Container Apps Contributor is enough to update the running image
-# (az containerapp update, what azure/container-apps-deploy-action does)
-# without granting control over the environment, networking, or other
-# resources in the group.
+# Scoped to the resource group, not just the Container App itself:
+# azure/container-apps-deploy-action reads the Container Apps Environment
+# too (`az containerapp env show`, to resolve where the app lives) before
+# it'll touch the app — a scope narrowed to just the Container App's own
+# ID 403s on that read. Still bounded to this environment's own resource
+# group, nothing wider.
 resource "azurerm_role_assignment" "github_actions_deploy" {
-  scope                = azurerm_container_app.api.id
+  scope                = azurerm_resource_group.this.id
   role_definition_name = "Container Apps Contributor"
   principal_id         = var.github_actions_principal_id
 }
