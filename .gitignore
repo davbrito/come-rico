@@ -33,3 +33,7 @@ frontend/.env.*.local
 *.orig
 Thumbs.db
 .vercel
+.env*
+
+
+.infisical.json
