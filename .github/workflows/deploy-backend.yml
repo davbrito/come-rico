@@ -55,31 +55,40 @@ jobs:
           echo "Container App:      ${{ vars.AZURE_CONTAINER_APP_NAME }}"
           echo "Image:              ghcr.io/${{ github.repository }}-backend:${{ github.sha }}"
 
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # InformationalVersion carries the commit SHA into the built
+      # assembly so a Production incident can be traced back to what's
+      # actually deployed.
+      - uses: docker/build-push-action@v6
+        with:
+          context: backend
+          push: true
+          tags: ghcr.io/${{ github.repository }}-backend:${{ github.sha }}
+          build-args: INFORMATIONAL_VERSION=${{ github.sha }}
+
       - uses: azure/login@v3
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-      # Builds backend/Dockerfile, pushes it to ghcr.io, and points the
-      # Container App at the new image (az containerapp update under the
-      # hood) — all in one step. registryUrl/Username/Password are what
-      # actually make it push to ghcr.io instead of falling back to
-      # Azure's own remote Oryx build (`az containerapp update --source`,
-      # which ignores dockerfilePath/imageToBuild entirely) — a prior
-      # `docker/login-action` step isn't enough, this action does its own
-      # registry auth. InformationalVersion carries the commit SHA into
-      # the built assembly so a Production incident can be traced back to
-      # what's actually deployed.
+      # imageToDeploy only — no dockerfilePath/registryUrl/Username/Password
+      # here. Passing those makes the action *also* call `az containerapp
+      # registry set` to (re)configure the app's registry credentials, which
+      # are already fully managed by Terraform (main.tf's registry/secret
+      # blocks) — that redundant call races with the image update this same
+      # run just triggered and fails with ContainerAppOperationInProgress.
+      # imageToDeploy skips both the build and the registry reconfiguration,
+      # so this step is just `az containerapp update --image ...`.
       - uses: azure/container-apps-deploy-action@v2
         with:
-          appSourcePath: backend
-          dockerfilePath: Dockerfile
-          imageToBuild: ghcr.io/${{ github.repository }}-backend:${{ github.sha }}
-          buildArguments: INFORMATIONAL_VERSION=${{ github.sha }}
-          registryUrl: ghcr.io
-          registryUsername: ${{ github.actor }}
-          registryPassword: ${{ secrets.GITHUB_TOKEN }}
+          imageToDeploy: ghcr.io/${{ github.repository }}-backend:${{ github.sha }}
           resourceGroup: ${{ vars.AZURE_RESOURCE_GROUP_NAME }}
           containerAppName: ${{ vars.AZURE_CONTAINER_APP_NAME }}
 
