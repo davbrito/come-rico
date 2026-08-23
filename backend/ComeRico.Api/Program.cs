@@ -1,4 +1,4 @@
-using Azure.Monitor.OpenTelemetry.AspNetCore;
+using Amazon.Lambda.AspNetCoreServer.Hosting;
 using ComeRico.Api.Auth;
 using ComeRico.Api.Endpoints;
 using ComeRico.Core.Auth;
@@ -12,19 +12,14 @@ using ComeRico.Infrastructure.Services;
 using FluentValidation;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
-using OpenTelemetry.Trace;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // ---------- Services ----------
 
-if (!string.IsNullOrEmpty(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]))
-{
-    builder
-        .Services.AddOpenTelemetry()
-        .UseAzureMonitor()
-        .WithTracing(tracing => tracing.AddEntityFrameworkCoreInstrumentation());
-}
+// No-op outside Lambda (keeps Kestrel for local dev); wires up the ASP.NET
+// Core Lambda adapter when running behind a Function URL.
+builder.Services.AddAWSLambdaHosting(LambdaEventSource.HttpApi);
 
 // EF Core + PostgreSQL (DATABASE_URL from Neon/Vercel, or DefaultConnection locally)
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -116,9 +111,8 @@ builder
 // OpenAPI
 builder.Services.AddOpenApi();
 
-// Backs Azure App Service's health check (site_config.health_check_path in
-// infra/terraform/main.tf), which pings this on an interval and takes the
-// instance out of rotation if it stops responding 200.
+// Exposed at /health for manual checks; Lambda has no liveness/readiness
+// poller like Azure App Service did, so nothing calls this automatically.
 builder.Services.AddHealthChecks().AddDbContextCheck<AppDbContext>();
 
 // ---------- App ----------
@@ -165,7 +159,7 @@ app.UseExceptionHandler(exceptionApp =>
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Unauthenticated — Azure's health check pinger has no cookie to send.
+// Unauthenticated — a health check caller has no cookie to send.
 app.MapHealthChecks("/health").AllowAnonymous();
 
 // Map endpoints
