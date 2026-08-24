@@ -97,12 +97,12 @@ not this stack. It depends on both `../live/prod`'s and `../live/dev`'s
 production Vercel deployment (host matches `base_domain`) routes to prod,
 every other deployment (previews, the default `*.vercel.app` alias)
 routes to dev as a staging target — both `BACKEND_URL` (SSR) and
-`VITE_BACKEND_URL` (browser, inlined at build time) are split this way,
+`PUBLIC_BACKEND_URL` (browser, inlined at build time) are split this way,
 built from those `dependency` outputs. Dev also sets
 `app_name_unique_suffix = false` (see [Naming](#naming), same as prod) —
 not strictly required for this, but a stable name makes for a nicer
 staging URL. See `../modules/vercel/vercel.tf` for the full picture,
-including why the dependency has to point *at* prod/dev rather than the
+including why the dependency has to point _at_ prod/dev rather than the
 other way around (the CI provider's dependency already runs the other
 direction).
 

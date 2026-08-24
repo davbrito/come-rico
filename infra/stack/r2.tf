@@ -67,6 +67,21 @@ resource "cloudflare_r2_bucket_lifecycle" "images" {
   bucket_name = cloudflare_r2_bucket.images.name
 
   rules = [
+
+    {
+
+      id      = "abort-incomplete-multipart-uploads"
+      enabled = true
+      conditions = {
+        prefix = ""
+      }
+      abort_multipart_uploads_transition = {
+        condition = {
+          type    = "Age"
+          max_age = 604800
+        }
+      }
+    },
     # Backstop for upload tickets under staging/ that never get confirmed —
     # CleanupOrphanedFilesCommand already sweeps these after a 2h grace period,
     # this just guarantees storage doesn't accumulate abandoned blobs if that
@@ -81,20 +96,6 @@ resource "cloudflare_r2_bucket_lifecycle" "images" {
         condition = {
           type    = "Age"
           max_age = 86400
-        }
-      }
-    },
-    {
-
-      id      = "abort-incomplete-multipart-uploads"
-      enabled = true
-      conditions = {
-        prefix = ""
-      }
-      abort_multipart_uploads_transition = {
-        condition = {
-          type    = "Age"
-          max_age = 604800
         }
       }
   }]

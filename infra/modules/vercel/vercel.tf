@@ -40,40 +40,18 @@ locals {
   }
 }
 
-# Authoritative — any env var not listed here is removed on apply. The
-# project used to also carry backend env vars (R2__*, CRON_SECRET,
-# ConnectionStrings__DefaultConnection) from when the .NET backend
-# deployed to Vercel; those are dead since the Azure migration.
-#
-# TanStack Start's SSR calls the backend directly during beforeLoad (see
-# frontend/src/lib/api.ts) — BACKEND_URL is that path. The browser talks
-# to the same Lambda Function URL directly too, cross-origin — see
-# VITE_BACKEND_URL below and the Cors__* env vars in
-# ../../stack/lambda.tf. No same-origin rewrite of any kind anymore (the
-# old vercel_project_route couldn't express a route with an interpolated
-# dest, which is what pushed this to CORS instead).
-resource "vercel_project_environment_variable" "backend_url" {
-  for_each   = local.vercel_envs
-  project_id = data.vercel_project.frontend.id
-  key        = "BACKEND_URL"
-  value      = each.value.backend_url
-  target     = [each.key]
-  sensitive  = false
-}
-
 # The browser's copy of the same URL — VITE_-prefixed so Vite inlines it
 # into the client bundle at build time (frontend/src/lib/api.ts). Needed
 # because the browser now calls the Lambda Function URL directly
 # (cross-origin, via CORS) instead of a same-origin Vercel rewrite.
-resource "vercel_project_environment_variable" "vite_backend_url" {
+resource "vercel_project_environment_variable" "public_backend_url" {
   for_each   = local.vercel_envs
   project_id = data.vercel_project.frontend.id
-  key        = "VITE_BACKEND_URL"
+  key        = "PUBLIC_BACKEND_URL"
   value      = each.value.backend_url
   target     = [each.key]
   sensitive  = false
 }
-
 
 # Toggle only — the cron schedule itself is still declared in vercel.json
 # (Vercel has no API to define individual cron jobs outside deployment
