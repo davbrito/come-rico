@@ -108,10 +108,11 @@ direction).
 
 The browser calls the Lambda Function URL directly, cross-origin — no
 rewrite of any kind in front of it. `lambda.tf`'s `Cors__AllowedOrigins`
-(prod, exact match on `base_domain`) and `Cors__AllowedOriginSuffixes`
-(dev, suffix match on `.vercel.app` — preview deployments don't have a
-fixed origin to allowlist) are what actually authorize this on the API
-side; the auth cookie uses `SameSite=None` in production to go with it
+is what actually authorizes this on the API side: an exact `base_domain`
+match in prod, or `https://*.vercel.app` (wildcard subdomain, via
+`Program.cs`'s `SetIsOriginAllowedToAllowWildcardSubdomains`) in dev,
+since preview deployments don't have a fixed origin to allowlist. The
+auth cookie uses `SameSite=None` in production to go with it
 (see `Program.cs`).
 
 ## Secrets

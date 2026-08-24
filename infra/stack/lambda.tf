@@ -109,9 +109,9 @@ resource "aws_lambda_function" "api" {
         "CRON_SECRET"                          = random_password.cron_secret.result
       },
       # ASP.NET Core binds array config from indexed double-underscore
-      # keys (Cors__AllowedOrigins__0, __1, ...) — see local.cors_* below.
+      # keys (Cors__AllowedOrigins__0, __1, ...) — see local.cors_allowed_origins
+      # below.
       { for i, origin in local.cors_allowed_origins : "Cors__AllowedOrigins__${i}" => origin },
-      { for i, suffix in local.cors_allowed_origin_suffixes : "Cors__AllowedOriginSuffixes__${i}" => suffix },
     )
   }
 
@@ -134,9 +134,10 @@ resource "aws_lambda_function_url" "api" {
 locals {
   # Production has one fixed public domain; dev's Vercel target is the
   # default *.vercel.app preview alias (a different subdomain per
-  # deployment), so there's no fixed origin to allowlist there — a suffix
-  # match is the only option. See stack/README.md#vercel-frontend for why
-  # dev doesn't get its own base_domain-scoped hostname the way prod does.
-  cors_allowed_origins         = var.environment == "prod" ? ["https://${var.base_domain}"] : []
-  cors_allowed_origin_suffixes = var.environment == "prod" ? [] : [".vercel.app"]
+  # deployment), so there's no fixed origin to allowlist there — the
+  # wildcard pattern relies on Program.cs's
+  # SetIsOriginAllowedToAllowWildcardSubdomains(). See
+  # stack/README.md#vercel-frontend for why dev doesn't get its own
+  # base_domain-scoped hostname the way prod does.
+  cors_allowed_origins = var.environment == "prod" ? ["https://${var.base_domain}"] : ["https://*.vercel.app"]
 }

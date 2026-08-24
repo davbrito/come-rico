@@ -31,18 +31,15 @@ builder.Services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbConte
 // The frontend is a separate origin now (Vercel calling the Lambda
 // Function URL directly, no same-origin rewrite in front of it), so the
 // browser needs real CORS instead of relying on same-site cookie rules.
-// Cors:AllowedOrigins is exact-match (production's fixed domain);
-// Cors:AllowedOriginSuffixes is suffix-match (dev's Vercel preview
-// deployments get a different *.vercel.app subdomain per deployment, so
-// there's no fixed origin to allowlist there).
+// Entries may be a wildcard subdomain pattern (e.g. "https://*.vercel.app"
+// for dev's per-deployment preview domains, which have no fixed origin to
+// allowlist) via SetIsOriginAllowedToAllowWildcardSubdomains.
 var corsAllowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
-var corsAllowedOriginSuffixes = builder.Configuration.GetSection("Cors:AllowedOriginSuffixes").Get<string[]>() ?? [];
 builder.Services.AddCors(options =>
     options.AddDefaultPolicy(policy =>
         policy
-            .SetIsOriginAllowed(origin =>
-                corsAllowedOrigins.Contains(origin) || corsAllowedOriginSuffixes.Any(suffix => origin.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
-            )
+            .WithOrigins(corsAllowedOrigins)
+            .SetIsOriginAllowedToAllowWildcardSubdomains()
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials()

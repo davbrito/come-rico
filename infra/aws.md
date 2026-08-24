@@ -76,8 +76,8 @@ R2__SecretAccessKey                   = local.r2_secret_access_key
 R2__BucketName                        = cloudflare_r2_bucket.images.name
 R2__PublicBaseUrl                     = local.r2_public_base_url           # https://storage-<environment>.<base_domain>
 CRON_SECRET                           = random_password.cron_secret.result
-Cors__AllowedOrigins__0               = "https://${base_domain}"           # prod only
-Cors__AllowedOriginSuffixes__0        = ".vercel.app"                      # dev only — no fixed preview origin to allowlist
+Cors__AllowedOrigins__0               = "https://${base_domain}"           # prod: exact match
+                                       # or "https://*.vercel.app"          # dev: wildcard subdomain — no fixed preview origin
 ```
 
 Lambda encrypts every environment variable at rest with an AWS-managed
