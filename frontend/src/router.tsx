@@ -2,6 +2,7 @@ import {
   Mutation,
   MutationCache,
   QueryClient,
+  QueryClientProvider,
   type MutationFunctionContext,
 } from "@tanstack/react-query";
 import { createRouter as createTanStackRouter } from "@tanstack/react-router";
@@ -44,12 +45,18 @@ export function getRouter() {
     }),
   });
 
+  // SPA mode has no server-rendered query cache to dehydrate/hydrate, so
+  // this skips @tanstack/react-router-ssr-query's full integration and
+  // just wraps the router with a plain QueryClientProvider — without it,
+  // any react-query hook (e.g. Header's useMutation) throws "No
+  // QueryClient set", including during the build-time shell prerender.
   const router = createTanStackRouter({
     routeTree,
     scrollRestoration: true,
     defaultPreload: "intent",
     defaultPreloadStaleTime: 0,
     context: { queryClient },
+    Wrap: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
   });
 
   // setupRouterSsrQueryIntegration({ router, queryClient });
