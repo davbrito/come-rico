@@ -1,5 +1,5 @@
-output "app_hostname" {
-  description = "The Lambda Function URL, e.g. https://<url-id>.lambda-url.<region>.on.aws/."
+output "app_url" {
+  description = "The Lambda Function URL, e.g. https://<url-id>.lambda-url.<region>.on.aws/ — already a full URL, not a bare hostname."
   value       = aws_lambda_function_url.api.function_url
 }
 

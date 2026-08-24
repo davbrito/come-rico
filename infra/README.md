@@ -15,7 +15,7 @@ them:
 - [`modules/vercel`](modules/vercel) — the one Vercel project
   (`come-rico`), also shared rather than per-environment. Applied once:
   `live/platform/vercel`, which depends on both `live/prod`'s and
-  `live/dev`'s `app_hostname` outputs — production Vercel traffic
+  `live/dev`'s `app_url` outputs — production Vercel traffic
   (host matches `base_domain`) routes to prod, everything else
   (previews, the default `*.vercel.app` alias) routes to dev as a
   staging target.

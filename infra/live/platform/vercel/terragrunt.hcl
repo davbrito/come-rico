@@ -22,7 +22,7 @@ dependency "prod" {
   config_path = "../../prod"
 
   mock_outputs = {
-    app_hostname = "mock-app-come-rico-prod.azurewebsites.net"
+    app_url = "https://mock-prod.lambda-url.us-east-1.on.aws/"
   }
   mock_outputs_allowed_terraform_commands = ["validate", "plan", "init"]
 }
@@ -31,12 +31,15 @@ dependency "dev" {
   config_path = "../../dev"
 
   mock_outputs = {
-    app_hostname = "mock-app-come-rico-dev.azurewebsites.net"
+    app_url = "https://mock-dev.lambda-url.us-east-1.on.aws/"
   }
   mock_outputs_allowed_terraform_commands = ["validate", "plan", "init"]
 }
 
 inputs = {
-  prod_backend_url = "https://${dependency.prod.outputs.app_hostname}"
-  dev_backend_url  = "https://${dependency.dev.outputs.app_hostname}"
+  # app_url is already a full URL (the Lambda Function URL) — unlike the
+  # old Azure App Service/Container Apps hostname outputs, no "https://"
+  # prefix needed here.
+  prod_backend_url = dependency.prod.outputs.app_url
+  dev_backend_url  = dependency.dev.outputs.app_url
 }

@@ -18,7 +18,7 @@
 # so the provider/resources resolve it from that.
 #
 # var.prod_backend_url/var.dev_backend_url come from ../../live/prod and
-# ../../live/dev's `app_hostname` outputs via Terragrunt `dependency`
+# ../../live/dev's `app_url` outputs via Terragrunt `dependency`
 # blocks in ../../live/platform/vercel/terragrunt.hcl — not computed here,
 # and not the other way around (prod/dev depending on this unit) since
 # both already depend on ../aws_oidc and that would make a cycle
@@ -40,7 +40,7 @@ locals {
   }
 }
 
-# The browser's copy of the same URL — VITE_-prefixed so Vite inlines it
+# The browser's copy of the same URL — PUBLIC_-prefixed so Vite inlines it
 # into the client bundle at build time (frontend/src/lib/api.ts). Needed
 # because the browser now calls the Lambda Function URL directly
 # (cross-origin, via CORS) instead of a same-origin Vercel rewrite.

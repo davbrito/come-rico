@@ -36,7 +36,7 @@ collision, but disable it once you've confirmed the plain name works and
 want a stable name (already done for `prod`, see
 `../live/prod/terragrunt.hcl`).
 
-Outputs `app_hostname` (the Lambda Function URL) — wire it into the Vercel
+Outputs `app_url` (the Lambda Function URL) — wire it into the Vercel
 routes and the `BACKEND_URL` Vercel env var, as described in `../aws.md`.
 This value is only known after the first `terragrunt apply`.
 
@@ -93,7 +93,7 @@ Not managed here — like the CI identity, there's exactly one Vercel
 project (`come-rico`), not one per environment, so it lives in
 `../modules/vercel` as its own Terragrunt unit (`../live/platform/vercel`),
 not this stack. It depends on both `../live/prod`'s and `../live/dev`'s
-`app_hostname` outputs (via Terragrunt `dependency` blocks): the
+`app_url` outputs (via Terragrunt `dependency` blocks): the
 production Vercel deployment (host matches `base_domain`) routes to prod,
 every other deployment (previews, the default `*.vercel.app` alias)
 routes to dev as a staging target — both `BACKEND_URL` (SSR) and

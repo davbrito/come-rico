@@ -96,7 +96,7 @@ anywhere at runtime, unlike Container Apps' `ghcr-pat` secret.
 Two env vars on the Vercel project carry the backend URL to the two
 places the frontend calls it from (see `frontend/src/lib/api.ts`), both
 Terraform-managed (`infra/modules/vercel/vercel.tf`, kept in sync with
-`app_hostname` on every apply):
+`app_url` on every apply):
 
 1. **`BACKEND_URL`** — the SSR path, read server-side
    (`process.env.BACKEND_URL`); TanStack Start's server calls the backend

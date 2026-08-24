@@ -20,7 +20,7 @@ inputs = {
   oidc_provider_arn = dependency.platform.outputs.provider_arn
   # Dev is now also the staging target every Vercel preview deployment's
   # API rewrite points at (../platform/vercel, via a Terragrunt
-  # `dependency` on this unit's app_hostname output) — a stable name here
+  # `dependency` on this unit's app_url output) — a stable name here
   # just makes for a nicer, predictable staging URL, same as prod.
   app_name_unique_suffix = false
 
