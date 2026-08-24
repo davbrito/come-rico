@@ -1,10 +1,12 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 
-import { fetchCurrentUser } from "#/server/auth";
+import { authUserOptions } from "#/server/auth";
 
 export const Route = createFileRoute("/_private")({
-  beforeLoad: async () => {
-    const user = await fetchCurrentUser();
+  beforeLoad: async ({ context }) => {
+    const user = await context.queryClient
+      .query({ ...authUserOptions(), staleTime: "static" })
+      .catch(() => null);
     if (!user) throw redirect({ to: "/login" });
     return { user: user };
   },

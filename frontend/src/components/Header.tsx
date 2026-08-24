@@ -1,23 +1,16 @@
-import { useMutation } from "@tanstack/react-query";
-import { Link, useMatches, useNavigate } from "@tanstack/react-router";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
 
 import { logoutMutation } from "#/api/@tanstack/react-query.gen";
 import { Button } from "#/components/ui/Button";
+import { authUserOptions } from "#/server/auth";
 
 import ThemeToggle from "./ThemeToggle";
 
 export default function Header() {
-  const user = useMatches({
-    select: (matches) => {
-      for (const match of matches) {
-        if ("user" in match.context && match.context.user) {
-          return match.context.user;
-        }
-      }
-    },
-  });
+  const { data: user } = useQuery(authUserOptions());
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -34,7 +27,7 @@ export default function Header() {
         <h2 className="m-0 shrink-0 text-base font-semibold tracking-tight">
           <Link
             to="/"
-            className="inline-flex items-center gap-2 rounded-full border border-chip-line bg-chip-bg px-3 py-1.5 text-sm text-[var(--sea-ink)] no-underline shadow-[0_8px_24px_rgba(30,90,72,0.08)] sm:px-4 sm:py-2"
+            className="inline-flex items-center gap-2 rounded-full border border-chip-line bg-chip-bg px-3 py-1.5 text-sm text-sea-ink no-underline shadow-[0_8px_24px_rgba(30,90,72,0.08)] sm:px-4 sm:py-2"
           >
             <img src="/favicon.svg" alt="" className="h-5 w-5" />
             ComeRico
@@ -53,7 +46,7 @@ export default function Header() {
         </Button>
 
         <div
-          className={`${menuOpen ? "flex" : "hidden"} order-4 w-full flex-col items-start gap-2 pb-1 text-sm font-semibold sm:order-none sm:flex sm:w-auto sm:flex-row sm:flex-nowrap sm:items-center sm:gap-x-4 sm:gap-y-1 sm:pb-0`}
+          className={`${menuOpen ? "flex" : "hidden"} order-4 w-full flex-col items-start gap-2 pb-1 text-sm font-semibold sm:order-0 sm:flex sm:w-auto sm:flex-row sm:flex-nowrap sm:items-center sm:gap-x-4 sm:gap-y-1 sm:pb-0`}
         >
           <Link to="/" className="nav-link" activeProps={{ className: "nav-link is-active" }}>
             Inicio

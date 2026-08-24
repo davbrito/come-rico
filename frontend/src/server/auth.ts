@@ -1,3 +1,5 @@
+import { queryOptions } from "@tanstack/react-query";
+
 import { getCurrentUser } from "#/api";
 import type { CurrentUserDto } from "#/api/types.gen";
 
@@ -25,3 +27,9 @@ export const fetchCurrentUser = async (): Promise<CurrentUserDto | null> => {
   }
   return res.data;
 };
+
+export const authUserOptions = () =>
+  queryOptions({
+    queryKey: ["auth-user"],
+    queryFn: () => fetchCurrentUser(),
+  });
