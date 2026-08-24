@@ -8,7 +8,6 @@ import type { CreateClientConfig } from "#/api/client";
 // build time and process.env isn't available in the browser bundle.
 
 axios.defaults.adapter = "fetch";
-axios.defaults.baseURL = import.meta.env.PUBLIC_BACKEND_URL || "http://localhost:5276";
 // Cross-origin requests need this for the browser to send/accept the
 // auth cookie — the API's CORS policy (Program.cs) allows it explicitly
 // per origin with AllowCredentials(), matching this.
@@ -17,6 +16,7 @@ axios.defaults.withCredentials = true;
 export const createClientConfig: CreateClientConfig = (config) => ({
   ...config,
   axios,
+  baseURL: import.meta.env.PUBLIC_BACKEND_URL || "http://localhost:5276",
 });
 
 export interface ErrorMetadata {
