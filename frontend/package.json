@@ -15,7 +15,7 @@
     "lint:fix": "oxlint --fix",
     "format": "oxfmt",
     "format:fix": "oxfmt --fix",
-    "clear": "rm -r .tanstack .output",
+    "clear": "rm -r .tanstack .output dist",
     "openapi:generate": "openapi-ts"
   },
   "dependencies": {

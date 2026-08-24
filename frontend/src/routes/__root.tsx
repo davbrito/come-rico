@@ -13,7 +13,6 @@ import { Toaster } from "#/components/ui/Toaster";
 import { getInitialThemeMode } from "#/lib/theme";
 
 import Header from "../components/Header";
-import { fetchCurrentUser } from "../server/auth";
 
 import appCss from "../styles.css?url";
 
@@ -29,12 +28,6 @@ const OG_BASE = (() => {
 })();
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  // The session is read server-side and flows into the router context, so
-  // SSR, reloads, and client navigations all agree on who is logged in.
-  beforeLoad: async () => {
-    const user = await fetchCurrentUser();
-    return { user };
-  },
   head: () => ({
     meta: [
       { charSet: "utf-8" },

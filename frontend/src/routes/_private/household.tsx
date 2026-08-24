@@ -1,5 +1,5 @@
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, redirect, useNavigate, useRouter } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
 import { Check, Pencil, RefreshCw, X } from "lucide-react";
 import { useState } from "react";
 
@@ -15,11 +15,7 @@ import { Button } from "#/components/ui/Button";
 import { Input } from "#/components/ui/Input";
 import { getApiErrorMessage } from "#/lib/api";
 
-export const Route = createFileRoute("/household")({
-  beforeLoad: ({ context }) => {
-    if (!context.user) throw redirect({ to: "/login" });
-    return { user: context.user };
-  },
+export const Route = createFileRoute("/_private/household")({
   loader: async ({ context }) => {
     if (context.user.householdId) {
       await context.queryClient.ensureQueryData(getHouseholdMembersOptions());

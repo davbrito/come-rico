@@ -1,9 +1,12 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 
+import { fetchCurrentUser } from "#/server/auth";
+
 export const Route = createFileRoute("/_auth")({
-  beforeLoad: ({ context }) => {
-    if (context.user) {
-      throw redirect({ to: context.user.householdId ? "/" : "/household" });
+  loader: async () => {
+    const user = await fetchCurrentUser();
+    if (user) {
+      throw redirect({ to: user.householdId ? "/" : "/household" });
     }
   },
   component: AuthLayout,

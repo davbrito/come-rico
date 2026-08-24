@@ -17,7 +17,7 @@ import { Checkbox } from "#/components/ui/Checkbox";
 import { getApiErrorMessage } from "#/lib/api";
 import { UNIT_LABELS, UNITS } from "#/lib/food";
 
-export const Route = createFileRoute("/_household/shopping")({
+export const Route = createFileRoute("/_private/_household/shopping")({
   component: ShoppingPage,
   loader: async ({ context }) => {
     await context.queryClient.ensureQueryData(getShoppingItemsOptions());

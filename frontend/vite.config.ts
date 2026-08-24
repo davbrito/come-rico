@@ -18,15 +18,15 @@ const config = defineConfig({
       spa: { enabled: true },
     }),
     heyApiPlugin(),
-    nitro({
-      devProxy: {
-        "/api/**": { target: BACKEND_URL, changeOrigin: true },
-        "/hubs/**": { target: BACKEND_URL, changeOrigin: true, ws: true },
-      },
-      features: {
-        websocket: true,
-      },
-    }),
+    // nitro({
+    //   devProxy: {
+    //     "/api/**": { target: BACKEND_URL, changeOrigin: true },
+    //     "/hubs/**": { target: BACKEND_URL, changeOrigin: true, ws: true },
+    //   },
+    //   features: {
+    //     websocket: true,
+    //   },
+    // }),
     viteReact(),
   ],
   server: {

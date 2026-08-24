@@ -11,22 +11,23 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteRouteImport } from './routes/_auth/route'
-import { Route as HouseholdRouteRouteImport } from './routes/_household/route'
+import { Route as PrivateRouteRouteImport } from './routes/_private/route'
 import { Route as AboutRouteImport } from './routes/about'
-import { Route as HouseholdRouteImport } from './routes/household'
 import { Route as OgImageRouteImport } from './routes/og-image'
-import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as AuthForgotPasswordRouteImport } from './routes/_auth/forgot-password'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
 import { Route as AuthRegisterRouteImport } from './routes/_auth/register'
 import { Route as AuthResetPasswordRouteImport } from './routes/_auth/reset-password'
-import { Route as HouseholdDishesRouteImport } from './routes/_household/dishes'
-import { Route as HouseholdMealPlanRouteImport } from './routes/_household/meal-plan'
-import { Route as HouseholdShoppingRouteImport } from './routes/_household/shopping'
 import { Route as IconsFaviconDotpngRouteImport } from './routes/_icons/favicon[.]png'
 import { Route as IconsFaviconDotsvgRouteImport } from './routes/_icons/favicon[.]svg'
 import { Route as IconsIcon192DotpngRouteImport } from './routes/_icons/icon-192[.]png'
 import { Route as IconsIcon512DotpngRouteImport } from './routes/_icons/icon-512[.]png'
+import { Route as PrivateHouseholdRouteRouteImport } from './routes/_private/_household/route'
+import { Route as PrivateHouseholdRouteImport } from './routes/_private/household'
+import { Route as PrivateSettingsRouteImport } from './routes/_private/settings'
+import { Route as PrivateHouseholdDishesRouteImport } from './routes/_private/_household/dishes'
+import { Route as PrivateHouseholdMealPlanRouteImport } from './routes/_private/_household/meal-plan'
+import { Route as PrivateHouseholdShoppingRouteImport } from './routes/_private/_household/shopping'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -37,8 +38,8 @@ const AuthRouteRoute = AuthRouteRouteImport.update({
   id: '/_auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const HouseholdRouteRoute = HouseholdRouteRouteImport.update({
-  id: '/_household',
+const PrivateRouteRoute = PrivateRouteRouteImport.update({
+  id: '/_private',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AboutRoute = AboutRouteImport.update({
@@ -46,19 +47,9 @@ const AboutRoute = AboutRouteImport.update({
   path: '/about',
   getParentRoute: () => rootRouteImport,
 } as any)
-const HouseholdRoute = HouseholdRouteImport.update({
-  id: '/household',
-  path: '/household',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const OgImageRoute = OgImageRouteImport.update({
   id: '/og-image',
   path: '/og-image',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SettingsRoute = SettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
@@ -81,21 +72,6 @@ const AuthResetPasswordRoute = AuthResetPasswordRouteImport.update({
   path: '/reset-password',
   getParentRoute: () => AuthRouteRoute,
 } as any)
-const HouseholdDishesRoute = HouseholdDishesRouteImport.update({
-  id: '/dishes',
-  path: '/dishes',
-  getParentRoute: () => HouseholdRouteRoute,
-} as any)
-const HouseholdMealPlanRoute = HouseholdMealPlanRouteImport.update({
-  id: '/meal-plan',
-  path: '/meal-plan',
-  getParentRoute: () => HouseholdRouteRoute,
-} as any)
-const HouseholdShoppingRoute = HouseholdShoppingRouteImport.update({
-  id: '/shopping',
-  path: '/shopping',
-  getParentRoute: () => HouseholdRouteRoute,
-} as any)
 const IconsFaviconDotpngRoute = IconsFaviconDotpngRouteImport.update({
   id: '/_icons/favicon.png',
   path: '/favicon.png',
@@ -116,131 +92,162 @@ const IconsIcon512DotpngRoute = IconsIcon512DotpngRouteImport.update({
   path: '/icon-512.png',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrivateHouseholdRouteRoute = PrivateHouseholdRouteRouteImport.update({
+  id: '/_household',
+  getParentRoute: () => PrivateRouteRoute,
+} as any)
+const PrivateHouseholdRoute = PrivateHouseholdRouteImport.update({
+  id: '/household',
+  path: '/household',
+  getParentRoute: () => PrivateRouteRoute,
+} as any)
+const PrivateSettingsRoute = PrivateSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => PrivateRouteRoute,
+} as any)
+const PrivateHouseholdDishesRoute = PrivateHouseholdDishesRouteImport.update({
+  id: '/dishes',
+  path: '/dishes',
+  getParentRoute: () => PrivateHouseholdRouteRoute,
+} as any)
+const PrivateHouseholdMealPlanRoute =
+  PrivateHouseholdMealPlanRouteImport.update({
+    id: '/meal-plan',
+    path: '/meal-plan',
+    getParentRoute: () => PrivateHouseholdRouteRoute,
+  } as any)
+const PrivateHouseholdShoppingRoute =
+  PrivateHouseholdShoppingRouteImport.update({
+    id: '/shopping',
+    path: '/shopping',
+    getParentRoute: () => PrivateHouseholdRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/household': typeof HouseholdRoute
   '/og-image': typeof OgImageRoute
-  '/settings': typeof SettingsRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
   '/reset-password': typeof AuthResetPasswordRoute
-  '/dishes': typeof HouseholdDishesRoute
-  '/meal-plan': typeof HouseholdMealPlanRoute
-  '/shopping': typeof HouseholdShoppingRoute
   '/favicon.png': typeof IconsFaviconDotpngRoute
   '/favicon.svg': typeof IconsFaviconDotsvgRoute
   '/icon-192.png': typeof IconsIcon192DotpngRoute
   '/icon-512.png': typeof IconsIcon512DotpngRoute
+  '/household': typeof PrivateHouseholdRoute
+  '/settings': typeof PrivateSettingsRoute
+  '/dishes': typeof PrivateHouseholdDishesRoute
+  '/meal-plan': typeof PrivateHouseholdMealPlanRoute
+  '/shopping': typeof PrivateHouseholdShoppingRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/household': typeof HouseholdRoute
   '/og-image': typeof OgImageRoute
-  '/settings': typeof SettingsRoute
   '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
   '/register': typeof AuthRegisterRoute
   '/reset-password': typeof AuthResetPasswordRoute
-  '/dishes': typeof HouseholdDishesRoute
-  '/meal-plan': typeof HouseholdMealPlanRoute
-  '/shopping': typeof HouseholdShoppingRoute
   '/favicon.png': typeof IconsFaviconDotpngRoute
   '/favicon.svg': typeof IconsFaviconDotsvgRoute
   '/icon-192.png': typeof IconsIcon192DotpngRoute
   '/icon-512.png': typeof IconsIcon512DotpngRoute
+  '/household': typeof PrivateHouseholdRoute
+  '/settings': typeof PrivateSettingsRoute
+  '/dishes': typeof PrivateHouseholdDishesRoute
+  '/meal-plan': typeof PrivateHouseholdMealPlanRoute
+  '/shopping': typeof PrivateHouseholdShoppingRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_auth': typeof AuthRouteRouteWithChildren
-  '/_household': typeof HouseholdRouteRouteWithChildren
+  '/_private': typeof PrivateRouteRouteWithChildren
   '/about': typeof AboutRoute
-  '/household': typeof HouseholdRoute
   '/og-image': typeof OgImageRoute
-  '/settings': typeof SettingsRoute
+  '/_private/_household': typeof PrivateHouseholdRouteRouteWithChildren
   '/_auth/forgot-password': typeof AuthForgotPasswordRoute
   '/_auth/login': typeof AuthLoginRoute
   '/_auth/register': typeof AuthRegisterRoute
   '/_auth/reset-password': typeof AuthResetPasswordRoute
-  '/_household/dishes': typeof HouseholdDishesRoute
-  '/_household/meal-plan': typeof HouseholdMealPlanRoute
-  '/_household/shopping': typeof HouseholdShoppingRoute
   '/_icons/favicon.png': typeof IconsFaviconDotpngRoute
   '/_icons/favicon.svg': typeof IconsFaviconDotsvgRoute
   '/_icons/icon-192.png': typeof IconsIcon192DotpngRoute
   '/_icons/icon-512.png': typeof IconsIcon512DotpngRoute
+  '/_private/household': typeof PrivateHouseholdRoute
+  '/_private/settings': typeof PrivateSettingsRoute
+  '/_private/_household/dishes': typeof PrivateHouseholdDishesRoute
+  '/_private/_household/meal-plan': typeof PrivateHouseholdMealPlanRoute
+  '/_private/_household/shopping': typeof PrivateHouseholdShoppingRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/about'
-    | '/household'
     | '/og-image'
-    | '/settings'
     | '/forgot-password'
     | '/login'
     | '/register'
     | '/reset-password'
-    | '/dishes'
-    | '/meal-plan'
-    | '/shopping'
     | '/favicon.png'
     | '/favicon.svg'
     | '/icon-192.png'
     | '/icon-512.png'
+    | '/household'
+    | '/settings'
+    | '/dishes'
+    | '/meal-plan'
+    | '/shopping'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/about'
-    | '/household'
     | '/og-image'
-    | '/settings'
     | '/forgot-password'
     | '/login'
     | '/register'
     | '/reset-password'
-    | '/dishes'
-    | '/meal-plan'
-    | '/shopping'
     | '/favicon.png'
     | '/favicon.svg'
     | '/icon-192.png'
     | '/icon-512.png'
+    | '/household'
+    | '/settings'
+    | '/dishes'
+    | '/meal-plan'
+    | '/shopping'
   id:
     | '__root__'
     | '/'
     | '/_auth'
-    | '/_household'
+    | '/_private'
     | '/about'
-    | '/household'
     | '/og-image'
-    | '/settings'
+    | '/_private/_household'
     | '/_auth/forgot-password'
     | '/_auth/login'
     | '/_auth/register'
     | '/_auth/reset-password'
-    | '/_household/dishes'
-    | '/_household/meal-plan'
-    | '/_household/shopping'
     | '/_icons/favicon.png'
     | '/_icons/favicon.svg'
     | '/_icons/icon-192.png'
     | '/_icons/icon-512.png'
+    | '/_private/household'
+    | '/_private/settings'
+    | '/_private/_household/dishes'
+    | '/_private/_household/meal-plan'
+    | '/_private/_household/shopping'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
-  HouseholdRouteRoute: typeof HouseholdRouteRouteWithChildren
+  PrivateRouteRoute: typeof PrivateRouteRouteWithChildren
   AboutRoute: typeof AboutRoute
-  HouseholdRoute: typeof HouseholdRoute
   OgImageRoute: typeof OgImageRoute
-  SettingsRoute: typeof SettingsRoute
   IconsFaviconDotpngRoute: typeof IconsFaviconDotpngRoute
   IconsFaviconDotsvgRoute: typeof IconsFaviconDotsvgRoute
   IconsIcon192DotpngRoute: typeof IconsIcon192DotpngRoute
@@ -263,11 +270,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_household': {
-      id: '/_household'
+    '/_private': {
+      id: '/_private'
       path: ''
       fullPath: '/'
-      preLoaderRoute: typeof HouseholdRouteRouteImport
+      preLoaderRoute: typeof PrivateRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/about': {
@@ -277,25 +284,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AboutRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/household': {
-      id: '/household'
-      path: '/household'
-      fullPath: '/household'
-      preLoaderRoute: typeof HouseholdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/og-image': {
       id: '/og-image'
       path: '/og-image'
       fullPath: '/og-image'
       preLoaderRoute: typeof OgImageRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/settings': {
-      id: '/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_auth/forgot-password': {
@@ -326,27 +319,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthResetPasswordRouteImport
       parentRoute: typeof AuthRouteRoute
     }
-    '/_household/dishes': {
-      id: '/_household/dishes'
-      path: '/dishes'
-      fullPath: '/dishes'
-      preLoaderRoute: typeof HouseholdDishesRouteImport
-      parentRoute: typeof HouseholdRouteRoute
-    }
-    '/_household/meal-plan': {
-      id: '/_household/meal-plan'
-      path: '/meal-plan'
-      fullPath: '/meal-plan'
-      preLoaderRoute: typeof HouseholdMealPlanRouteImport
-      parentRoute: typeof HouseholdRouteRoute
-    }
-    '/_household/shopping': {
-      id: '/_household/shopping'
-      path: '/shopping'
-      fullPath: '/shopping'
-      preLoaderRoute: typeof HouseholdShoppingRouteImport
-      parentRoute: typeof HouseholdRouteRoute
-    }
     '/_icons/favicon.png': {
       id: '/_icons/favicon.png'
       path: '/favicon.png'
@@ -375,6 +347,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IconsIcon512DotpngRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_private/_household': {
+      id: '/_private/_household'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof PrivateHouseholdRouteRouteImport
+      parentRoute: typeof PrivateRouteRoute
+    }
+    '/_private/household': {
+      id: '/_private/household'
+      path: '/household'
+      fullPath: '/household'
+      preLoaderRoute: typeof PrivateHouseholdRouteImport
+      parentRoute: typeof PrivateRouteRoute
+    }
+    '/_private/settings': {
+      id: '/_private/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof PrivateSettingsRouteImport
+      parentRoute: typeof PrivateRouteRoute
+    }
+    '/_private/_household/dishes': {
+      id: '/_private/_household/dishes'
+      path: '/dishes'
+      fullPath: '/dishes'
+      preLoaderRoute: typeof PrivateHouseholdDishesRouteImport
+      parentRoute: typeof PrivateHouseholdRouteRoute
+    }
+    '/_private/_household/meal-plan': {
+      id: '/_private/_household/meal-plan'
+      path: '/meal-plan'
+      fullPath: '/meal-plan'
+      preLoaderRoute: typeof PrivateHouseholdMealPlanRouteImport
+      parentRoute: typeof PrivateHouseholdRouteRoute
+    }
+    '/_private/_household/shopping': {
+      id: '/_private/_household/shopping'
+      path: '/shopping'
+      fullPath: '/shopping'
+      preLoaderRoute: typeof PrivateHouseholdShoppingRouteImport
+      parentRoute: typeof PrivateHouseholdRouteRoute
+    }
   }
 }
 
@@ -396,30 +410,45 @@ const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
   AuthRouteRouteChildren,
 )
 
-interface HouseholdRouteRouteChildren {
-  HouseholdDishesRoute: typeof HouseholdDishesRoute
-  HouseholdMealPlanRoute: typeof HouseholdMealPlanRoute
-  HouseholdShoppingRoute: typeof HouseholdShoppingRoute
+interface PrivateHouseholdRouteRouteChildren {
+  PrivateHouseholdDishesRoute: typeof PrivateHouseholdDishesRoute
+  PrivateHouseholdMealPlanRoute: typeof PrivateHouseholdMealPlanRoute
+  PrivateHouseholdShoppingRoute: typeof PrivateHouseholdShoppingRoute
 }
 
-const HouseholdRouteRouteChildren: HouseholdRouteRouteChildren = {
-  HouseholdDishesRoute: HouseholdDishesRoute,
-  HouseholdMealPlanRoute: HouseholdMealPlanRoute,
-  HouseholdShoppingRoute: HouseholdShoppingRoute,
+const PrivateHouseholdRouteRouteChildren: PrivateHouseholdRouteRouteChildren = {
+  PrivateHouseholdDishesRoute: PrivateHouseholdDishesRoute,
+  PrivateHouseholdMealPlanRoute: PrivateHouseholdMealPlanRoute,
+  PrivateHouseholdShoppingRoute: PrivateHouseholdShoppingRoute,
 }
 
-const HouseholdRouteRouteWithChildren = HouseholdRouteRoute._addFileChildren(
-  HouseholdRouteRouteChildren,
+const PrivateHouseholdRouteRouteWithChildren =
+  PrivateHouseholdRouteRoute._addFileChildren(
+    PrivateHouseholdRouteRouteChildren,
+  )
+
+interface PrivateRouteRouteChildren {
+  PrivateHouseholdRouteRoute: typeof PrivateHouseholdRouteRouteWithChildren
+  PrivateHouseholdRoute: typeof PrivateHouseholdRoute
+  PrivateSettingsRoute: typeof PrivateSettingsRoute
+}
+
+const PrivateRouteRouteChildren: PrivateRouteRouteChildren = {
+  PrivateHouseholdRouteRoute: PrivateHouseholdRouteRouteWithChildren,
+  PrivateHouseholdRoute: PrivateHouseholdRoute,
+  PrivateSettingsRoute: PrivateSettingsRoute,
+}
+
+const PrivateRouteRouteWithChildren = PrivateRouteRoute._addFileChildren(
+  PrivateRouteRouteChildren,
 )
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRouteRoute: AuthRouteRouteWithChildren,
-  HouseholdRouteRoute: HouseholdRouteRouteWithChildren,
+  PrivateRouteRoute: PrivateRouteRouteWithChildren,
   AboutRoute: AboutRoute,
-  HouseholdRoute: HouseholdRoute,
   OgImageRoute: OgImageRoute,
-  SettingsRoute: SettingsRoute,
   IconsFaviconDotpngRoute: IconsFaviconDotpngRoute,
   IconsFaviconDotsvgRoute: IconsFaviconDotsvgRoute,
   IconsIcon192DotpngRoute: IconsIcon192DotpngRoute,

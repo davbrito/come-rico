@@ -13,7 +13,7 @@ import { Button } from "#/components/ui/Button";
 import { ConfirmDialog } from "#/components/ui/ConfirmDialog";
 import { getApiErrorMessage } from "#/lib/api";
 
-export const Route = createFileRoute("/_household/dishes")({
+export const Route = createFileRoute("/_private/_household/dishes")({
   component: DishesPage,
   loader: async ({ context }) => {
     await context.queryClient.ensureQueryData(getDishesOptions());

@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
 
@@ -13,11 +13,7 @@ import { Button } from "#/components/ui/Button";
 import { Input } from "#/components/ui/Input";
 import { getApiErrorMessage } from "#/lib/api";
 
-export const Route = createFileRoute("/settings")({
-  beforeLoad: ({ context }) => {
-    if (!context.user) throw redirect({ to: "/login" });
-    return { user: context.user };
-  },
+export const Route = createFileRoute("/_private/settings")({
   component: SettingsPage,
 });
 
@@ -32,7 +28,7 @@ function SettingsPage() {
   return (
     <main className="page-wrap px-4 pt-10 pb-8">
       <div className="mx-auto max-w-md space-y-4">
-        <h1 className="mb-2 text-center text-2xl font-bold text-[var(--sea-ink)]">
+        <h1 className="mb-2 text-center text-2xl font-bold text-sea-ink">
           ⚙️ Ajustes de la cuenta
         </h1>
 
