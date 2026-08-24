@@ -2,8 +2,13 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "services": {
     "frontend": {
-      "root": "frontend/dist/client",
-      "framework": "tanstack-start"
+      "root": "frontend",
+      "buildCommand": "pnpm build",
+      "outputDirectory": "dist/client",
+      "rewrites": [
+        { "source": "/og-image", "destination": "/og-image.png" },
+        { "source": "/(.*)", "destination": "/_shell.html" }
+      ]
     }
   },
   "crons": [{ "path": "/api/images/cleanup", "schedule": "0 0 * * 0" }],

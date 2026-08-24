@@ -1,3 +1,5 @@
+allowBuilds:
+  esbuild: true
 minimumReleaseAgeExclude:
   - '@tanstack/query-core@5.102.1'
   - '@tanstack/query-devtools@5.102.1'
