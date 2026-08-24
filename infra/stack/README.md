@@ -15,6 +15,9 @@ Manages, per environment (`var.environment`):
 - **Cloudflare R2**: the image storage bucket, its CORS policy, and a
   custom domain (`storage-<environment>.<base_domain>`, e.g.
   `storage-prod.comerico.davbrito.dev` by default)
+- **CORS**: the Lambda function's `Cors__*` env vars, allowing the
+  frontend's origin(s) to call it directly — see
+  [Vercel (frontend)](#vercel-frontend)
 
 State lives in Cloudflare R2, not locally — see
 `../root.hcl`'s `remote_state` block, not this module.
@@ -93,21 +96,23 @@ not this stack. It depends on both `../live/prod`'s and `../live/dev`'s
 `app_hostname` outputs (via Terragrunt `dependency` blocks): the
 production Vercel deployment (host matches `base_domain`) routes to prod,
 every other deployment (previews, the default `*.vercel.app` alias)
-routes to dev as a staging target — both the `BACKEND_URL` env var and the
-`/api/*` rewrite are split this way, built from those `dependency`
-outputs. Dev also sets `app_name_unique_suffix = false` (see
-[Naming](#naming), same as prod) — not strictly required for this, but a
-stable name makes for a nicer staging URL. See
-`../modules/vercel/vercel.tf` for the full picture, including why the
-dependency has to point *at* prod/dev rather than the other way around
-(the CI provider's dependency already runs the other direction).
+routes to dev as a staging target — both `BACKEND_URL` (SSR) and
+`VITE_BACKEND_URL` (browser, inlined at build time) are split this way,
+built from those `dependency` outputs. Dev also sets
+`app_name_unique_suffix = false` (see [Naming](#naming), same as prod) —
+not strictly required for this, but a stable name makes for a nicer
+staging URL. See `../modules/vercel/vercel.tf` for the full picture,
+including why the dependency has to point *at* prod/dev rather than the
+other way around (the CI provider's dependency already runs the other
+direction).
 
-The `/api/(.*)` rewrite is a `vercel_project_route` resource in
-`../modules/vercel/vercel.tf`, not a static `vercel.json` entry — its
-`dest` field is a hardcoded literal (the Vercel provider panics on an
-interpolated one), so it needs a one-time hand-edit to the real
-`app_hostname` after each environment's first apply; see the comment on
-those resources.
+The browser calls the Lambda Function URL directly, cross-origin — no
+rewrite of any kind in front of it. `lambda.tf`'s `Cors__AllowedOrigins`
+(prod, exact match on `base_domain`) and `Cors__AllowedOriginSuffixes`
+(dev, suffix match on `.vercel.app` — preview deployments don't have a
+fixed origin to allowlist) are what actually authorize this on the API
+side; the auth cookie uses `SameSite=None` in production to go with it
+(see `Program.cs`).
 
 ## Secrets
 

@@ -28,6 +28,27 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
 
+// The frontend is a separate origin now (Vercel calling the Lambda
+// Function URL directly, no same-origin rewrite in front of it), so the
+// browser needs real CORS instead of relying on same-site cookie rules.
+// Cors:AllowedOrigins is exact-match (production's fixed domain);
+// Cors:AllowedOriginSuffixes is suffix-match (dev's Vercel preview
+// deployments get a different *.vercel.app subdomain per deployment, so
+// there's no fixed origin to allowlist there).
+var corsAllowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+var corsAllowedOriginSuffixes = builder.Configuration.GetSection("Cors:AllowedOriginSuffixes").Get<string[]>() ?? [];
+builder.Services.AddCors(options =>
+    options.AddDefaultPolicy(policy =>
+        policy
+            .SetIsOriginAllowed(origin =>
+                corsAllowedOrigins.Contains(origin) || corsAllowedOriginSuffixes.Any(suffix => origin.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+            )
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials()
+    )
+);
+
 // Enums travel as strings over the wire (MealType, MeasurementUnit) so the
 // generated frontend client gets string literal unions instead of numbers.
 builder.Services.ConfigureHttpJsonOptions(options =>
@@ -67,7 +88,14 @@ builder.Services.ConfigureApplicationCookie(options =>
     // breaks the cookie over plain HTTP in local dev.
     options.Cookie.Name = builder.Environment.IsDevelopment() ? "comerico.auth" : "__Host-comerico.auth";
     options.Cookie.HttpOnly = true;
-    options.Cookie.SameSite = SameSiteMode.Lax; // CSRF baseline: blocks cross-site POSTs
+    // Cross-origin now (frontend on Vercel, API on a Lambda Function URL)
+    // — browsers won't attach a SameSite=Lax cookie to a cross-site
+    // fetch, only Lax's own same-site rules apply. None requires Secure,
+    // which is unconditional in prod but breaks plain HTTP local dev, so
+    // this stays Lax there — localhost:3000 and localhost:5276 count as
+    // same-site (same registrable domain, different port) even though
+    // CORS still treats them as different origins, so Lax still works.
+    options.Cookie.SameSite = builder.Environment.IsDevelopment() ? SameSiteMode.Lax : SameSiteMode.None;
     options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
         ? CookieSecurePolicy.SameAsRequest
         : CookieSecurePolicy.Always;
@@ -156,6 +184,7 @@ app.UseExceptionHandler(exceptionApp =>
     });
 });
 
+app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
 

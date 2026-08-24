@@ -46,13 +46,29 @@ locals {
 # deployed to Vercel; those are dead since the Azure migration.
 #
 # TanStack Start's SSR calls the backend directly during beforeLoad (see
-# frontend/src/lib/api.ts) — BACKEND_URL is that path; the
-# vercel_project_route rules below cover the browser path, with the same
-# prod/preview split.
+# frontend/src/lib/api.ts) — BACKEND_URL is that path. The browser talks
+# to the same Lambda Function URL directly too, cross-origin — see
+# VITE_BACKEND_URL below and the Cors__* env vars in
+# ../../stack/lambda.tf. No same-origin rewrite of any kind anymore (the
+# old vercel_project_route couldn't express a route with an interpolated
+# dest, which is what pushed this to CORS instead).
 resource "vercel_project_environment_variable" "backend_url" {
   for_each   = local.vercel_envs
   project_id = data.vercel_project.frontend.id
   key        = "BACKEND_URL"
+  value      = each.value.backend_url
+  target     = [each.key]
+  sensitive  = false
+}
+
+# The browser's copy of the same URL — VITE_-prefixed so Vite inlines it
+# into the client bundle at build time (frontend/src/lib/api.ts). Needed
+# because the browser now calls the Lambda Function URL directly
+# (cross-origin, via CORS) instead of a same-origin Vercel rewrite.
+resource "vercel_project_environment_variable" "vite_backend_url" {
+  for_each   = local.vercel_envs
+  project_id = data.vercel_project.frontend.id
+  key        = "VITE_BACKEND_URL"
   value      = each.value.backend_url
   target     = [each.key]
   sensitive  = false
@@ -66,72 +82,6 @@ resource "vercel_project_crons" "frontend" {
   project_id = data.vercel_project.frontend.id
   enabled    = true
 }
-
-# Live project-level routing rules (promoted immediately, independent of
-# deployments) — Terraform-managed alongside the backends they point at.
-# The frontend's own service-routing catch-all ("/(.*)" -> service
-# frontend) stays in vercel.json: that's tied to the monorepo "services"
-# build config, not an ordinary rewrite this API can express.
-#
-# Two rules, evaluated in order: the production-host-specific one first,
-# then an unconditional fallback for everything else (previews, the
-# default *.vercel.app alias).
-#
-# `dest` (only `dest` — `has.value` above is fine interpolated) must be a
-# plain literal: confirmed by `terraform validate` actually failing
-# ("Missing route action" — treats any interpolated value, even a
-# fully-static var/local, as unset) when it was
-# `"${var.prod_backend_url}/api/$1"`, not just a theoretical provider
-# quirk.
-#
-# Lambda Function URLs aren't predictable before creation (see
-# infra/stack/outputs.tf's app_hostname) — only known after that
-# environment's first `terragrunt apply` — so these two literals can't be
-# filled in until then. Grab the real values from `terragrunt output
-# app_hostname` in infra/live/prod and infra/live/dev and hand-edit both
-# `dest` fields below (they're stable afterwards).
-resource "vercel_project_route" "api_rewrite_production" {
-  project_id = data.vercel_project.frontend.id
-  name       = "api-rewrite-production"
-
-  # Omitting this entirely crashes the provider (v5.12.0) — its validator
-  # panics on a nil position rather than treating it as truly optional.
-  position = {
-    placement = "start"
-  }
-
-  route = {
-    src = "/api/(.*)"
-    has = [{
-      type  = "host"
-      value = var.base_domain
-    }]
-    # TODO: replace with the real value of `terragrunt output app_hostname`
-    # from infra/live/prod after that environment's first apply against
-    # AWS Lambda — see the comment above for why this has to be a literal
-    # instead of a reference to var.prod_backend_url. Stale Azure Container
-    # Apps URL left here from before the Lambda migration.
-    dest = "https://ca-come-rico-prod.wittystone-b6cf8c79.canadaeast.azurecontainerapps.io/api/$1"
-  }
-}
-
-# resource "vercel_project_route" "api_rewrite_preview" {
-#   project_id = data.vercel_project.frontend.id
-#   name       = "api-rewrite-preview"
-
-#   position = {
-#     placement          = "after"
-#     reference_route_id = vercel_project_route.api_rewrite_production.id
-#   }
-
-#   route = {
-#     src = "/api/(.*)"
-#     # From infra/live/dev's app_hostname output — see the comment on
-#     # api_rewrite_production above for why this has to be a literal
-#     # instead of a reference to var.dev_backend_url.
-#     dest = "https://ca-come-rico-dev.wittystone-b6cf8c79.canadaeast.azurecontainerapps.io/api/$1"
-#   }
-# }
 
 resource "vercel_project_domain" "frontend" {
   project_id = data.vercel_project.frontend.id

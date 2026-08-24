@@ -4,9 +4,13 @@ import axios, { isAxiosError, type InternalAxiosRequestConfig } from "axios";
 
 import type { CreateClientConfig } from "#/api/client";
 
+// The API is a separate origin now (a Lambda Function URL, not something
+// same-origin behind a Vercel rewrite) — the client build needs its own
+// copy of the backend URL since import.meta.env.VITE_* is inlined at
+// build time and process.env isn't available in the browser bundle.
 const getBaseUrl = createIsomorphicFn()
   .server(() => process.env.BACKEND_URL ?? "http://localhost:5276")
-  .client(() => window.location.origin);
+  .client(() => import.meta.env.VITE_BACKEND_URL ?? "http://localhost:5276");
 
 const initRequest = createIsomorphicFn()
   .server(async (config: InternalAxiosRequestConfig) => {
@@ -20,6 +24,10 @@ const initRequest = createIsomorphicFn()
 
 axios.defaults.adapter = "fetch";
 axios.defaults.baseURL = getBaseUrl();
+// Cross-origin requests need this for the browser to send/accept the
+// auth cookie — the API's CORS policy (Program.cs) allows it explicitly
+// per origin with AllowCredentials(), matching this.
+axios.defaults.withCredentials = true;
 axios.interceptors.request.use(initRequest);
 
 export const createClientConfig: CreateClientConfig = (config) => ({

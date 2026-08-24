@@ -10,10 +10,11 @@ browser ──► Vercel (frontend SSR + /api/* rewrite) ──► Lambda Functi
                                               Neon (Postgres) ─┴─ Cloudflare R2 (images)
 ```
 
-The browser only ever talks to the Vercel origin — `vercel.json` rewrites
-`/api/*` to the Lambda Function URL server-side. That keeps the `__Host-`
-auth cookie same-origin, so there's no CORS config and no `SameSite=None`
-needed.
+The browser calls the Lambda Function URL directly, cross-origin — the
+API's CORS policy (`Program.cs`) allows the frontend's origin(s)
+explicitly with credentials, and the auth cookie uses `SameSite=None` in
+production (required for a cross-site cookie) instead of the same-origin
+`Lax` a Container Apps-style rewrite would have allowed.
 
 Infrastructure is managed with Terraform — see [`infra/stack/`](stack/README.md).
 It provisions the Lambda function/role/log group (via
@@ -75,6 +76,8 @@ R2__SecretAccessKey                   = local.r2_secret_access_key
 R2__BucketName                        = cloudflare_r2_bucket.images.name
 R2__PublicBaseUrl                     = local.r2_public_base_url           # https://storage-<environment>.<base_domain>
 CRON_SECRET                           = random_password.cron_secret.result
+Cors__AllowedOrigins__0               = "https://${base_domain}"           # prod only
+Cors__AllowedOriginSuffixes__0        = ".vercel.app"                      # dev only — no fixed preview origin to allowlist
 ```
 
 Lambda encrypts every environment variable at rest with an AWS-managed
@@ -90,24 +93,23 @@ anywhere at runtime, unlike Container Apps' `ghcr-pat` secret.
 
 ## Wiring it to Vercel
 
-Two places reference the backend, because the frontend reaches it two
-different ways (see `frontend/src/lib/api.ts`):
+Two env vars on the Vercel project carry the backend URL to the two
+places the frontend calls it from (see `frontend/src/lib/api.ts`), both
+Terraform-managed (`infra/modules/vercel/vercel.tf`, kept in sync with
+`app_hostname` on every apply):
 
-1. **`vercel.json`** — the `/api/(.*)` rewrite destination is
-   Terraform-managed — see `infra/modules/vercel/vercel.tf`'s
-   `vercel_project_route` resources. Function URLs aren't predictable
-   before creation, so that `dest` field needs a one-time hand-edit after
-   provisioning (`terragrunt output app_hostname` in each environment) —
-   same as before, just a different unpredictable hostname.
-2. **`BACKEND_URL`** env var on the Vercel project — Terraform-managed
-   (`infra/modules/vercel/vercel.tf`, references the existing project by
-   name via a data source), kept in sync with `app_hostname` on every
-   apply.
-   This is the SSR path — TanStack Start's server calls the backend
+1. **`BACKEND_URL`** — the SSR path, read server-side
+   (`process.env.BACKEND_URL`); TanStack Start's server calls the backend
    directly during `beforeLoad`.
+2. **`VITE_BACKEND_URL`** — the browser path, inlined into the client
+   bundle at build time (`import.meta.env.VITE_BACKEND_URL`) since
+   `process.env` isn't available client-side. The browser calls this
+   cross-origin (no rewrite in front of it), so it also needs the API's
+   CORS policy to allow the calling origin — see
+   [Environment variables](#environment-variables)'s `Cors__*` entries.
 
-Both must be set, or auth will work in the browser but not on first paint
-(or vice versa).
+Both must be set, or auth will work on first paint (SSR) but not in the
+browser (or vice versa).
 
 ## CI/CD
 

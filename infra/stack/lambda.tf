@@ -97,16 +97,22 @@ resource "aws_lambda_function" "api" {
   # default — unlike Container Apps, there's no separate secret{}
   # indirection needed to keep these out of a plain env list.
   environment {
-    variables = {
-      ASPNETCORE_ENVIRONMENT                 = var.environment == "prod" ? "Production" : "Staging"
-      "ConnectionStrings__DefaultConnection" = local.database_connection_string
-      "R2__ServiceUrl"                       = local.r2_service_url
-      "R2__AccessKeyId"                      = local.r2_access_key_id
-      "R2__SecretAccessKey"                  = local.r2_secret_access_key
-      "R2__BucketName"                       = cloudflare_r2_bucket.images.name
-      "R2__PublicBaseUrl"                    = local.r2_public_base_url
-      "CRON_SECRET"                          = random_password.cron_secret.result
-    }
+    variables = merge(
+      {
+        ASPNETCORE_ENVIRONMENT                 = var.environment == "prod" ? "Production" : "Staging"
+        "ConnectionStrings__DefaultConnection" = local.database_connection_string
+        "R2__ServiceUrl"                       = local.r2_service_url
+        "R2__AccessKeyId"                      = local.r2_access_key_id
+        "R2__SecretAccessKey"                  = local.r2_secret_access_key
+        "R2__BucketName"                       = cloudflare_r2_bucket.images.name
+        "R2__PublicBaseUrl"                    = local.r2_public_base_url
+        "CRON_SECRET"                          = random_password.cron_secret.result
+      },
+      # ASP.NET Core binds array config from indexed double-underscore
+      # keys (Cors__AllowedOrigins__0, __1, ...) — see local.cors_* below.
+      { for i, origin in local.cors_allowed_origins : "Cors__AllowedOrigins__${i}" => origin },
+      { for i, suffix in local.cors_allowed_origin_suffixes : "Cors__AllowedOriginSuffixes__${i}" => suffix },
+    )
   }
 
   depends_on = [aws_cloudwatch_log_group.api, aws_iam_role_policy.lambda_logs]
@@ -116,11 +122,21 @@ resource "aws_lambda_function" "api" {
   }
 }
 
-# authorization_type = NONE — this is a public API (same as Container
-# Apps' external ingress was); Vercel's server-side /api/* rewrite is the
-# only intended caller, but Function URLs have no IP allowlist, so nothing
-# here actually restricts by origin. Same trust model as before.
+# authorization_type = NONE — this is a public API, called directly by
+# the browser cross-origin now (see the Cors__* env vars above); Function
+# URLs have no IP allowlist, so CORS on the app itself is what actually
+# restricts who can read a response, not anything here.
 resource "aws_lambda_function_url" "api" {
   function_name      = aws_lambda_function.api.function_name
   authorization_type = "NONE"
+}
+
+locals {
+  # Production has one fixed public domain; dev's Vercel target is the
+  # default *.vercel.app preview alias (a different subdomain per
+  # deployment), so there's no fixed origin to allowlist there — a suffix
+  # match is the only option. See stack/README.md#vercel-frontend for why
+  # dev doesn't get its own base_domain-scoped hostname the way prod does.
+  cors_allowed_origins         = var.environment == "prod" ? ["https://${var.base_domain}"] : []
+  cors_allowed_origin_suffixes = var.environment == "prod" ? [] : [".vercel.app"]
 }
