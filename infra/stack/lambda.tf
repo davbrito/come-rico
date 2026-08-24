@@ -10,6 +10,7 @@
 
 resource "aws_iam_role" "lambda_exec" {
   name = "${local.function_name}-exec"
+  tags = local.aws_tags
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -30,6 +31,7 @@ resource "aws_cloudwatch_log_group" "api" {
   # allowance.
   name              = "/aws/lambda/${local.function_name}"
   retention_in_days = 7
+  tags              = local.aws_tags
 }
 
 # Scoped to just this function's own log group — narrower than the
@@ -70,6 +72,7 @@ data "archive_file" "lambda_placeholder" {
 resource "aws_lambda_function" "api" {
   function_name = local.function_name
   role          = aws_iam_role.lambda_exec.arn
+  tags          = local.aws_tags
 
   filename         = data.archive_file.lambda_placeholder.output_path
   source_code_hash = data.archive_file.lambda_placeholder.output_base64sha256

@@ -27,6 +27,7 @@ locals {
 # protection rules, however they're configured.
 resource "aws_iam_role" "github_actions" {
   name = "${local.function_name}-github-actions"
+  tags = local.aws_tags
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
