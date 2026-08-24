@@ -3,6 +3,7 @@
   "services": {
     "frontend": {
       "root": "frontend",
+      "framework": "vite",
       "buildCommand": "pnpm build",
       "outputDirectory": "dist/client",
       "rewrites": [
