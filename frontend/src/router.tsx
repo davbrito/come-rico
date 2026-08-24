@@ -5,7 +5,7 @@ import {
   type MutationFunctionContext,
 } from "@tanstack/react-query";
 import { createRouter as createTanStackRouter } from "@tanstack/react-router";
-import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
+// import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
 import { createIsomorphicFn } from "@tanstack/react-start";
 
 import { toastManager } from "./components/ui/Toaster";
@@ -52,7 +52,7 @@ export function getRouter() {
     context: { queryClient },
   });
 
-  setupRouterSsrQueryIntegration({ router, queryClient });
+  // setupRouterSsrQueryIntegration({ router, queryClient });
 
   return router;
 }
