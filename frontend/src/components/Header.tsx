@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { Link, useMatch, useNavigate } from "@tanstack/react-router";
+import { Link, useMatches, useNavigate } from "@tanstack/react-router";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
 
@@ -9,10 +9,14 @@ import { Button } from "#/components/ui/Button";
 import ThemeToggle from "./ThemeToggle";
 
 export default function Header() {
-  const user = useMatch({
-    from: "/_private",
-    select: (ctx) => ctx.context.user,
-    shouldThrow: false,
+  const user = useMatches({
+    select: (matches) => {
+      for (const match of matches) {
+        if ("user" in match.context && match.context.user) {
+          return match.context.user;
+        }
+      }
+    },
   });
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
