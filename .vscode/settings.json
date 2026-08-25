@@ -22,5 +22,10 @@
   "tailwindCSS.classFunctions": ["cn", "cva"],
   "yaml.schemas": {
     "https://www.schemastore.org/github-workflow.json": "${workspaceFolder}/.github/workflows/*.yml"
+  },
+  "files.watcherExclude": {
+    "**/.terragrunt-cache/**": true,
+    "**/.terraform/**": true,
+    "**/node_modules/**": true
   }
 }
