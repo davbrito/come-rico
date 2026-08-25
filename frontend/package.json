@@ -1,5 +1,5 @@
 {
-  "name": "come-rico-frontend",
+  "name": "@comerico/frontend",
   "private": true,
   "type": "module",
   "imports": {

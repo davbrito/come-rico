@@ -14,12 +14,10 @@ backend/**/*.db-wal
 **/secrets.json
 
 # ─── Frontend / Node ───────────────────────────────────────────────────────────
-frontend/node_modules/
-frontend/.output/
-frontend/.vinxi/
-frontend/dist/
-frontend/.env.local
-frontend/.env.*.local
+node_modules/
+.output/
+.vinxi/
+dist/
 
 # ─── Environment files ─────────────────────────────────────────────────────────
 .env
