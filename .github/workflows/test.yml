@@ -42,7 +42,7 @@ jobs:
         with:
           package_json_file: ./frontend/package.json
           cache: true
-          cache-dependency-path: ./frontend/pnpm-lock.yaml
+          cache_dependency_path: ./frontend/pnpm-lock.yaml
 
       - uses: actions/setup-node@v7
         with:
