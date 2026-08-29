@@ -1,4 +1,4 @@
-import { ImageResponse } from "@vercel/og";
+import { renderPng } from "#/lib/render-image";
 
 // ── Font loading (Google Fonts CSS API) ─────────────────────────────────
 
@@ -149,10 +149,10 @@ function OgTemplate() {
 
 // ── Public API ──────────────────────────────────────────────────────────
 
-export async function generateOgImage(): Promise<ImageResponse> {
+export async function generateOgImage(): Promise<Response> {
   const [manropeData, frauncesData] = await Promise.all([loadManrope(), loadFraunces()]);
 
-  return new ImageResponse(<OgTemplate />, {
+  return renderPng(<OgTemplate />, {
     width: 1200,
     height: 630,
     fonts: [

@@ -1,5 +1,6 @@
-import { ImageResponse } from "@vercel/og";
 import { renderToStaticMarkup } from "react-dom/server";
+
+import { renderPng } from "#/lib/render-image";
 
 // ── Pabellón Venezolano icon ────────────────────────────────────────────
 
@@ -107,8 +108,8 @@ function SvgPlate({ detailed = true }: { detailed?: boolean }) {
   );
 }
 
-export async function generateFavicon(): Promise<ImageResponse> {
-  return new ImageResponse(
+export async function generateFavicon(): Promise<Response> {
+  return renderPng(
     <div
       style={{
         display: "flex",
@@ -122,8 +123,8 @@ export async function generateFavicon(): Promise<ImageResponse> {
   );
 }
 
-export async function generatePwaIcon(size: number): Promise<ImageResponse> {
-  return new ImageResponse(
+export async function generatePwaIcon(size: number): Promise<Response> {
+  return renderPng(
     <div
       style={{
         display: "flex",
