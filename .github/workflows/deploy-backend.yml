@@ -70,10 +70,11 @@ jobs:
       # linux-arm64 to match the function's arm64 architecture
       # (infra/stack/lambda.tf). InformationalVersion carries the commit
       # SHA into the built assembly so a Production incident can be traced
-      # back to what's actually deployed. OpenApiGenerateDocuments=false:
-      # that target runs the just-built assembly in-process to generate
-      # ComeRico.Api.json, which fails cross-arch (arm64 output loaded by
-      # the x64 runner) — the doc isn't needed for a deploy anyway.
+      # back to what's actually deployed. OpenApiGenerateDocuments is off
+      # by default in the csproj (that target runs the just-built assembly
+      # in-process to generate ComeRico.Api.json, which fails cross-arch —
+      # arm64 output loaded by the x64 runner — and isn't needed for a
+      # deploy anyway).
       - name: Publish
         working-directory: backend
         run: |
@@ -82,7 +83,6 @@ jobs:
             -r linux-arm64 \
             --self-contained false \
             -p:InformationalVersion=${{ github.sha }} \
-            -p:OpenApiGenerateDocuments=false \
             -o publish
 
       - name: Zip package
