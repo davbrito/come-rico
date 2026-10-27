@@ -66,7 +66,7 @@ function MealPlanPage() {
     null;
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  const todayKey = toDateKey(new Date());
+  const [todayKey] = useState(() => toDateKey(new Date()));
   const dishItems = dishes.map((dish) => ({ label: dish.name, value: dish.id }));
 
   return (
