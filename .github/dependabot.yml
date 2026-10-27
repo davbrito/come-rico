@@ -1,30 +1,44 @@
 version: 2
+
+# Grouping policy (same for every ecosystem):
+#   - version updates, minor + patch: one grouped PR per ecosystem
+#   - version updates, major: not grouped on purpose -> one PR per dependency,
+#     so a breaking major doesn't hold up the rest (a grouped major PR is
+#     all-or-nothing)
+#   - security updates: their own grouped PR; security updates ignore the
+#     version-update groups, so without these they open one PR per advisory
 updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 10
     groups:
       npm-minor-patch:
+        applies-to: version-updates
         update-types:
           - "minor"
           - "patch"
-      npm-major:
-        update-types:
-          - "major"
+      npm-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
 
   - package-ecosystem: "nuget"
     directory: "/backend"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 10
     groups:
       nuget-minor-patch:
+        applies-to: version-updates
         update-types:
           - "minor"
           - "patch"
-      nuget-major:
-        update-types:
-          - "major"
+      nuget-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
 
   - package-ecosystem: "docker"
     directory: "/backend"
@@ -32,12 +46,14 @@ updates:
       interval: "weekly"
     groups:
       docker-minor-patch:
+        applies-to: version-updates
         update-types:
           - "minor"
           - "patch"
-      docker-major:
-        update-types:
-          - "major"
+      docker-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -45,9 +61,30 @@ updates:
       interval: "weekly"
     groups:
       github-actions-minor-patch:
+        applies-to: version-updates
         update-types:
           - "minor"
           - "patch"
-      github-actions-major:
+      github-actions-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
+
+  # Providers/modules and .terraform.lock.hcl of the Terraform modules.
+  # infra/live/** are Terragrunt units (terragrunt.hcl + lockfile only), which
+  # the terraform ecosystem doesn't read, so only the modules are listed.
+  - package-ecosystem: "terraform"
+    directories:
+      - "/infra/modules/*"
+    schedule:
+      interval: "weekly"
+    groups:
+      terraform-minor-patch:
+        applies-to: version-updates
         update-types:
-          - "major"
+          - "minor"
+          - "patch"
+      terraform-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
