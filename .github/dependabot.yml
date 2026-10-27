@@ -70,12 +70,16 @@ updates:
         patterns:
           - "*"
 
-  # Providers/modules and .terraform.lock.hcl of the Terraform modules.
+  # Provider constraints and .terraform.lock.hcl of the Terraform code.
   # infra/live/** are Terragrunt units (terragrunt.hcl + lockfile only), which
-  # the terraform ecosystem doesn't read, so only the modules are listed.
+  # the terraform ecosystem doesn't read: only the directories with .tf files
+  # are listed (modules/*, stack). Terragrunt units keep their own copy of the
+  # lockfile (live/platform/vercel mirrors modules/vercel), so when Dependabot
+  # bumps a module lockfile, copy it over to the matching live/ unit.
   - package-ecosystem: "terraform"
     directories:
       - "/infra/modules/*"
+      - "/infra/stack"
     schedule:
       interval: "weekly"
     groups:
