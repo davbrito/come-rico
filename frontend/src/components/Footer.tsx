@@ -1,5 +1,7 @@
+import { useState } from "react";
+
 export default function Footer() {
-  const year = new Date().getFullYear();
+  const [year] = useState(() => new Date().getFullYear());
 
   return (
     <footer className="mt-20 border-t border-[var(--line)] px-4 pt-10 pb-14 text-[var(--sea-ink-soft)]">
