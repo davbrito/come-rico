@@ -35,7 +35,9 @@ Criterios para la lista corta:
 | **Canasta** | "Canasta básica" se entiende en toda Latinoamérica. | Suena a supermercado, no a hogar; puede leerse como tienda. | Sin revisar. |
 | **Familist** | Corto, en la idea original. | Anglicismo, y se confunde con **FamyList**. | FamyList existe. |
 
-**Favorito actual: Despi**, propuesto por el dueño del producto (sujeto a revisar el dominio y la marca). Respaldo: **Alacena**, **Repón** y **Casa Lista**. Siguiente paso: revisar los dominios (`.app`, `.mx`, `.com`) y la marca para esas tres, y elegir.
+**Favorito actual: Despi**, propuesto por el dueño del producto (sujeto a revisar el dominio y la marca).
+
+**Forma del nombre**: la marca es solo **Despi** (logo, header, `<title>`, manifest, textos). "App" no forma parte del nombre; se usa solo donde hace falta desambiguar: dominio o redes si `despi` no está libre (`despiapp.com`, `@despiapp`). En tiendas de apps, el título lleva un descriptor para búsqueda: **"Despi: lista de compras de casa"**. Respaldo: **Alacena**, **Repón** y **Casa Lista**. Siguiente paso: revisar los dominios (`.app`, `.mx`, `.com`) y la marca para esas tres, y elegir.
 
 > Decisión pendiente (dueño del producto). El resto del documento usa **{marca}** como nombre provisional.
 
