@@ -115,12 +115,12 @@ public class Product : IHasHousehold
     Guid Id; Guid HouseholdId;
     string Name;                 // "Shampoo", "Pasta dental", "Arroz"
     ProductCategory Category;    // Higiene, Limpieza, Despensa, Frescos, Bebés, Mascotas, Otros
-    decimal? DefaultAmount;      // 1
+    decimal? DefaultQuantity;      // 1
     MeasurementUnit? DefaultUnit;// Piece / Package
-    int? RestockIntervalDays;    // t = lo que dura DefaultAmount; null = sin recurrencia (solo si se marca agotado)
+    int? RestockIntervalDays;    // t = lo que dura DefaultQuantity; null = sin recurrencia (solo si se marca agotado)
     string? PreferredBrand;      // "Colgate"; se muestra en la lista, opcional
     DateOnly? LastPurchasedOn;
-    decimal? LastPurchasedAmount;// cache del último evento Purchased: para escalar t por cantidad
+    decimal? LastPurchasedQuantity;// cache del último evento Purchased: para escalar t por cantidad
     MeasurementUnit? LastPurchasedUnit;
     DateTime? OutOfStockAt;      // "se acabó"; se limpia al comprar
     DateOnly? SnoozedUntil;      // "todavía tengo"; solo afecta a la regla de tiempo
@@ -136,7 +136,7 @@ public class Product : IHasHousehold
 
 ```text
 fechaReferencia = Household.ShoppingDay != null ? próximoDíaDeCompra : hoy
-t_efectivo      = LastPurchasedUnit == DefaultUnit ? t * (LastPurchasedAmount / DefaultAmount) : t
+t_efectivo      = LastPurchasedUnit == DefaultUnit ? t * (LastPurchasedQuantity / DefaultQuantity) : t
 debeAparecer    = OutOfStockAt != null
                || (t != null && fechaReferencia >= max(LastPurchasedOn + t_efectivo, SnoozedUntil ?? min))
 porVencer       = !debeAparecer && t != null && hoy + 7 >= LastPurchasedOn + t_efectivo
@@ -148,11 +148,11 @@ porVencer       = !debeAparecer && t != null && hoy + 7 >= LastPurchasedOn + t_e
 
 **Dónde vive el "2" (el recorrido completo)**:
 
-1. **Producto**: `DefaultAmount = 1`, `DefaultUnit = Package`, `t = 14 días`.
-2. **Al entrar a la lista**, el `ShoppingItem` se crea con `Amount = 1`, `Unit = Package` (columnas que **ya existen** en `ShoppingItem`).
+1. **Producto**: `DefaultQuantity = 1`, `DefaultUnit = Package`, `t = 14 días`.
+2. **Al entrar a la lista**, el `ShoppingItem` se crea con `Quantity = 1`, `Unit = Package` (hoy la columna se llama `Amount`; se renombra a `Quantity`, ver 3.1.3).
 3. **Al echarlo al carrito o al confirmar en caja** (3.4), la cantidad se puede ajustar: se edita el renglón a 2, o el agente lee "x2" en el ticket. Por defecto se toman los del renglón.
-4. **Se registra** `ProductPurchased { Amount = 2, Unit = Package }`: es la **fuente de verdad**.
-5. **Se actualiza el cache** en el producto: `LastPurchasedOn`, `LastPurchasedAmount = 2`, `LastPurchasedUnit = Package`. Es lo que lee la regla, para no consultar el log en cada sincronización. Si el cache se corrompe, se recalcula desde el último `Purchased` vigente.
+4. **Se registra** `ProductPurchased { Quantity = 2, Unit = Package }`: es la **fuente de verdad**.
+5. **Se actualiza el cache** en el producto: `LastPurchasedOn`, `LastPurchasedQuantity = 2`, `LastPurchasedUnit = Package`. Es lo que lee la regla, para no consultar el log en cada sincronización. Si el cache se corrompe, se recalcula desde el último `Purchased` vigente.
 6. **La regla** calcula `t_efectivo = 14 × 2/1 = 28 días`. Si la unidad comprada no coincide con la por defecto (500 ml contra "1 pieza"), no hay conversión de unidades y se usa t sin escalar.
 
 *Caso borde: comprar de nuevo antes de que toque.* Con la regla anterior, una compra nueva **reinicia** el conteo desde esa fecha y se pierde lo que quedaba. Es aceptable para el MVP: es la estimación conservadora, y en el peor caso aparece antes de tiempo, donde "Todavía tengo" lo corrige. La alternativa de **acumular** cobertura (`cubiertoHasta = max(cubiertoHasta, compra) + t_efectivo`) es más precisa, pero introduce un campo derivado que habría que recalcular desde el log cuando cambia t. Se deja para cuando exista la sugerencia de intervalo.
@@ -168,7 +168,7 @@ Transiciones:
 
 | Evento | Efecto |
 | --- | --- |
-| Comprar (confirmar en caja un artículo con `ProductId`, 3.4) | Evento `Purchased` (cantidad + unidad), `LastPurchasedOn/Amount/Unit` del evento, `OutOfStockAt = null`, `SnoozedUntil = null` |
+| Comprar (confirmar en caja un artículo con `ProductId`, 3.4) | Evento `Purchased` (cantidad + unidad), `LastPurchasedOn/Quantity/Unit` del evento, `OutOfStockAt = null`, `SnoozedUntil = null` |
 | Marcar agotado | `OutOfStockAt = ahora` y crear el `ShoppingItem` si no hay uno pendiente |
 | "Todavía tengo" | `SnoozedUntil` según la opción elegida (ver 3.1.0), evento `ProductSnoozed` y quitar el artículo pendiente si vino por tiempo. **No aplica si está agotado**: para eso está "Sí hay" |
 | "Sí hay" (deshacer agotado) | `OutOfStockAt = null`. Corrige un "se acabó" marcado por error |
@@ -228,9 +228,9 @@ public sealed class ProductPurchased : ProductEvent
 {
     public Guid? ShoppingItemId { get; private set; }
     public Guid? ShoppingTripId { get; private set; }  // la compra (checkout) que lo confirmó
-    public decimal Amount { get; private set; }        // obligatorio en el tipo
+    public decimal Quantity { get; private set; }      // cuánto se compró, en Unit (2 paquetes, 0.85 kg)
     public MeasurementUnit Unit { get; private set; }
-    public Money? LineTotal { get; private set; }      // lo pagado por TODO el renglón (neto de descuentos); unitario = LineTotal / Amount
+    public Money? LineTotal { get; private set; }      // lo pagado por TODO el renglón (neto de descuentos); unitario = LineTotal / Quantity (precio por Unit)
     public string? Brand { get; private set; }
     public string? Store { get; private set; }
     public string? ReceiptLineText { get; private set; }
@@ -258,7 +258,7 @@ b.Entity<ProductEvent>(e =>
     e.HasIndex(x => new { x.HouseholdId, x.ProductId, x.OccurredAt });
 });
 b.Entity<ProductPurchased>().ComplexProperty(x => x.LineTotal); // o OwnsOne
-// + check constraints por tipo, p. ej.: Type <> 'Purchased' OR "Amount" IS NOT NULL
+// + check constraints por tipo, p. ej.: Type <> 'Purchased' OR "Quantity" IS NOT NULL
 ```
 
 Por qué TPH:
@@ -288,11 +288,11 @@ Por qué TPH:
 
 Con esta propuesta, el dinero aparece en `ProductPurchased.LineTotal` y `ShoppingTrip.TotalPaid` (ambos `Money` = monto + moneda), y solo cuando llegan (casi siempre del ticket vía el agente).
 
-**`LineTotal` es el total del renglón, no el precio unitario.** El precio unitario se **calcula** (`LineTotal / Amount`) y no se guarda:
+**`LineTotal` es el total del renglón, no el precio unitario.** El precio unitario se **calcula** (`LineTotal / Quantity`) y no se guarda:
 
 - **Es lo que el ticket siempre trae.** El unitario no siempre aparece.
 - **No es ambiguo con descuentos y promociones** (2×1, "3 por $100", descuento en el renglón): se guarda **lo que realmente se pagó** (neto). Un unitario de lista no diría cuánto se gastó.
-- **Productos a granel o por peso**: 0.85 kg de tomate a $40/kg → `LineTotal = 34`, `Amount = 0.85`, `Unit = Kilogram`. El "$/kg" sale de la división.
+- **Productos a granel o por peso**: 0.85 kg de tomate a $40/kg → `LineTotal = 34`, `Quantity = 0.85`, `Unit = Kilogram`. El "$/kg" sale de la división.
 - **Suma directo** contra `ShoppingTrip.TotalPaid` para cuadrar el ticket (la diferencia son los artículos fuera del catálogo).
 - **Evita la pregunta "¿unitario de qué?"**: si el producto es "1 paquete" y el paquete trae 4 rollos, el unitario depende de la unidad; el total no.
 - Se nombra `LineTotal` (y no `Price`) para que nadie lo confunda con un precio unitario.
@@ -304,6 +304,20 @@ Con esta propuesta, el dinero aparece en `ProductPurchased.LineTotal` y `Shoppin
   - Los reportes **agrupan por moneda** y nunca suman monedas distintas. No hay conversión de tipo de cambio (fuera del alcance).
 - **No se guarda precio** en `Product` (ni "precio estimado") ni en `ShoppingItem` en el MVP. Si más adelante se quiere un presupuesto estimado de la lista, el "último precio conocido" sale del log.
 - **Value object `Money(decimal Amount, string Currency)`**, mapeado como complex/owned type de EF: garantiza que nunca haya monto sin moneda y se reutiliza si el dinero aparece en otros lados (presupuestos, gastos).
+
+### 3.1.3 Cantidad vs. dinero: `Quantity` y `Money.Amount`
+
+En `ProductPurchased`, la **cantidad** es **cuánto se compró, en la unidad `Unit`**: 2 paquetes, 0.85 kg, 1 pieza. Para qué sirve:
+
+- **Escalar t**: si coincide con `DefaultUnit`, `t_efectivo = t × Quantity / DefaultQuantity` (comprar 2 dura el doble). Si la unidad es otra (500 ml contra "1 pieza"), no se escala, porque no hay conversión de unidades.
+- **Precio unitario**: `LineTotal / Quantity` = precio por `Unit` ($/paquete, $/kg).
+- **Historial y sugerencia de t** (consumo normalizado por cantidad).
+
+**Problema de nombres**: hoy el código usa `Amount` para cantidades (`Ingredient.Amount`, `ShoppingItem.Amount`), y `Money` también tiene `Amount`. Con dinero en el modelo, "amount" sería ambiguo. **Convención**:
+
+- **Cantidades → `Quantity`** (+ `Unit`): `Product.DefaultQuantity`, `Product.LastPurchasedQuantity`, `ProductPurchased.Quantity`, `ShoppingItem.Quantity` e `Ingredient.Quantity`.
+- **Dinero → `Money.Amount`** (+ `Currency`), siempre dentro de `Money`.
+- Las columnas actuales se renombran **ahora** que no hay usuarios en producción: `ShoppingItem.Amount` en C (#59), que ya migra esa tabla, e `Ingredient.Amount` en E (#61), que ya toca platillos. Son `RenameColumn` simples; los DTO y el cliente generado (Hey-API) se regeneran.
 
 Lo que sale del log (todo en C#, sin esquema extra):
 
@@ -392,7 +406,7 @@ Detalles:
 
 Cambios recomendados, en orden de valor:
 
-1. **Porciones**: `Dish.Servings` (rinde para N personas) + `MealPlan.Servings` (para cuántos se cocina, por defecto `Household.DefaultServings`). Al generar la lista: `Amount * MealPlan.Servings / Dish.Servings`.
+1. **Porciones**: `Dish.Servings` (rinde para N personas) + `MealPlan.Servings` (para cuántos se cocina, por defecto `Household.DefaultServings`). Al generar la lista: `Ingredient.Quantity * MealPlan.Servings / Dish.Servings`.
 2. **Ingrediente ↔ Producto (opcional)**: `Ingredient.ProductId?`. Sirve para unificar los nombres ("Arroz" del platillo = "Arroz" de la despensa), sacar la categoría para agrupar y, más adelante, el inventario ("ya tengo arroz"). Se puede hacer **de forma gradual**: al guardar un ingrediente se busca coincidencia por nombre normalizado o se ofrece crear el producto. No es necesario para el MVP de recurrentes.
 3. Semana alineada al `ShoppingDay` del hogar (o a los próximos 7 días si no tiene) en lugar del lunes fijo (esto viene con 3.3).
 4. *Fuera del alcance*: entradas libres en el menú ("comemos fuera", "sobras"), conversión de unidades e inventario de despensa.
@@ -615,7 +629,7 @@ No quedan preguntas abiertas de producto. Quedan tareas: comprar el dominio, rev
 - **Log de eventos**: TPH (una tabla, una subclase por tipo de evento) (3.1.1).
 - **Catálogo**: lo edita **cualquier miembro** del hogar (sin `IRequireHouseholdAdmin`).
 - **Cookie y Data Protection**: se renombran ya, en el issue A (no hay usuarios en producción).
-- **Cantidad comprada**: `ShoppingItem.Amount/Unit` → evento `Purchased` (fuente de verdad) → cache en `Product.LastPurchasedAmount/Unit`.
+- **Cantidad comprada**: `ShoppingItem.Quantity/Unit` → evento `Purchased` (fuente de verdad) → cache en `Product.LastPurchasedQuantity/Unit`.
 - **Regla de aparición de productos**: entran directo a la lista cuando ya pasó t desde la última compra **o** se marcaron como agotados (3.1).
 - **Cambios en lote del agente**: vista previa y confirmación (4.4.1). Operaciones pendientes en Postgres con el modelo de 4.4.1.
 
@@ -635,7 +649,7 @@ Orden sugerido: **A** (independiente) · **B → C → D** · **E** (antes de qu
 ### B. Catálogo de productos del hogar con intervalo de reposición
 - Entidad `Product` (3.1), `ProductCategory`, `MeasurementUnit.Package` y la migración.
 - CRUD `/api/products` y la página "Productos del hogar" (nombre, categoría, cantidad por defecto, "cada cuánto", última compra).
-- `OutOfStockAt`, `SnoozedUntil`, `PreferredBrand`, `LastPurchasedAmount/Unit`, `Household.ShoppingDay?` y `Household.DefaultCurrency`. Cualquier miembro puede editar.
+- `OutOfStockAt`, `SnoozedUntil`, `PreferredBrand`, `LastPurchasedQuantity/Unit`, `Household.ShoppingDay?` y `Household.DefaultCurrency`. Cualquier miembro puede editar.
 - Historial `ProductEvent` con TPH (3.1.1), escrito en la misma transacción que cada cambio de estado. Ajustar `ApplyHouseholdFilters` para aplicar solo a las raíces de jerarquía (`BaseType == null`), con prueba de aislamiento. Acción "Se acabó" en el catálogo.
 - Pruebas: filtro por hogar y regla de aparición (tiempo con y sin día de compra, escalado por cantidad, agotado, pospuesto, sin intervalo, nunca comprado).
 
