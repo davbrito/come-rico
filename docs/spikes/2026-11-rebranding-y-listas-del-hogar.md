@@ -8,6 +8,7 @@
 1. **Rebranding**: "ComeRico" puede leerse como albur. El cambio visible al usuario es barato; renombrar el código y la infraestructura es caro y casi no aporta. Propuesta: cambiar todo lo visible ya y dejar los identificadores técnicos para después (o no tocarlos nunca).
 2. **El producto cambia de foco**: deja de ser solo "¿qué vamos a comer?" y pasa a ser "¿qué hay que comprar para la casa?". El menú semanal se vuelve **una fuente más** de la lista de compras, junto con los **productos recurrentes** (shampoo, pasta dental…) y los artículos manuales.
 3. **Cambios al modelo**: un catálogo `Product` del hogar con intervalo de reposición y `NextDueOn` guardado explícitamente, `ShoppingItem` con `Source` + `ProductId` + `PurchasedAt`, y un comando idempotente que **sincroniza** la lista con todo lo que vence antes del próximo día de compra.
+4. **Servidor MCP con autenticación**: lo que más cuesta es *capturar* (productos, platillos, menús). Un agente (Claude en el móvil, en el escritorio o en Claude Code) puede hacerlo por el usuario: "arma el menú de la semana para 4 personas, sin cerdo, con cenas ligeras" o "aquí está la foto del ticket, marca lo que compré". Como toda la lógica ya vive en handlers de MediatR, el MCP es **otro adaptador delgado**, igual que las Minimal APIs. Lo difícil no son las herramientas: es **la autenticación** (OAuth).
 
 ---
 
@@ -150,19 +151,98 @@ Cambios recomendados, en orden de valor:
 
 ---
 
-## 4. Preguntas abiertas (para decidir juntos)
+## 4. Acceso para agentes: servidor MCP
+
+### 4.1 Por qué
+
+Lo que más fricción genera es **dar de alta cosas**: platillos con ingredientes, el catálogo de productos y los menús. Con formularios, alguien tiene que escribir cada ingrediente. Un agente con acceso al sistema puede:
+
+- **Planear el menú**: "Menú de lunes a viernes para 4, una comida vegetariana, nada de cerdo, reutiliza los platillos que ya tenemos y crea 2 nuevos". El agente consulta los platillos que existen, crea los que faltan (con ingredientes y porciones), los programa y sincroniza la lista.
+- **Procesar el ticket**: el usuario manda la foto de la factura. El agente la lee (la visión del modelo; **el servidor no hace OCR**), consulta la lista pendiente, empata los renglones ("SHAMP H&S 400ML" → "Shampoo"), marca como comprado lo que coincide y **pregunta** antes de hacer algo con lo que no coincide.
+- **Arrancar el catálogo**: "Esto es lo que usamos en casa: shampoo cada mes, pasta dental cada 3 semanas…" → creación en lote.
+- **Importar recetas**: "Agrega esta receta" (texto o URL) → un platillo con ingredientes normalizados a `MeasurementUnit`.
+
+Así, la UI deja de ser el único camino para capturar datos. Los formularios siguen existiendo, pero el camino rápido es conversacional.
+
+### 4.2 Cómo encaja en la arquitectura
+
+```text
+Cliente MCP (claude.ai / app móvil / Desktop / Claude Code)
+        │  Streamable HTTP + Authorization: Bearer <token>
+        ▼
+ComeRico.Api  ── /mcp  (SDK oficial de C#: ModelContextProtocol.AspNetCore)
+        │  la herramienta valida los argumentos → IMediator.Send(command)
+        ▼
+ComeRico.Core handlers (los mismos que usan los endpoints REST)
+```
+
+- **Mismo proceso y mismo despliegue** que la API: un `app.MapMcp("/mcp")` más. Las herramientas son clases `[McpServerToolType]` que reciben `IMediator`, así que no hay lógica duplicada y la validación de FluentValidation sigue aplicando.
+- **Modo stateless** del transporte HTTP: el backend corre en Lambda (Function URL), así que no se pueden mantener sesiones SSE largas. Ninguna herramienta necesita estado de sesión.
+- **Tenancy sin cambios conceptuales**: el token se resuelve en un usuario, de ahí salen sus claims (`household_id`, `household_role`) y `ClaimsTenantService` funciona igual. Solo hay que registrar un segundo esquema de autenticación (bearer) junto a la cookie, con una policy que acepte cualquiera de los dos.
+
+### 4.3 Autenticación (la decisión importante)
+
+| Opción | Funciona con | Costo |
+| --- | --- | --- |
+| **Tokens personales (PAT)** creados en Ajustes, guardados hasheados, revocables, con scopes `read` / `write` | Claude Code, Claude Desktop (configuración con header) y scripts propios | Bajo: una tabla, un handler de autenticación y una pantalla en Ajustes |
+| **OAuth 2.1** (authorization code + PKCE, metadata de recurso protegido, registro de clientes) con el backend como servidor de autorización (p. ej. OpenIddict) y login/consentimiento sobre la sesión de Identity que ya existe | Además: **conectores personalizados de claude.ai y la app móvil**, que es justo donde vive el caso del ticket | Medio/alto: pantalla de consentimiento, registro de clientes (DCR o Client ID Metadata Documents, según lo que pida la versión vigente de la spec MCP) y rotación de tokens |
+
+**Propuesta: hacerlo en dos fases.** Primero los PAT, para validar las herramientas con Claude Code y Desktop sin bloquearse en OAuth. Después OAuth, que es **requisito** para el caso móvil del ticket (los conectores de claude.ai esperan OAuth; hay que confirmarlo contra su documentación actual cuando se tome el issue). Las dos fases comparten todo lo demás: las herramientas, el esquema bearer y el mapeo token → usuario → claims.
+
+Reglas comunes:
+
+- El token pertenece a un **usuario** (no al hogar), así que hereda su hogar y su rol. Si el usuario sale del hogar, el token deja de servir para ese hogar.
+- Scopes: `read` y `write`. Las herramientas destructivas exigen `write` y, además, una confirmación del usuario dentro del cliente (`destructiveHint`).
+- **Auditoría**: guardar `CreatedByUserId` y `Origin` (`Web` / `Agent`) en lo que crea o modifica el agente, para que la UI muestre "agregado por el asistente" y se pueda deshacer.
+- Rate limiting por token (`AddRateLimiter` de ASP.NET Core).
+
+### 4.4 Diseño de las herramientas
+
+Hay que pensarlas **para un agente, no como un espejo del CRUD REST**: pocas llamadas, operaciones en lote, búsqueda por nombre y resultados compactos.
+
+| Herramienta | Tipo | Notas |
+| --- | --- | --- |
+| `get_household_context` | lectura | Personas, porciones por defecto, día de compra, categorías y unidades válidas. Es la primera llamada de cualquier flujo. |
+| `search_dishes` | lectura | Por nombre, etiqueta o ingrediente. Devuelve ingredientes resumidos. |
+| `get_meal_plan` | lectura | Rango de fechas. |
+| `get_shopping_list` | lectura | Pendientes por defecto, agrupados por categoría, con `id`, `source` y `productId`. |
+| `list_products` | lectura | Incluye `nextDueOn`. |
+| `create_dishes` | escritura | **En lote**: platillos con ingredientes, etiquetas (se crean si no existen) y porciones, en una sola llamada. |
+| `plan_meals` | escritura | En lote: `[{date, mealType, dishId, servings}]`. Opción `dryRun` para mostrar el plan antes de guardarlo. |
+| `upsert_products` | escritura | En lote, con intervalo y última compra. |
+| `add_shopping_items` | escritura | En lote. |
+| `mark_items_purchased` | escritura | En lote, por `ids` + `purchasedAt` opcional (la fecha del ticket). Es reversible. |
+| `postpone_product` | escritura | El "todavía tengo". |
+| `sync_shopping_list` | escritura | Idempotente (3.3). |
+
+- **El empate del ticket lo hace el modelo**, no el servidor: `get_shopping_list` le da los candidatos y él decide. Un `match_shopping_items(names[])` del lado del servidor (normalización + similitud) sería una optimización posterior, solo si el empate del modelo resulta poco confiable.
+- **Prompts MCP** como atajos: `planear_menu_semanal(personas, restricciones, dias)` y `procesar_ticket`. Ofrecen el flujo guiado sin que el usuario tenga que redactar todo.
+- **Fuera de v1**: borrar platillos o productos desde el agente (menos riesgo). Se agrega con `destructiveHint` cuando haga falta.
+- Los mensajes de error deben servirle al agente para corregirse ("unidad `pz` no válida; usa una de: Piece, Gram, …"). Los validadores actuales ya dan mensajes claros en español.
+
+### 4.5 Dependencias y orden
+
+- El MCP **no depende** del catálogo de productos para arrancar: v1 puede exponer platillos, menú y lista. Pero el caso del ticket brilla de verdad con C (`PurchasedAt` + recurrentes que se recalculan), y crear platillos para N personas necesita E (porciones).
+- Por eso **E (porciones) sube de prioridad**: sin porciones, "menú para 4 personas" no se traduce en cantidades correctas.
+- Las herramientas de productos se agregan cuando llegue B.
+
+---
+
+## 5. Preguntas abiertas (para decidir juntos)
 
 1. **Nombre final** y si se compra dominio propio.
 2. ¿Los recurrentes vencidos **entran directo** a la lista (propuesta) o aparecen como **sugerencias** que hay que confirmar? La propuesta es que entren directo, en su propia sección, con "Todavía tengo" a un toque.
 3. ¿Quién configura el catálogo: cualquier miembro o solo Admin? La propuesta es cualquier miembro, porque se parece a la lista misma.
 4. ¿El "día de compra" es por hogar (propuesta) o hay hogares que compran varias veces por semana? En ese caso, la ventana podría ser "próximos 7 días" en lugar de "hasta el día de compra".
 5. ¿Hacemos el rebranding del nivel 2 (cookie/Data Protection) ahora, aprovechando que hay pocos usuarios, o nunca?
+6. MCP: ¿pasamos directo a OAuth porque el caso principal es el móvil, o primero PAT para iterar las herramientas? La propuesta es primero PAT.
+7. ¿El agente puede crear platillos y productos nuevos sin confirmación, o siempre con `dryRun` y aprobación? La propuesta es que en lote se muestre una vista previa y se pida confirmación.
 
 ---
 
-## 5. Issues propuestos
+## 6. Issues propuestos
 
-Orden sugerido: **A → B → C → D**, y E/F/G cuando se necesiten. A es independiente de las demás.
+Orden sugerido: **A** (independiente) · **B → C → D** · **E** (antes de que el MCP planee menús) · **I → J** en paralelo con B/C. F/G/H después.
 
 ### A. Rebranding visible: ComeRico → {nombre}
 - Decidir el nombre (sección 1.1) y conseguir el dominio.
@@ -195,6 +275,18 @@ Orden sugerido: **A → B → C → D**, y E/F/G cuando se necesiten. A es indep
 
 ### G. (Futuro) Recordatorio semanal
 - Cron por hogar en `ShoppingDay - 1` + notificación. Depende de tener un canal de notificaciones.
+
+### I. Servidor MCP v1 con tokens personales
+- Endpoint `/mcp` (SDK de C#, Streamable HTTP stateless) en `ComeRico.Api`.
+- Entidad `PersonalAccessToken` (hash, scopes, último uso, expiración), esquema de autenticación bearer junto a la cookie y una pantalla en Ajustes para crear y revocar tokens.
+- Herramientas de lectura y escritura de 4.4 para platillos, menú y lista (las de productos llegan con B), más los prompts `planear_menu_semanal` y `procesar_ticket`.
+- Auditoría `Origin = Agent` y rate limiting.
+- Pruebas: aislamiento por hogar con tokens, scopes, y que cada herramienta mande el comando correcto.
+- Documentación para conectarlo desde Claude Code y Desktop.
+
+### J. OAuth 2.1 para conectores remotos (claude.ai / móvil)
+- El backend como servidor de autorización (evaluar OpenIddict), metadata de recurso protegido en `/mcp`, consentimiento sobre la sesión de Identity y registro de clientes según la spec MCP vigente.
+- Criterio de aceptación: agregarlo como conector personalizado en claude.ai y completar el flujo del ticket desde el móvil.
 
 ### H. (Opcional, deuda) Rebranding técnico
 - Namespaces `ComeRico.*`, paquetes `@comerico/*`, cookie/Data Protection (cierra todas las sesiones), recursos de infraestructura con `moved`. Un PR mecánico aislado.
