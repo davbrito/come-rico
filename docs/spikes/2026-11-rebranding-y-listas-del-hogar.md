@@ -43,6 +43,10 @@ Criterios para la lista corta:
 | **Alacena** | `alacena.app`, `alacena.mx` y `alacena.com.mx`: tomados. | `alacena.mx` es un grupo de marcas gastronómicas (eventos) en Guadalajara. Mismo rubro (comida): mal candidato. |
 | **Casa Lista** | `casalista.mx`, `casalista.app` y `casalista.com.mx`: tomados. `casalista.com`: libre. | `casalista.mx` es un portal inmobiliario en CDMX. Otra categoría, pero dominio `.mx` ocupado. |
 | **Repón** | `repon.app`, `repon.mx` y `repon.com.mx`: **libres**. `repon.com`: tomado. | No se encontró producto con ese nombre. **Mejor disponibilidad de la lista.** |
+| Restocapp | `restocapp.com`, `restoc.app` y `restock.app`: tomados. `restocapp.app`, `.mx` y `.com.mx`: libres. | **Descartado.** `restocapp.com` es **"Restoc: Know before you run out"** (alertas de reorden para tiendas Shopify): mismo concepto y casi el mismo nombre. `restoc.app` es otra app de alertas de stock para Shopify. Además es anglicismo y lleva "app" dentro del nombre. |
+| Nos Falta | `nosfalta.app`, `.mx`, `.com.mx` y `.com`: **todos libres**. | No se encontró producto. Frase natural en el hogar ("¿qué nos falta?"). |
+| Se Acabó | `seacabo.app`, `.mx` y `.com.mx`: libres. `.com`: tomado. | Encaja con "marcar agotado". Tono más de alerta que de hogar. |
+| Qué Falta / Falta | `.mx` y `.com.mx`: libres. `.app` y `.com`: tomados. | **Evitar**: `quefalta.app` ya es una app de lista de compras. |
 
 Redes sociales: no se pudieron verificar automáticamente (Instagram, TikTok y X piden sesión; la API de GitHub está restringida en este entorno). Hay que revisarlas a mano para el nombre elegido.
 
@@ -530,7 +534,7 @@ public class PendingOperation : IHasHousehold
 
 ## 5. Preguntas abiertas (para decidir juntos)
 
-1. **Nombre final**: Despi quedó descartado (ya existe una app mexicana igual). Repón es el mejor disponible; abierto a más ideas (1.1).
+1. **Nombre final**: Despi y Restocapp descartados (ya existen productos iguales). Mejores disponibles: **Repón** y **Nos Falta** (1.1).
 
 ### Decisiones tomadas
 
