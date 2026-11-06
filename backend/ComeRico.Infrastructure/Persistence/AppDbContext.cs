@@ -24,6 +24,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService
     public DbSet<MealPlan> MealPlans => Set<MealPlan>();
     public DbSet<ShoppingItem> ShoppingItems => Set<ShoppingItem>();
     public DbSet<StoredFile> StoredFiles => Set<StoredFile>();
+    public DbSet<Product> Products => Set<Product>();
+    public DbSet<ProductEvent> ProductEvents => Set<ProductEvent>();
 
     public Guid CurrentHouseholdId => tenantService.HouseholdId;
 
@@ -48,6 +50,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService
             entity.HasKey(h => h.Id);
             entity.Property(h => h.Name).IsRequired().HasMaxLength(200);
             entity.Property(h => h.InviteCode).IsRequired().HasMaxLength(20);
+            entity.Property(h => h.TimeZone).IsRequired().HasMaxLength(64).HasDefaultValue("UTC");
+            entity.Property(h => h.ShoppingDay).HasConversion<string>().HasMaxLength(20);
+            entity.Property(h => h.DefaultCurrency).IsRequired().HasMaxLength(3).IsFixedLength().HasDefaultValue("USD");
             entity.HasIndex(h => h.InviteCode).IsUnique();
 
             entity
@@ -130,6 +135,99 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService
             entity.HasIndex(i => new { i.Status, i.CreatedAt });
 
             entity.HasOne(i => i.Household).WithMany().HasForeignKey(i => i.HouseholdId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Product>(entity =>
+        {
+            entity.HasKey(p => p.Id);
+            entity.Property(p => p.Name).IsRequired().HasMaxLength(200);
+            entity.Property(p => p.Category).HasConversion<string>().HasMaxLength(20).IsRequired();
+            entity.Property(p => p.DefaultQuantity).HasPrecision(12, 4);
+            entity.Property(p => p.DefaultUnit).HasConversion<string>().HasMaxLength(20);
+            entity.Property(p => p.PreferredBrand).HasMaxLength(100);
+            entity.Property(p => p.LastPurchasedQuantity).HasPrecision(12, 4);
+            entity.Property(p => p.LastPurchasedUnit).HasConversion<string>().HasMaxLength(20);
+            entity.HasIndex(p => new { p.HouseholdId, p.Name });
+
+            entity.ToTable(t =>
+            {
+                t.HasCheckConstraint(
+                    "CK_Products_RestockIntervalDays",
+                    "\"RestockIntervalDays\" IS NULL OR \"RestockIntervalDays\" > 1"
+                );
+                t.HasCheckConstraint("CK_Products_DefaultQuantity", "\"DefaultQuantity\" IS NULL OR \"DefaultQuantity\" > 0");
+            });
+
+            entity
+                .HasOne(p => p.Household)
+                .WithMany(h => h.Products)
+                .HasForeignKey(p => p.HouseholdId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ProductEvent>(entity =>
+        {
+            entity.ToTable(
+                "ProductEvents",
+                t =>
+                {
+                    t.HasCheckConstraint(
+                        "CK_ProductEvents_Purchased",
+                        "\"Type\" <> 'Purchased' OR (\"Quantity\" IS NOT NULL AND \"Unit\" IS NOT NULL)"
+                    );
+                    t.HasCheckConstraint(
+                        "CK_ProductEvents_PurchaseReverted",
+                        "\"Type\" <> 'PurchaseReverted' OR \"PurchaseEventId\" IS NOT NULL"
+                    );
+                    t.HasCheckConstraint("CK_ProductEvents_Snoozed", "\"Type\" <> 'Snoozed' OR \"Days\" IS NOT NULL");
+                    t.HasCheckConstraint(
+                        "CK_ProductEvents_LastPurchaseDeclared",
+                        "\"Type\" <> 'LastPurchaseDeclared' OR \"DeclaredOn\" IS NOT NULL"
+                    );
+                    t.HasCheckConstraint(
+                        "CK_ProductEvents_LineTotal",
+                        "(\"LineTotal_Amount\" IS NULL) = (\"LineTotal_Currency\" IS NULL) AND (\"LineTotal_Amount\" IS NULL OR \"Type\" = 'Purchased')"
+                    );
+                }
+            );
+            entity.HasKey(e => e.Id);
+            entity
+                .HasDiscriminator<string>("Type")
+                .HasValue<ProductPurchased>("Purchased")
+                .HasValue<ProductPurchaseReverted>("PurchaseReverted")
+                .HasValue<ProductMarkedOutOfStock>("OutOfStock")
+                .HasValue<ProductSnoozed>("Snoozed")
+                .HasValue<ProductIntervalChanged>("IntervalChanged")
+                .HasValue<ProductLastPurchaseDeclared>("LastPurchaseDeclared")
+                .HasValue<ProductMarkedInStock>("InStock");
+            entity.Property<string>("Type").HasMaxLength(30);
+            entity.Property(e => e.Origin).HasConversion<string>().HasMaxLength(10).IsRequired();
+            entity.HasIndex(e => new
+            {
+                e.HouseholdId,
+                e.ProductId,
+                e.OccurredAt,
+            });
+
+            entity.HasOne<Product>().WithMany().HasForeignKey(e => e.ProductId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<Household>().WithMany().HasForeignKey(e => e.HouseholdId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ProductPurchased>(entity =>
+        {
+            entity.Property(e => e.Quantity).HasPrecision(12, 4);
+            entity.Property(e => e.Unit).HasConversion<string>().HasMaxLength(20);
+            entity.Property(e => e.Brand).HasMaxLength(100);
+            entity.Property(e => e.Store).HasMaxLength(100);
+            entity.Property(e => e.ReceiptLineText).HasMaxLength(300);
+            entity.OwnsOne(
+                e => e.LineTotal,
+                m =>
+                {
+                    m.Property(x => x.Amount).HasPrecision(12, 2);
+                    m.Property(x => x.Currency).HasMaxLength(3).IsFixedLength();
+                }
+            );
         });
 
         modelBuilder.ApplyHouseholdFilters(this);

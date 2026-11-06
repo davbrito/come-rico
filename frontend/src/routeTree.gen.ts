@@ -27,6 +27,7 @@ import { Route as PrivateHouseholdRouteImport } from './routes/_private/househol
 import { Route as PrivateSettingsRouteImport } from './routes/_private/settings'
 import { Route as PrivateHouseholdDishesRouteImport } from './routes/_private/_household/dishes'
 import { Route as PrivateHouseholdMealPlanRouteImport } from './routes/_private/_household/meal-plan'
+import { Route as PrivateHouseholdProductsRouteImport } from './routes/_private/_household/products'
 import { Route as PrivateHouseholdShoppingRouteImport } from './routes/_private/_household/shopping'
 
 const IndexRoute = IndexRouteImport.update({
@@ -117,6 +118,12 @@ const PrivateHouseholdMealPlanRoute =
     path: '/meal-plan',
     getParentRoute: () => PrivateHouseholdRouteRoute,
   } as any)
+const PrivateHouseholdProductsRoute =
+  PrivateHouseholdProductsRouteImport.update({
+    id: '/products',
+    path: '/products',
+    getParentRoute: () => PrivateHouseholdRouteRoute,
+  } as any)
 const PrivateHouseholdShoppingRoute =
   PrivateHouseholdShoppingRouteImport.update({
     id: '/shopping',
@@ -140,6 +147,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof PrivateSettingsRoute
   '/dishes': typeof PrivateHouseholdDishesRoute
   '/meal-plan': typeof PrivateHouseholdMealPlanRoute
+  '/products': typeof PrivateHouseholdProductsRoute
   '/shopping': typeof PrivateHouseholdShoppingRoute
 }
 export interface FileRoutesByTo {
@@ -158,6 +166,7 @@ export interface FileRoutesByTo {
   '/settings': typeof PrivateSettingsRoute
   '/dishes': typeof PrivateHouseholdDishesRoute
   '/meal-plan': typeof PrivateHouseholdMealPlanRoute
+  '/products': typeof PrivateHouseholdProductsRoute
   '/shopping': typeof PrivateHouseholdShoppingRoute
 }
 export interface FileRoutesById {
@@ -180,6 +189,7 @@ export interface FileRoutesById {
   '/_private/settings': typeof PrivateSettingsRoute
   '/_private/_household/dishes': typeof PrivateHouseholdDishesRoute
   '/_private/_household/meal-plan': typeof PrivateHouseholdMealPlanRoute
+  '/_private/_household/products': typeof PrivateHouseholdProductsRoute
   '/_private/_household/shopping': typeof PrivateHouseholdShoppingRoute
 }
 export interface FileRouteTypes {
@@ -200,6 +210,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/dishes'
     | '/meal-plan'
+    | '/products'
     | '/shopping'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -218,6 +229,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/dishes'
     | '/meal-plan'
+    | '/products'
     | '/shopping'
   id:
     | '__root__'
@@ -239,6 +251,7 @@ export interface FileRouteTypes {
     | '/_private/settings'
     | '/_private/_household/dishes'
     | '/_private/_household/meal-plan'
+    | '/_private/_household/products'
     | '/_private/_household/shopping'
   fileRoutesById: FileRoutesById
 }
@@ -382,6 +395,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PrivateHouseholdMealPlanRouteImport
       parentRoute: typeof PrivateHouseholdRouteRoute
     }
+    '/_private/_household/products': {
+      id: '/_private/_household/products'
+      path: '/products'
+      fullPath: '/products'
+      preLoaderRoute: typeof PrivateHouseholdProductsRouteImport
+      parentRoute: typeof PrivateHouseholdRouteRoute
+    }
     '/_private/_household/shopping': {
       id: '/_private/_household/shopping'
       path: '/shopping'
@@ -413,12 +433,14 @@ const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
 interface PrivateHouseholdRouteRouteChildren {
   PrivateHouseholdDishesRoute: typeof PrivateHouseholdDishesRoute
   PrivateHouseholdMealPlanRoute: typeof PrivateHouseholdMealPlanRoute
+  PrivateHouseholdProductsRoute: typeof PrivateHouseholdProductsRoute
   PrivateHouseholdShoppingRoute: typeof PrivateHouseholdShoppingRoute
 }
 
 const PrivateHouseholdRouteRouteChildren: PrivateHouseholdRouteRouteChildren = {
   PrivateHouseholdDishesRoute: PrivateHouseholdDishesRoute,
   PrivateHouseholdMealPlanRoute: PrivateHouseholdMealPlanRoute,
+  PrivateHouseholdProductsRoute: PrivateHouseholdProductsRoute,
   PrivateHouseholdShoppingRoute: PrivateHouseholdShoppingRoute,
 }
 
@@ -457,12 +479,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

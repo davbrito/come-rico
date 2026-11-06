@@ -82,7 +82,9 @@ function HouseholdOnboard() {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          createMut.mutate({ body: { name } });
+          createMut.mutate({
+            body: { name, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+          });
         }}
         className="island-shell mb-4 rounded-2xl p-6"
       >

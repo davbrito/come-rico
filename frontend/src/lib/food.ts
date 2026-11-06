@@ -1,4 +1,4 @@
-import type { MealType, MeasurementUnit } from "#/api/types.gen";
+import type { MealType, MeasurementUnit, ProductCategory } from "#/api/types.gen";
 
 export const MEAL_TYPES: MealType[] = ["Breakfast", "Lunch", "Dinner"];
 
@@ -17,6 +17,7 @@ export const UNITS: MeasurementUnit[] = [
   "Cup",
   "Tablespoon",
   "Teaspoon",
+  "Package",
 ];
 
 export const UNIT_LABELS: Record<MeasurementUnit, string> = {
@@ -28,6 +29,27 @@ export const UNIT_LABELS: Record<MeasurementUnit, string> = {
   Cup: "taza(s)",
   Tablespoon: "cda",
   Teaspoon: "cdta",
+  Package: "paq.",
+};
+
+export const PRODUCT_CATEGORIES: ProductCategory[] = [
+  "Hygiene",
+  "Cleaning",
+  "Pantry",
+  "Fresh",
+  "Baby",
+  "Pets",
+  "Other",
+];
+
+export const PRODUCT_CATEGORY_LABELS: Record<ProductCategory, string> = {
+  Hygiene: "Higiene",
+  Cleaning: "Limpieza",
+  Pantry: "Despensa",
+  Fresh: "Frescos",
+  Baby: "Bebés",
+  Pets: "Mascotas",
+  Other: "Otros",
 };
 
 /** yyyy-MM-dd of the local date (avoids the UTC shift of toISOString). */

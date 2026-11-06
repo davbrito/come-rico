@@ -14,7 +14,7 @@ public class HouseholdCommandTests
         await db.SaveChangesAsync(TestContext.Current.CancellationToken);
 
         var handler = new CreateHouseholdCommandHandler(db, new FakeCurrentUserService(user.Id));
-        var result = await handler.Handle(new CreateHouseholdCommand("The Smiths"), TestContext.Current.CancellationToken);
+        var result = await handler.Handle(new CreateHouseholdCommand("The Smiths", "UTC"), TestContext.Current.CancellationToken);
 
         Assert.Equal("The Smiths", result.Name);
         Assert.Equal(result.Id, user.HouseholdId);
@@ -32,8 +32,8 @@ public class HouseholdCommandTests
 
         var handler = new CreateHouseholdCommandHandler(db, new FakeCurrentUserService(user.Id));
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            () => handler.Handle(new CreateHouseholdCommand("New Household"), TestContext.Current.CancellationToken)
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            handler.Handle(new CreateHouseholdCommand("New Household", "UTC"), TestContext.Current.CancellationToken)
         );
     }
 
@@ -41,7 +41,7 @@ public class HouseholdCommandTests
     public async Task Join_AddsUserAsMember_WhenInviteCodeIsValid()
     {
         await using var db = TestDb.Create(Guid.NewGuid().ToString(), Guid.Empty);
-        var household = Household.Create("The Smiths");
+        var household = Household.Create("The Smiths", "UTC");
         var user = new AppUser { DisplayName = "Bob", UserName = "bob" };
         db.Households.Add(household);
         db.Users.Add(user);
@@ -49,7 +49,10 @@ public class HouseholdCommandTests
 
         var handler = new JoinHouseholdCommandHandler(db, new FakeCurrentUserService(user.Id));
         var lowercaseCodeWithSpaces = $"  {household.InviteCode.ToLowerInvariant()}  ";
-        var result = await handler.Handle(new JoinHouseholdCommand(lowercaseCodeWithSpaces), TestContext.Current.CancellationToken);
+        var result = await handler.Handle(
+            new JoinHouseholdCommand(lowercaseCodeWithSpaces),
+            TestContext.Current.CancellationToken
+        );
 
         Assert.Equal(household.Id, result.Id);
         Assert.Equal(household.Id, user.HouseholdId);
@@ -66,8 +69,8 @@ public class HouseholdCommandTests
 
         var handler = new JoinHouseholdCommandHandler(db, new FakeCurrentUserService(user.Id));
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            () => handler.Handle(new JoinHouseholdCommand("NOPE0000"), TestContext.Current.CancellationToken)
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            handler.Handle(new JoinHouseholdCommand("NOPE0000"), TestContext.Current.CancellationToken)
         );
         Assert.Null(user.HouseholdId);
     }
@@ -77,7 +80,7 @@ public class HouseholdCommandTests
     {
         await using var db = TestDb.Create(Guid.NewGuid().ToString(), Guid.Empty);
         var existingHouseholdId = Guid.CreateVersion7();
-        var household = Household.Create("The Joneses");
+        var household = Household.Create("The Joneses", "UTC");
         var user = new AppUser { DisplayName = "Bob", UserName = "bob" };
         user.JoinHousehold(existingHouseholdId, HouseholdRole.Member);
         db.Households.Add(household);
@@ -86,8 +89,8 @@ public class HouseholdCommandTests
 
         var handler = new JoinHouseholdCommandHandler(db, new FakeCurrentUserService(user.Id));
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            () => handler.Handle(new JoinHouseholdCommand(household.InviteCode), TestContext.Current.CancellationToken)
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            handler.Handle(new JoinHouseholdCommand(household.InviteCode), TestContext.Current.CancellationToken)
         );
         Assert.Equal(existingHouseholdId, user.HouseholdId);
     }

@@ -167,6 +167,16 @@
         "responses": {
           "200": {
             "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HttpValidationProblemDetails"
+                }
+              }
+            }
           }
         }
       }
@@ -354,7 +364,7 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Registra un nuevo usuario e inicia sesi\u00f3n",
+        "summary": "Registra un nuevo usuario e inicia sesión",
         "operationId": "Register",
         "requestBody": {
           "content": {
@@ -395,12 +405,12 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Cierra la sesi\u00f3n actual",
+        "summary": "Cierra la sesión actual",
         "operationId": "Logout",
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": {}
+              "schema": { }
             }
           },
           "required": true
@@ -417,7 +427,7 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Solicita el restablecimiento de contrase\u00f1a (el token se registra en el servidor)",
+        "summary": "Solicita el restablecimiento de contraseña (el token se registra en el servidor)",
         "operationId": "ForgotPassword",
         "requestBody": {
           "content": {
@@ -441,7 +451,7 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Restablece la contrase\u00f1a usando el token generado",
+        "summary": "Restablece la contraseña usando el token generado",
         "operationId": "ResetPassword",
         "requestBody": {
           "content": {
@@ -578,7 +588,7 @@
         "tags": [
           "Households"
         ],
-        "summary": "Une al usuario a un hogar mediante c\u00f3digo de invitaci\u00f3n",
+        "summary": "Une al usuario a un hogar mediante código de invitación",
         "operationId": "JoinHousehold",
         "requestBody": {
           "content": {
@@ -636,7 +646,7 @@
         "tags": [
           "Households"
         ],
-        "summary": "Rota el c\u00f3digo de invitaci\u00f3n del hogar (solo admin)",
+        "summary": "Rota el código de invitación del hogar (solo admin)",
         "operationId": "RotateInviteCode",
         "responses": {
           "200": {
@@ -940,7 +950,7 @@
         "tags": [
           "Images"
         ],
-        "summary": "Elimina archivos hu\u00e9rfanos de R2 (invocado por Vercel Cron)",
+        "summary": "Elimina archivos huérfanos de R2 (invocado por Vercel Cron)",
         "operationId": "CleanupOrphanedFiles",
         "responses": {
           "200": {
@@ -1198,7 +1208,7 @@
         "tags": [
           "Shopping"
         ],
-        "summary": "A\u00f1ade un art\u00edculo manual a la lista de compras",
+        "summary": "Añade un artículo manual a la lista de compras",
         "operationId": "CreateShoppingItem",
         "requestBody": {
           "content": {
@@ -1263,7 +1273,7 @@
         "tags": [
           "Shopping"
         ],
-        "summary": "Marca o desmarca un art\u00edculo como comprado",
+        "summary": "Marca o desmarca un artículo como comprado",
         "operationId": "SetShoppingItemPurchased",
         "parameters": [
           {
@@ -1308,7 +1318,7 @@
         "tags": [
           "Shopping"
         ],
-        "summary": "Elimina un art\u00edculo de la lista de compras",
+        "summary": "Elimina un artículo de la lista de compras",
         "operationId": "DeleteShoppingItem",
         "parameters": [
           {
@@ -1324,6 +1334,245 @@
         "responses": {
           "204": {
             "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/products": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Obtiene los productos del hogar",
+        "operationId": "GetProducts",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProductDto"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Crea un producto del hogar",
+        "operationId": "CreateProduct",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProductCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/products/{id}": {
+      "put": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Actualiza un producto",
+        "operationId": "UpdateProduct",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Desactiva un producto (conserva su historial)",
+        "operationId": "DeleteProduct",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/products/{id}/out-of-stock": {
+      "post": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Se acabó: el producto aparece siempre en la lista",
+        "operationId": "MarkProductOutOfStock",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/products/{id}/in-stock": {
+      "post": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Sí hay: deshace un \"se acabó\"",
+        "operationId": "MarkProductInStock",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/products/{id}/snooze": {
+      "post": {
+        "tags": [
+          "Products"
+        ],
+        "summary": "Todavía tengo: pospone el recordatorio por tiempo",
+        "operationId": "SnoozeProduct",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SnoozeProductRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductDto"
+                }
+              }
+            }
           },
           "404": {
             "description": "Not Found"
@@ -1447,11 +1696,15 @@
       },
       "CreateHouseholdCommand": {
         "required": [
-          "name"
+          "name",
+          "timeZone"
         ],
         "type": "object",
         "properties": {
           "name": {
+            "type": "string"
+          },
+          "timeZone": {
             "type": "string"
           }
         }
@@ -1474,6 +1727,67 @@
           },
           "mealType": {
             "$ref": "#/components/schemas/MealType"
+          }
+        }
+      },
+      "CreateProductCommand": {
+        "required": [
+          "name",
+          "category",
+          "defaultQuantity",
+          "defaultUnit",
+          "restockIntervalDays",
+          "preferredBrand",
+          "lastPurchasedOn"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "category": {
+            "$ref": "#/components/schemas/ProductCategory"
+          },
+          "defaultQuantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "defaultUnit": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MeasurementUnit"
+              }
+            ]
+          },
+          "restockIntervalDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "preferredBrand": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "lastPurchasedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
           }
         }
       },
@@ -1954,8 +2268,201 @@
           "Liter",
           "Cup",
           "Tablespoon",
-          "Teaspoon"
+          "Teaspoon",
+          "Package"
         ]
+      },
+      "ProductCategory": {
+        "enum": [
+          "Hygiene",
+          "Cleaning",
+          "Pantry",
+          "Fresh",
+          "Baby",
+          "Pets",
+          "Other"
+        ]
+      },
+      "ProductDto": {
+        "required": [
+          "id",
+          "name",
+          "category",
+          "defaultQuantity",
+          "defaultUnit",
+          "restockIntervalDays",
+          "preferredBrand",
+          "lastPurchasedOn",
+          "lastPurchasedQuantity",
+          "lastPurchasedUnit",
+          "outOfStockAt",
+          "snoozedUntil",
+          "status",
+          "nextDueOn",
+          "createdAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "category": {
+            "$ref": "#/components/schemas/ProductCategory"
+          },
+          "defaultQuantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "defaultUnit": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MeasurementUnit"
+              }
+            ]
+          },
+          "restockIntervalDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "preferredBrand": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "lastPurchasedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "lastPurchasedQuantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "lastPurchasedUnit": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MeasurementUnit"
+              }
+            ]
+          },
+          "outOfStockAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          },
+          "snoozedUntil": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RestockStatus"
+          },
+          "nextDueOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ProductRequest": {
+        "required": [
+          "name",
+          "category",
+          "defaultQuantity",
+          "defaultUnit",
+          "restockIntervalDays",
+          "preferredBrand",
+          "lastPurchasedOn"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "category": {
+            "$ref": "#/components/schemas/ProductCategory"
+          },
+          "defaultQuantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "defaultUnit": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MeasurementUnit"
+              }
+            ]
+          },
+          "restockIntervalDays": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "preferredBrand": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "lastPurchasedOn": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date"
+          }
+        }
       },
       "RefreshRequest": {
         "required": [
@@ -2023,6 +2530,14 @@
             "type": "string"
           }
         }
+      },
+      "RestockStatus": {
+        "enum": [
+          "Ok",
+          "DueSoon",
+          "Due",
+          "OutOfStock"
+        ]
       },
       "SetIngredientsRequest": {
         "required": [
@@ -2118,6 +2633,22 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "SnoozeProductRequest": {
+        "required": [
+          "days"
+        ],
+        "type": "object",
+        "properties": {
+          "days": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -2302,6 +2833,9 @@
     },
     {
       "name": "Shopping"
+    },
+    {
+      "name": "Products"
     }
   ]
 }
