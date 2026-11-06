@@ -10,7 +10,10 @@ public static class ModelBuilderExtensions
     public static ModelBuilder ApplyHouseholdFilters(this ModelBuilder modelBuilder, IAppDbContext context)
     {
         foreach (
-            var entityType in modelBuilder.Model.GetEntityTypes().Where(e => typeof(IHasHousehold).IsAssignableFrom(e.ClrType))
+            var entityType in modelBuilder
+                .Model.GetEntityTypes()
+                // EF only allows query filters on the root of a hierarchy (TPH); the root's filter covers its subclasses.
+                .Where(e => e.BaseType == null && typeof(IHasHousehold).IsAssignableFrom(e.ClrType))
         )
         {
             var param = Expression.Parameter(entityType.ClrType, "e");

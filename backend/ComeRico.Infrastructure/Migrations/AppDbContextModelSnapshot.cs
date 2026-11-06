@@ -17,7 +17,7 @@ namespace ComeRico.Infrastructure.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.9")
+                .HasAnnotation("ProductVersion", "10.0.14")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -148,6 +148,14 @@ namespace ComeRico.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("DefaultCurrency")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(3)
+                        .HasColumnType("character(3)")
+                        .HasDefaultValue("MXN")
+                        .IsFixedLength();
+
                     b.Property<string>("InviteCode")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -157,6 +165,10 @@ namespace ComeRico.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<string>("ShoppingDay")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
 
                     b.HasKey("Id");
 
@@ -227,6 +239,128 @@ namespace ComeRico.Infrastructure.Migrations
                     b.HasIndex("HouseholdId", "Date");
 
                     b.ToTable("MealPlans");
+                });
+
+            modelBuilder.Entity("ComeRico.Core.Domain.Entities.Product", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal?>("DefaultQuantity")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)");
+
+                    b.Property<string>("DefaultUnit")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("HouseholdId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateOnly?>("LastPurchasedOn")
+                        .HasColumnType("date");
+
+                    b.Property<decimal?>("LastPurchasedQuantity")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)");
+
+                    b.Property<string>("LastPurchasedUnit")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("OutOfStockAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PreferredBrand")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int?>("RestockIntervalDays")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly?>("SnoozedUntil")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HouseholdId", "Name");
+
+                    b.ToTable("Products", t =>
+                        {
+                            t.HasCheckConstraint("CK_Products_DefaultQuantity", "\"DefaultQuantity\" IS NULL OR \"DefaultQuantity\" > 0");
+
+                            t.HasCheckConstraint("CK_Products_RestockIntervalDays", "\"RestockIntervalDays\" IS NULL OR \"RestockIntervalDays\" > 0");
+                        });
+                });
+
+            modelBuilder.Entity("ComeRico.Core.Domain.Entities.ProductEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("HouseholdId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Origin")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("RecordedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("HouseholdId", "ProductId", "OccurredAt");
+
+                    b.ToTable("ProductEvents", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ProductEvents_LineTotal", "(\"LineTotal_Amount\" IS NULL) = (\"LineTotal_Currency\" IS NULL) AND (\"LineTotal_Amount\" IS NULL OR \"Type\" = 'Purchased')");
+
+                            t.HasCheckConstraint("CK_ProductEvents_PurchaseReverted", "\"Type\" <> 'PurchaseReverted' OR \"PurchaseEventId\" IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_ProductEvents_Purchased", "\"Type\" <> 'Purchased' OR (\"Quantity\" IS NOT NULL AND \"Unit\" IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_ProductEvents_Snoozed", "\"Type\" <> 'Snoozed' OR \"Days\" IS NOT NULL");
+                        });
+
+                    b.HasDiscriminator<string>("Type").HasValue("ProductEvent");
+
+                    b.UseTphMappingStrategy();
                 });
 
             modelBuilder.Entity("ComeRico.Core.Domain.Entities.ShoppingItem", b =>
@@ -493,6 +627,135 @@ namespace ComeRico.Infrastructure.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("ComeRico.Core.Domain.Entities.ProductIntervalChanged", b =>
+                {
+                    b.HasBaseType("ComeRico.Core.Domain.Entities.ProductEvent");
+
+                    b.Property<int?>("NewDays")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("OldDays")
+                        .HasColumnType("integer");
+
+                    b.ToTable(t =>
+                        {
+                            t.HasCheckConstraint("CK_ProductEvents_LineTotal", "(\"LineTotal_Amount\" IS NULL) = (\"LineTotal_Currency\" IS NULL) AND (\"LineTotal_Amount\" IS NULL OR \"Type\" = 'Purchased')");
+
+                            t.HasCheckConstraint("CK_ProductEvents_PurchaseReverted", "\"Type\" <> 'PurchaseReverted' OR \"PurchaseEventId\" IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_ProductEvents_Purchased", "\"Type\" <> 'Purchased' OR (\"Quantity\" IS NOT NULL AND \"Unit\" IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_ProductEvents_Snoozed", "\"Type\" <> 'Snoozed' OR \"Days\" IS NOT NULL");
+                        });
+
+                    b.HasDiscriminator().HasValue("IntervalChanged");
+                });
+
+            modelBuilder.Entity("ComeRico.Core.Domain.Entities.ProductMarkedOutOfStock", b =>
+                {
+                    b.HasBaseType("ComeRico.Core.Domain.Entities.ProductEvent");
+
+                    b.ToTable(t =>
+                        {
+                            t.HasCheckConstraint("CK_ProductEvents_LineTotal", "(\"LineTotal_Amount\" IS NULL) = (\"LineTotal_Currency\" IS NULL) AND (\"LineTotal_Amount\" IS NULL OR \"Type\" = 'Purchased')");
+
+                            t.HasCheckConstraint("CK_ProductEvents_PurchaseReverted", "\"Type\" <> 'PurchaseReverted' OR \"PurchaseEventId\" IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_ProductEvents_Purchased", "\"Type\" <> 'Purchased' OR (\"Quantity\" IS NOT NULL AND \"Unit\" IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_ProductEvents_Snoozed", "\"Type\" <> 'Snoozed' OR \"Days\" IS NOT NULL");
+                        });
+
+                    b.HasDiscriminator().HasValue("OutOfStock");
+                });
+
+            modelBuilder.Entity("ComeRico.Core.Domain.Entities.ProductPurchaseReverted", b =>
+                {
+                    b.HasBaseType("ComeRico.Core.Domain.Entities.ProductEvent");
+
+                    b.Property<Guid>("PurchaseEventId")
+                        .HasColumnType("uuid");
+
+                    b.ToTable(t =>
+                        {
+                            t.HasCheckConstraint("CK_ProductEvents_LineTotal", "(\"LineTotal_Amount\" IS NULL) = (\"LineTotal_Currency\" IS NULL) AND (\"LineTotal_Amount\" IS NULL OR \"Type\" = 'Purchased')");
+
+                            t.HasCheckConstraint("CK_ProductEvents_PurchaseReverted", "\"Type\" <> 'PurchaseReverted' OR \"PurchaseEventId\" IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_ProductEvents_Purchased", "\"Type\" <> 'Purchased' OR (\"Quantity\" IS NOT NULL AND \"Unit\" IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_ProductEvents_Snoozed", "\"Type\" <> 'Snoozed' OR \"Days\" IS NOT NULL");
+                        });
+
+                    b.HasDiscriminator().HasValue("PurchaseReverted");
+                });
+
+            modelBuilder.Entity("ComeRico.Core.Domain.Entities.ProductPurchased", b =>
+                {
+                    b.HasBaseType("ComeRico.Core.Domain.Entities.ProductEvent");
+
+                    b.Property<string>("Brand")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(10, 3)
+                        .HasColumnType("numeric(10,3)");
+
+                    b.Property<string>("ReceiptLineText")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<Guid?>("ShoppingItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ShoppingTripId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Store")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.ToTable(t =>
+                        {
+                            t.HasCheckConstraint("CK_ProductEvents_LineTotal", "(\"LineTotal_Amount\" IS NULL) = (\"LineTotal_Currency\" IS NULL) AND (\"LineTotal_Amount\" IS NULL OR \"Type\" = 'Purchased')");
+
+                            t.HasCheckConstraint("CK_ProductEvents_PurchaseReverted", "\"Type\" <> 'PurchaseReverted' OR \"PurchaseEventId\" IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_ProductEvents_Purchased", "\"Type\" <> 'Purchased' OR (\"Quantity\" IS NOT NULL AND \"Unit\" IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_ProductEvents_Snoozed", "\"Type\" <> 'Snoozed' OR \"Days\" IS NOT NULL");
+                        });
+
+                    b.HasDiscriminator().HasValue("Purchased");
+                });
+
+            modelBuilder.Entity("ComeRico.Core.Domain.Entities.ProductSnoozed", b =>
+                {
+                    b.HasBaseType("ComeRico.Core.Domain.Entities.ProductEvent");
+
+                    b.Property<int>("Days")
+                        .HasColumnType("integer");
+
+                    b.ToTable(t =>
+                        {
+                            t.HasCheckConstraint("CK_ProductEvents_LineTotal", "(\"LineTotal_Amount\" IS NULL) = (\"LineTotal_Currency\" IS NULL) AND (\"LineTotal_Amount\" IS NULL OR \"Type\" = 'Purchased')");
+
+                            t.HasCheckConstraint("CK_ProductEvents_PurchaseReverted", "\"Type\" <> 'PurchaseReverted' OR \"PurchaseEventId\" IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_ProductEvents_Purchased", "\"Type\" <> 'Purchased' OR (\"Quantity\" IS NOT NULL AND \"Unit\" IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_ProductEvents_Snoozed", "\"Type\" <> 'Snoozed' OR \"Days\" IS NOT NULL");
+                        });
+
+                    b.HasDiscriminator().HasValue("Snoozed");
+                });
+
             modelBuilder.Entity("ComeRico.Core.Domain.Entities.AppUser", b =>
                 {
                     b.HasOne("ComeRico.Core.Domain.Entities.Household", "Household")
@@ -542,6 +805,32 @@ namespace ComeRico.Infrastructure.Migrations
                     b.Navigation("Dish");
 
                     b.Navigation("Household");
+                });
+
+            modelBuilder.Entity("ComeRico.Core.Domain.Entities.Product", b =>
+                {
+                    b.HasOne("ComeRico.Core.Domain.Entities.Household", "Household")
+                        .WithMany("Products")
+                        .HasForeignKey("HouseholdId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Household");
+                });
+
+            modelBuilder.Entity("ComeRico.Core.Domain.Entities.ProductEvent", b =>
+                {
+                    b.HasOne("ComeRico.Core.Domain.Entities.Household", null)
+                        .WithMany()
+                        .HasForeignKey("HouseholdId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ComeRico.Core.Domain.Entities.Product", null)
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("ComeRico.Core.Domain.Entities.ShoppingItem", b =>
@@ -643,6 +932,34 @@ namespace ComeRico.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("ComeRico.Core.Domain.Entities.ProductPurchased", b =>
+                {
+                    b.OwnsOne("ComeRico.Core.Domain.Entities.Money", "LineTotal", b1 =>
+                        {
+                            b1.Property<Guid>("ProductPurchasedId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<decimal>("Amount")
+                                .HasPrecision(12, 2)
+                                .HasColumnType("numeric(12,2)");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character(3)")
+                                .IsFixedLength();
+
+                            b1.HasKey("ProductPurchasedId");
+
+                            b1.ToTable("ProductEvents");
+
+                            b1.WithOwner()
+                                .HasForeignKey("ProductPurchasedId");
+                        });
+
+                    b.Navigation("LineTotal");
+                });
+
             modelBuilder.Entity("ComeRico.Core.Domain.Entities.Dish", b =>
                 {
                     b.Navigation("Ingredients");
@@ -655,6 +972,8 @@ namespace ComeRico.Infrastructure.Migrations
                     b.Navigation("MealPlans");
 
                     b.Navigation("Members");
+
+                    b.Navigation("Products");
 
                     b.Navigation("ShoppingItems");
 

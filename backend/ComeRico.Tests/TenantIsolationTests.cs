@@ -69,4 +69,57 @@ public class TenantIsolationTests
 
         Assert.Null(found);
     }
+
+    [Fact]
+    public async Task Products_AndEventsOfEveryType_AreInvisibleToOtherHousehold()
+    {
+        var dbName = Guid.NewGuid().ToString();
+        var householdA = Guid.CreateVersion7();
+        var householdB = Guid.CreateVersion7();
+        var user = Guid.CreateVersion7();
+        var now = DateTime.UtcNow;
+
+        await using (var dbA = TestDb.Create(dbName, householdA))
+        {
+            var product = Product.Create(
+                householdA,
+                "Shampoo",
+                ProductCategory.Hygiene,
+                1,
+                MeasurementUnit.Package,
+                14,
+                null,
+                now
+            );
+            dbA.Products.Add(product);
+            dbA.ProductEvents.AddRange(
+                ProductPurchased.Create(
+                    householdA,
+                    product.Id,
+                    user,
+                    EventOrigin.Agent,
+                    now,
+                    now,
+                    2,
+                    MeasurementUnit.Package,
+                    lineTotal: new Money(34.5m, "MXN")
+                ),
+                ProductPurchaseReverted.Create(householdA, product.Id, user, EventOrigin.Web, now, Guid.CreateVersion7()),
+                ProductMarkedOutOfStock.Create(householdA, product.Id, user, EventOrigin.Web, now),
+                ProductSnoozed.Create(householdA, product.Id, user, EventOrigin.Web, now, 7),
+                ProductIntervalChanged.Create(householdA, product.Id, user, EventOrigin.Web, now, 14, 30)
+            );
+            await dbA.SaveChangesAsync(TestContext.Current.CancellationToken);
+        }
+
+        await using var dbB = TestDb.Create(dbName, householdB);
+        Assert.Empty(await dbB.Products.ToListAsync(TestContext.Current.CancellationToken));
+        Assert.Empty(await dbB.ProductEvents.ToListAsync(TestContext.Current.CancellationToken));
+
+        await using var dbA2 = TestDb.Create(dbName, householdA);
+        var events = await dbA2.ProductEvents.ToListAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(5, events.Count);
+        var purchase = Assert.Single(events.OfType<ProductPurchased>());
+        Assert.Equal(new Money(34.5m, "MXN"), purchase.LineTotal);
+    }
 }

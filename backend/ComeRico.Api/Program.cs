@@ -125,6 +125,7 @@ builder.Services.AddValidatorsFromAssemblyContaining<CreateHouseholdCommand>();
 
 // Cloudflare R2 (S3-compatible API) for image uploads
 builder.Services.AddOptions<R2Options>().BindConfiguration(R2Options.SectionName);
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<IFileStorage, R2FileStorage>();
 
 // Authorization: household-scoped endpoints require an authenticated user whose
@@ -196,5 +197,6 @@ app.MapImageEndpoints();
 app.MapTagEndpoints();
 app.MapMealPlanEndpoints();
 app.MapShoppingEndpoints();
+app.MapProductEndpoints();
 
 app.Run();

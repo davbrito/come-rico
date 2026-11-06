@@ -14,4 +14,5 @@ public enum MeasurementUnit
     Cup,
     Tablespoon,
     Teaspoon,
+    Package,
 }

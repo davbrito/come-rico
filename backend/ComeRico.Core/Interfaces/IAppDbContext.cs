@@ -14,6 +14,8 @@ public interface IAppDbContext
     DbSet<MealPlan> MealPlans { get; }
     DbSet<ShoppingItem> ShoppingItems { get; }
     DbSet<StoredFile> StoredFiles { get; }
+    DbSet<Product> Products { get; }
+    DbSet<ProductEvent> ProductEvents { get; }
 
     Guid CurrentHouseholdId { get; }
 
