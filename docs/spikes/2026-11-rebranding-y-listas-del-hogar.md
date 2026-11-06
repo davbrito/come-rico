@@ -26,6 +26,7 @@ Criterios para la lista corta:
 
 | Nombre | A favor | En contra | Búsqueda rápida |
 | --- | --- | --- | --- |
+| **Despi** (de *despensa*) | Corto (5 letras), amigable, fácil de pronunciar y de escribir en un dominio. Se entiende en toda Latinoamérica y España. Da para mascota/ícono. Guiño a "despistado": la app recuerda por ti. | Viene de *despensa* (lo que hay en casa), así que cubre poco el menú; se resuelve con el lema. Existe **Despia** (herramienta para convertir web apps en apps nativas): distinta categoría, pero parecida al escribir. | No apareció una app ni una marca de despensa llamada "Despi". |
 | **Alacena** | Cálido, claro, en español neutro. "Lo que hay (y falta) en casa". | Sustantivo común: difícil de registrar como marca y de encontrar en buscadores. | No apareció una app con ese nombre. |
 | **Repón** | Es justo la función nueva (reponer lo que se acaba). Verbo corto, con personalidad. | El acento complica el dominio (`repon.app`). Habla poco del menú. | No apareció. |
 | **Casa Lista** | Doble lectura positiva: "la lista de la casa" / "la casa lista". Cubre lista y menú. | Dos palabras. Más descriptivo que memorable. | No apareció. |
@@ -34,7 +35,7 @@ Criterios para la lista corta:
 | **Canasta** | "Canasta básica" se entiende en toda Latinoamérica. | Suena a supermercado, no a hogar; puede leerse como tienda. | Sin revisar. |
 | **Familist** | Corto, en la idea original. | Anglicismo, y se confunde con **FamyList**. | FamyList existe. |
 
-**Lista corta sugerida**: **Alacena**, **Repón** y **Casa Lista**. Siguiente paso: revisar los dominios (`.app`, `.mx`, `.com`) y la marca para esas tres, y elegir.
+**Favorito actual: Despi**, propuesto por el dueño del producto (sujeto a revisar el dominio y la marca). Respaldo: **Alacena**, **Repón** y **Casa Lista**. Siguiente paso: revisar los dominios (`.app`, `.mx`, `.com`) y la marca para esas tres, y elegir.
 
 > Decisión pendiente (dueño del producto). El resto del documento usa **{marca}** como nombre provisional.
 
@@ -518,7 +519,7 @@ public class PendingOperation : IHasHousehold
 
 ## 5. Preguntas abiertas (para decidir juntos)
 
-1. **Nombre final**: elegir de la lista corta (Alacena, Repón, Casa Lista) después de revisar dominios y marcas (1.1).
+1. **Nombre final**: **Despi** como favorito; confirmar después de revisar dominios (`despi.app`, `.mx`, `.com`) y marca (1.1).
 
 ### Decisiones tomadas
 
