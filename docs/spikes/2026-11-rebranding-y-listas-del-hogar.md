@@ -1,6 +1,6 @@
 # Spike: rebranding + listas de compra del hogar
 
-> Estado: **borrador para discusión** · Fecha: 2026-11-06 · No es una implementación.
+> Estado: **cerrado: decisiones tomadas** · Fecha: 2026-11-06 · No es una implementación.
 > Producto final esperado: uno o más issues (borradores al final de este documento).
 
 ## 0. Resumen
@@ -59,9 +59,9 @@ Criterios para la lista corta:
 
 Redes sociales: no se pudieron verificar automáticamente (Instagram, TikTok y X piden sesión; la API de GitHub está restringida en este entorno). Hay que revisarlas a mano para el nombre elegido.
 
-**Forma del nombre** (aplica a cualquier nombre elegido): la marca es solo el nombre, sin "App". "App" solo se usa donde haga falta desambiguar (dominio o redes ocupados), y en las tiendas de apps el título lleva un descriptor de búsqueda (p. ej. "{Marca}: lista de compras de casa").
+**Forma del nombre** (aplica a cualquier nombre elegido): la marca es solo el nombre, sin "App". "App" solo se usa donde haga falta desambiguar (dominio o redes ocupados), y en las tiendas de apps el título lleva un descriptor de búsqueda (p. ej. "Rebasto: lista de compras de casa").
 
-> Decisión pendiente (dueño del producto). El resto del documento usa **{marca}** como nombre provisional.
+> **Decisión: Rebasto** (*re* + *abasto*). Dominio principal: `rebasto.app` (el `.com` lo tiene un marketplace de insumos médicos), más el del país de lanzamiento. Pendiente: confirmar la compra con un registrador, revisar los handles de redes a mano (`@rebasto`, o `@rebastoapp` si está ocupado) y la marca en la oficina del país de lanzamiento. Lema por definir (debe cubrir también el menú).
 
 ### 1.2 Alcance: tres niveles
 
@@ -541,12 +541,13 @@ public class PendingOperation : IHasHousehold
 
 ---
 
-## 5. Preguntas abiertas (para decidir juntos)
+## 5. Decisiones
 
-1. **Nombre final**: Despi y Restocapp descartados (ya existen productos iguales). Mejores disponibles: **Repón** y **Nos Falta** (1.1).
+No quedan preguntas abiertas de producto. Quedan tareas: comprar el dominio, revisar redes y marca, y definir el lema.
 
 ### Decisiones tomadas
 
+- **Nombre**: **Rebasto**, con `rebasto.app` como dominio principal (1.1).
 - **Autenticación**: Amazon Cognito (free tier, tier Essentials o Lite), con **Managed Login** al inicio. Pantallas propias → issue L. Login con Google → issue M.
 - **Control de registro**: invitaciones firmadas (Data Protection), ligadas al correo, con el auto-registro de Cognito desactivado. Solo las emite el admin general. Sin tabla de correos ni DynamoDB (**aprobado**).
 - **MCP**: capa CIMD + DCR delante de Cognito **desde el inicio** (issue K, requisito del MCP), con **un app client fijo en Terraform** (`mcp-gateway`) y estado casi stateless (solo los códigos de un solo uso en Postgres).
@@ -567,11 +568,11 @@ public class PendingOperation : IHasHousehold
 
 Orden sugerido: **A** (independiente) · **B → C → D** · **E** (antes de que el MCP planee menús) · **J → K → I** (Cognito → capa OAuth → MCP) en paralelo con B/C. F/G/H/L/M después.
 
-### A. Rebranding visible: ComeRico → {nombre}
-- Decidir el nombre (sección 1.1) y conseguir el dominio.
+### A. Rebranding visible: ComeRico → Rebasto
+- Comprar `rebasto.app` (y el dominio del país de lanzamiento), revisar handles de redes y marca. Definir el lema (que cubra lista y menú).
 - Cambiar los textos, el título, OG, el manifest, el header, la landing (nueva propuesta: lista + menú), el README y los íconos.
 - Configurar el dominio nuevo en Vercel/infra con un 301 desde `comerico.davbrito.dev`.
-- **Incluye** renombrar la cookie (`__Host-{marca}.auth`) y `SetApplicationName("{Marca}")` de Data Protection (decidido: no hay usuarios en producción).
+- **Incluye** renombrar la cookie (`__Host-rebasto.auth`) y `SetApplicationName("Rebasto")` de Data Protection (decidido: no hay usuarios en producción).
 - **Fuera del alcance**: namespaces, buckets, base de datos y repo.
 
 ### B. Catálogo de productos del hogar con intervalo de reposición
