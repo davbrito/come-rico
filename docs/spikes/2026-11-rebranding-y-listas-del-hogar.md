@@ -16,17 +16,27 @@
 
 ### 1.1 Nombre
 
-"Familist" funciona, pero tiene dos riesgos: mezcla inglés en una app hispanohablante y hay apps con nombres parecidos (FamiList, Familist…). Hay que revisar el dominio, las tiendas de apps y las marcas registradas antes de decidir. Otras opciones con el mismo enfoque de "hogar + lista":
+**Corrección**: en una búsqueda rápida en tiendas de apps **no aparece "Familist" tal cual**, pero sí **"FamyList"** (lista de compras familiar compartida, en la App Store) y varias "Family List" / "Family Shopping List". FamyList se pronuncia igual que Familist y es exactamente la misma categoría, así que el problema no es que el nombre esté tomado: es que se confundiría con esa app. Antes de decidir cualquier nombre hay que revisar el dominio, las tiendas de apps y las marcas registradas (IMPI en MX, o la oficina del país donde se lance).
 
-| Nombre | Notas |
-| --- | --- |
-| **Familist** | Claro y corto. Anglicismo. Revisar si choca con otras apps. |
-| **Mandado** / **ElMandado** | En MX, "hacer el mandado" es justo hacer las compras de la casa. Muy local (en otros países se entiende menos). |
-| **Despensa** | Describe bien la función, pero es un sustantivo genérico y difícil de registrar. |
-| **Alacena** | Igual que "Despensa", con un tono más cálido. |
-| **Hogarín** / **Casita** | Amigables. Hablan menos de compras. |
+Criterios para la lista corta:
 
-> Decisión pendiente (dueño del producto). El resto del documento usa **Familist** como nombre provisional.
+1. **Sin doble sentido** (es la razón del rebranding). Evitar palabras de comida y verbos con uso de albur en MX: "comer", "surtir"/"surtido", "pepino", "chile", "camote"…
+2. **Habla del hogar y de reponer**, no solo de cocinar: el producto ahora es "lo que hace falta en casa", y el menú es una fuente más.
+3. Corto, fácil de pronunciar y de escribir en un dominio.
+
+| Nombre | A favor | En contra | Búsqueda rápida |
+| --- | --- | --- | --- |
+| **Alacena** | Cálido, claro, en español neutro. "Lo que hay (y falta) en casa". | Sustantivo común: difícil de registrar como marca y de encontrar en buscadores. | No apareció una app con ese nombre. |
+| **Repón** | Es justo la función nueva (reponer lo que se acaba). Verbo corto, con personalidad. | El acento complica el dominio (`repon.app`). Habla poco del menú. | No apareció. |
+| **Casa Lista** | Doble lectura positiva: "la lista de la casa" / "la casa lista". Cubre lista y menú. | Dos palabras. Más descriptivo que memorable. | No apareció. |
+| **Mandado** | En MX es literal: "hacer el mandado" = las compras de la casa. | Muy local. Existe "El Mandado App" (pedidos/entregas), parecido aunque de otra categoría. | Existe "El Mandado App". |
+| **Despensa** | Muy claro. | Muy genérico; hay muchas apps de "despensa". | Muchas apps con la palabra. |
+| **Canasta** | "Canasta básica" se entiende en toda Latinoamérica. | Suena a supermercado, no a hogar; puede leerse como tienda. | Sin revisar. |
+| **Familist** | Corto, en la idea original. | Anglicismo, y se confunde con **FamyList**. | FamyList existe. |
+
+**Lista corta sugerida**: **Alacena**, **Repón** y **Casa Lista**. Siguiente paso: revisar los dominios (`.app`, `.mx`, `.com`) y la marca para esas tres, y elegir.
+
+> Decisión pendiente (dueño del producto). El resto del documento usa **{marca}** como nombre provisional.
 
 ### 1.2 Alcance: tres niveles
 
@@ -116,7 +126,7 @@ porVencer       = !debeAparecer && t != null && hoy + 7 >= LastPurchasedOn + t_e
 1. **Producto**: `DefaultAmount = 1`, `DefaultUnit = Package`, `t = 14 días`.
 2. **Al entrar a la lista**, el `ShoppingItem` se crea con `Amount = 1`, `Unit = Package` (columnas que **ya existen** en `ShoppingItem`).
 3. **Al comprar**, la cantidad se puede ajustar: se edita el renglón a 2, o el agente lee "x2" en el ticket. `SetShoppingItemPurchased` (hoy solo recibe el bool) pasa a aceptar `amount?` y `unit?` opcionales. Por defecto toma los del renglón.
-4. **Se registra** `ProductEvent { Type = Purchased, Amount = 2, Unit = Package }`: es la **fuente de verdad**.
+4. **Se registra** `ProductPurchased { Amount = 2, Unit = Package }`: es la **fuente de verdad**.
 5. **Se actualiza el cache** en el producto: `LastPurchasedOn`, `LastPurchasedAmount = 2`, `LastPurchasedUnit = Package`. Es lo que lee la regla, para no consultar el log en cada sincronización. Si el cache se corrompe, se recalcula desde el último `Purchased` vigente.
 6. **La regla** calcula `t_efectivo = 14 × 2/1 = 28 días`. Si la unidad comprada no coincide con la por defecto (500 ml contra "1 pieza"), no hay conversión de unidades y se usa t sin escalar.
 
@@ -149,27 +159,73 @@ Transiciones:
 
 **Decisión**: llevar un log de eventos desde el MVP. Es **append-only** (nunca se edita; una corrección es otro evento) y se escribe **en la misma transacción** que el cambio de estado.
 
+**El log es polimórfico: cada tipo de evento trae datos distintos. ¿Cómo modelarlo?**
+
+| Opción | Cómo es | Veredicto |
+| --- | --- | --- |
+| Una clase con todas las columnas nulas | Una sola entidad, con `TotalPrice`, `SnoozeDays`… todos nulos según el tipo | Fácil, pero el código permite combinaciones inválidas (un `Snoozed` con precio) y cada consumidor tiene que saber qué campos aplican a cada tipo. |
+| **TPH (una tabla, jerarquía de clases)** | Clase base abstracta + una subclase por evento; EF guarda todo en **una tabla** con un discriminador | **Recomendado.** |
+| Tabla base + `jsonb` con el payload | Columnas comunes + un `Data jsonb` polimórfico | Flexible, pero los reportes de gasto tendrían que consultar dentro del JSON, y EF no traduce bien LINQ sobre JSON polimórfico. Además se pierden las restricciones de la base de datos. |
+| TPT / TPC (una tabla por tipo) | Joins o uniones en cada consulta del historial | Demasiado para 5 tipos de evento con 1 o 2 campos cada uno. |
+
+**Diseño con TPH**:
+
 ```csharp
-public class ProductEvent : IHasHousehold
+public abstract class ProductEvent : IHasHousehold
 {
-    Guid Id; Guid HouseholdId; Guid ProductId;
-    ProductEventType Type;   // Purchased | PurchaseReverted | OutOfStock | Snoozed | IntervalChanged
-    DateTime OccurredAt;     // cuándo pasó (la fecha del ticket, si viene de uno)
-    DateTime RecordedAt;     // cuándo se registró
-    Guid UserId; EventOrigin Origin; // Web | Agent
-    Guid? ShoppingItemId;
-
-    // Solo Purchased (todo opcional salvo la cantidad)
-    decimal? Amount; MeasurementUnit? Unit;  // lo que se compró de verdad
-    decimal? TotalPrice;                     // numeric(12,2): total de la línea del ticket
-    string? Currency;                        // ISO 4217 ("MXN", "USD"); obligatorio si hay TotalPrice
-    string? Brand; string? Store;
-    string? ReceiptLineText;                 // "SHAMP H&S 400ML", para aprender alias
-
-    int? SnoozeDays;         // Snoozed
-    int? OldIntervalDays, NewIntervalDays;   // IntervalChanged
+    public Guid Id { get; private set; }
+    public Guid HouseholdId { get; private set; }
+    public Guid ProductId { get; private set; }
+    public DateTime OccurredAt { get; private set; }   // cuándo pasó (fecha del ticket si viene de uno)
+    public DateTime RecordedAt { get; private set; }   // cuándo se registró
+    public Guid UserId { get; private set; }
+    public EventOrigin Origin { get; private set; }    // Web | Agent
 }
+
+public sealed class ProductPurchased : ProductEvent
+{
+    public Guid? ShoppingItemId { get; private set; }
+    public decimal Amount { get; private set; }        // obligatorio en el tipo
+    public MeasurementUnit Unit { get; private set; }
+    public Money? Price { get; private set; }          // owned/complex type: TotalPrice + Currency, juntos o ninguno
+    public string? Brand { get; private set; }
+    public string? Store { get; private set; }
+    public string? ReceiptLineText { get; private set; }
+}
+
+public sealed class ProductPurchaseReverted : ProductEvent { public Guid PurchaseEventId { get; private set; } }
+public sealed class ProductMarkedOutOfStock : ProductEvent { }
+public sealed class ProductSnoozed : ProductEvent { public int Days { get; private set; } }
+public sealed class ProductIntervalChanged : ProductEvent { public int? OldDays { get; private set; } public int? NewDays { get; private set; } }
+
+public sealed record Money(decimal Amount, string Currency); // numeric(12,2) + char(3)
 ```
+
+```csharp
+// Configuración EF
+b.Entity<ProductEvent>(e =>
+{
+    e.ToTable("ProductEvents");
+    e.HasDiscriminator<string>("Type")
+        .HasValue<ProductPurchased>("Purchased")
+        .HasValue<ProductPurchaseReverted>("PurchaseReverted")
+        .HasValue<ProductMarkedOutOfStock>("OutOfStock")
+        .HasValue<ProductSnoozed>("Snoozed")
+        .HasValue<ProductIntervalChanged>("IntervalChanged");
+    e.HasIndex(x => new { x.HouseholdId, x.ProductId, x.OccurredAt });
+});
+b.Entity<ProductPurchased>().ComplexProperty(x => x.Price); // o OwnsOne
+// + check constraints por tipo, p. ej.: Type <> 'Purchased' OR "Amount" IS NOT NULL
+```
+
+Por qué TPH:
+
+- **En el código, cada evento solo tiene sus campos.** No se puede crear un `ProductSnoozed` con precio, y los factory methods validan cada caso. En la tabla, las columnas de cada subtipo son nulas para los demás, y unos **check constraints** por `Type` cuidan la integridad en la base de datos.
+- **Consultas tipadas y traducibles a SQL**: `db.ProductEvents.OfType<ProductPurchased>().Where(p => p.Price != null).GroupBy(p => p.Price!.Currency)…` para el gasto, o `OrderByDescending(OccurredAt)` sobre la base para el historial completo de un producto.
+- **Una sola tabla y un solo índice** (`HouseholdId, ProductId, OccurredAt`), sin joins. Agregar un tipo nuevo es una subclase + un valor del discriminador + columnas nulas nuevas.
+- El DTO hacia la API/MCP es igual de polimórfico: `[JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]` en el DTO base, así Hey-API genera una unión discriminada en TypeScript.
+
+**Ojo con el filtro por hogar**: hoy `ApplyHouseholdFilters` recorre **todos** los entity types que implementan `IHasHousehold`, y las subclases de TPH también lo implementan (por herencia). EF solo permite query filters en la **raíz** de la jerarquía, así que el modelo fallaría al construirse. El arreglo es de una línea: filtrar con `e.BaseType == null` en ese `Where` (el filtro de la raíz aplica a todas las subclases). Vale la pena una prueba en `TenantIsolationTests` con un evento de cada tipo.
 
 **¿Cuánta información guardar?** El criterio: **guardar todo lo que llega gratis y no pedirle al usuario nada extra.** Capturar datos es justo la fricción que queremos quitar.
 
@@ -187,7 +243,7 @@ public class ProductEvent : IHasHousehold
 
 **Hoy el sistema no guarda dinero en ningún lado**: ninguna entidad tiene precios ni montos de dinero. `Ingredient.Amount` y `ShoppingItem.Amount` son **cantidades** (gramos, piezas), no dinero.
 
-Con esta propuesta, el dinero aparece **en un solo lugar**: `ProductEvent.TotalPrice` + `ProductEvent.Currency`, y solo en eventos `Purchased` que lo traigan (casi siempre del ticket vía el agente).
+Con esta propuesta, el dinero aparece **en un solo lugar**: `ProductPurchased.Price` (`Money` = monto + moneda), y solo en las compras que lo traigan (casi siempre del ticket vía el agente).
 
 - **Tipo**: `decimal` en C# / `numeric(12,2)` en Postgres. Nunca `float`/`double` para dinero.
 - **Moneda en cada compra (recomendado)**, no solo a nivel de hogar:
@@ -195,7 +251,7 @@ Con esta propuesta, el dinero aparece **en un solo lugar**: `ProductEvent.TotalP
   - **Por qué no solo por hogar**: si el hogar cambia de moneda, compra en un viaje o paga en dos monedas (pasa en algunos países), un valor solo por hogar **reetiquetaría todo el historial** de golpe. Guardarla en el evento lo deja inmutable y correcto, y cuesta una columna de 3 caracteres.
   - Los reportes **agrupan por moneda** y nunca suman monedas distintas. No hay conversión de tipo de cambio (fuera del alcance).
 - **No se guarda precio** en `Product` (ni "precio estimado") ni en `ShoppingItem` en el MVP. Si más adelante se quiere un presupuesto estimado de la lista, el "último precio conocido" sale del log.
-- *A futuro*, si el dinero crece (presupuestos, gastos que no son productos), conviene un value object `Money(decimal Amount, string Currency)` mapeado como *owned type* de EF. Para un solo par de columnas no vale la pena todavía.
+- **Value object `Money(decimal Amount, string Currency)`**, mapeado como complex/owned type de EF: garantiza que nunca haya monto sin moneda y se reutiliza si el dinero aparece en otros lados (presupuestos, gastos).
 
 Lo que sale del log (todo en C#, sin esquema extra):
 
@@ -462,18 +518,18 @@ public class PendingOperation : IHasHousehold
 
 ## 5. Preguntas abiertas (para decidir juntos)
 
-1. **Nombre final** y si se compra dominio propio.
-2. Moneda: ¿se guarda en cada compra con un default por hogar (recomendado, 3.1.2) o solo una por hogar?
-3. ¿Aprobamos las invitaciones firmadas + auto-registro desactivado en lugar de la tabla de correos (y, con eso, sin DynamoDB)?
+1. **Nombre final**: elegir de la lista corta (Alacena, Repón, Casa Lista) después de revisar dominios y marcas (1.1).
 
 ### Decisiones tomadas
 
 - **Autenticación**: Amazon Cognito (free tier, tier Essentials o Lite), con **Managed Login** al inicio. Pantallas propias → issue L. Login con Google → issue M.
-- **Control de registro**: invitaciones firmadas (Data Protection), ligadas al correo, con el auto-registro de Cognito desactivado. Solo las emite el admin general. Sin tabla de correos ni DynamoDB (propuesta tras evaluar la idea; pendiente de visto bueno).
+- **Control de registro**: invitaciones firmadas (Data Protection), ligadas al correo, con el auto-registro de Cognito desactivado. Solo las emite el admin general. Sin tabla de correos ni DynamoDB (**aprobado**).
 - **MCP**: capa CIMD + DCR delante de Cognito **desde el inicio** (issue K, requisito del MCP), con **un app client fijo en Terraform** (`mcp-gateway`) y estado casi stateless (solo los códigos de un solo uso en Postgres).
 - **Día de compra opcional**: si existe, se anticipa contra él. Si no, se evalúa contra hoy, con la sección "Por vencer (7 días)", y el menú usa los próximos 7 días.
 - **Historial de eventos** `ProductEvent` desde el MVP. Se guarda lo que llega gratis (cantidad siempre; precio, marca, tienda y línea del ticket si vienen del ticket), y t escala con la cantidad comprada.
 - **Lista = tabla sincronizada + log**, no una vista del log.
+- **Moneda**: se guarda **en cada compra** (`Money` = monto + moneda ISO 4217), con `Household.DefaultCurrency` como valor por defecto.
+- **Log de eventos**: TPH (una tabla, una subclase por tipo de evento) (3.1.1).
 - **Catálogo**: lo edita **cualquier miembro** del hogar (sin `IRequireHouseholdAdmin`).
 - **Cookie y Data Protection**: se renombran ya, en el issue A (no hay usuarios en producción).
 - **Cantidad comprada**: `ShoppingItem.Amount/Unit` → evento `Purchased` (fuente de verdad) → cache en `Product.LastPurchasedAmount/Unit`.
@@ -497,14 +553,14 @@ Orden sugerido: **A** (independiente) · **B → C → D** · **E** (antes de qu
 - Entidad `Product` (3.1), `ProductCategory`, `MeasurementUnit.Package` y la migración.
 - CRUD `/api/products` y la página "Productos del hogar" (nombre, categoría, cantidad por defecto, "cada cuánto", última compra).
 - `OutOfStockAt`, `SnoozedUntil`, `PreferredBrand`, `LastPurchasedAmount/Unit`, `Household.ShoppingDay?` y `Household.DefaultCurrency`. Cualquier miembro puede editar.
-- Historial `ProductEvent` (3.1.1), escrito en la misma transacción que cada cambio de estado. Acción "Se acabó" en el catálogo.
+- Historial `ProductEvent` con TPH (3.1.1), escrito en la misma transacción que cada cambio de estado. Ajustar `ApplyHouseholdFilters` para aplicar solo a las raíces de jerarquía (`BaseType == null`), con prueba de aislamiento. Acción "Se acabó" en el catálogo.
 - Pruebas: filtro por hogar y regla de aparición (tiempo con y sin día de compra, escalado por cantidad, agotado, pospuesto, sin intervalo, nunca comprado).
 
 ### C. Lista de compras unificada: recurrentes + menú + manuales
 - `ShoppingItem.Source`, `ProductId`, `PurchasedAt` y la migración desde `IsAutoGenerated`.
 - `Household.ShoppingDay`.
 - `SyncShoppingListCommand` (3.3), que reemplaza a `generate`. Sincroniza al abrir la lista y con el botón.
-- `SetShoppingItemPurchased` acepta `amount?`/`unit?` (y precio + moneda, marca y tienda opcionales). Marcar como comprado registra `Purchased`, actualiza el `Product` y limpia agotado/pospuesto. Sección "Por vencer" cuando no hay día de compra. Marcar agotado agrega el artículo en el momento. Acción "Todavía tengo" (posponer).
+- `SetShoppingItemPurchased` acepta `amount?`/`unit?` (y precio + moneda, marca y tienda opcionales). Marcar como comprado registra `ProductPurchased`, actualiza el `Product` y limpia agotado/pospuesto. Sección "Por vencer" cuando no hay día de compra. Marcar agotado agrega el artículo en el momento. Acción "Todavía tengo" (posponer).
 - Acción "Hacer recurrente" desde un artículo manual.
 - **Corrige**: la regeneración borra comprados, y falla cuando no hay ingredientes.
 - Pruebas: idempotencia, que no haya duplicados y que se conserven los comprados.
