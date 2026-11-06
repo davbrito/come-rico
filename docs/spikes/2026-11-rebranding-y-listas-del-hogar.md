@@ -8,7 +8,7 @@
 1. **Rebranding**: "ComeRico" puede leerse como albur. El cambio visible al usuario es barato; renombrar el código y la infraestructura es caro y casi no aporta. Propuesta: cambiar todo lo visible ya y dejar los identificadores técnicos para después (o no tocarlos nunca).
 2. **El producto cambia de foco**: deja de ser solo "¿qué vamos a comer?" y pasa a ser "¿qué hay que comprar para la casa?". El menú semanal se vuelve **una fuente más** de la lista de compras, junto con los **productos recurrentes** (shampoo, pasta dental…) y los artículos manuales.
 3. **Cambios al modelo**: un catálogo `Product` del hogar que aparece en la lista cuando **ya pasó t desde la última compra o se marcó como agotado**, `ShoppingItem` con `Source` + `ProductId` + `PurchasedAt`, y un comando idempotente que **sincroniza** la lista con todo lo que vence antes del próximo día de compra.
-4. **Servidor MCP con autenticación**: lo que más cuesta es *capturar* (productos, platillos, menús). Un agente (Claude en el móvil, en el escritorio o en Claude Code) puede hacerlo por el usuario: "arma el menú de la semana para 4 personas, sin cerdo, con cenas ligeras" o "aquí está la foto del ticket, marca lo que compré". Como toda la lógica ya vive en handlers de MediatR, el MCP es **otro adaptador delgado**, igual que las Minimal APIs. Lo difícil no son las herramientas: es **la autenticación** (OAuth). Decisión: **Amazon Cognito** (free tier) con una lista de correos permitidos, y una capa OAuth delgada (CIMD + DCR) para que Claude se conecte solo con la URL. Los cambios en lote del agente pasan por vista previa y confirmación.
+4. **Servidor MCP con autenticación**: lo que más cuesta es *capturar* (productos, platillos, menús). Un agente (Claude en el móvil, en el escritorio o en Claude Code) puede hacerlo por el usuario: "arma el menú de la semana para 4 personas, sin cerdo, con cenas ligeras" o "aquí está la foto del ticket, marca lo que compré". Como toda la lógica ya vive en handlers de MediatR, el MCP es **otro adaptador delgado**, igual que las Minimal APIs. Lo difícil no son las herramientas: es **la autenticación** (OAuth). Decisión: **Amazon Cognito** (free tier) con invitaciones firmadas, y una capa OAuth delgada (CIMD + DCR) para que Claude se conecte solo con la URL. Los cambios en lote del agente pasan por vista previa y confirmación.
 
 ---
 
@@ -82,8 +82,10 @@ public class Product : IHasHousehold
     ProductCategory Category;    // Higiene, Limpieza, Despensa, Frescos, Bebés, Mascotas, Otros
     decimal? DefaultAmount;      // 1
     MeasurementUnit? DefaultUnit;// Piece / Package
-    int? RestockIntervalDays;    // t; null = sin recurrencia (solo aparece si se marca agotado)
+    int? RestockIntervalDays;    // t = lo que dura DefaultAmount; null = sin recurrencia (solo si se marca agotado)
+    string? PreferredBrand;      // "Colgate"; se muestra en la lista, opcional
     DateOnly? LastPurchasedOn;
+    decimal? LastPurchasedAmount;// para escalar t por cantidad (ver abajo)
     DateTime? OutOfStockAt;      // "se acabó"; se limpia al comprar
     DateOnly? SnoozedUntil;      // "todavía tengo"; solo afecta a la regla de tiempo
     bool IsActive;
@@ -93,13 +95,20 @@ public class Product : IHasHousehold
 
 **Regla de aparición en la lista (decisión)**: un producto aparece en la lista si se cumple **cualquiera** de estas dos condiciones:
 
-1. **Ya pasó t desde la última compra**: `hoy >= LastPurchasedOn + t`, salvo que esté pospuesto (`hoy < SnoozedUntil`).
+1. **Ya pasó t desde la última compra**: `fechaReferencia >= LastPurchasedOn + t_efectivo`, salvo que esté pospuesto (`fechaReferencia < SnoozedUntil`).
 2. **Se marcó como agotado**: `OutOfStockAt != null`. Esta gana siempre, incluso si está pospuesto o no tiene intervalo.
 
 ```text
-debeAparecer = OutOfStockAt != null
-            || (t != null && hoy >= max(LastPurchasedOn + t, SnoozedUntil ?? min))
+fechaReferencia = Household.ShoppingDay != null ? próximoDíaDeCompra : hoy
+t_efectivo      = t * (LastPurchasedAmount / DefaultAmount)   // misma unidad; si no, t
+debeAparecer    = OutOfStockAt != null
+               || (t != null && fechaReferencia >= max(LastPurchasedOn + t_efectivo, SnoozedUntil ?? min))
+porVencer       = !debeAparecer && t != null && hoy + 7 >= LastPurchasedOn + t_efectivo
 ```
+
+- **Con día de compra** (opcional, `Household.ShoppingDay : DayOfWeek?`): se **anticipa** contra el próximo día de compra, así que lo que vence el martes entra en la compra del sábado anterior.
+- **Sin día de compra**: se evalúa contra **hoy** y la lista muestra una sección **"Por vencer (próximos 7 días)"** con lo que está por tocar, para quien quiera adelantarse.
+- **t escala con la cantidad comprada**: t es "lo que dura la cantidad por defecto". Si el papel de baño es "1 paquete cada 2 semanas" y compraste 2, vuelve a aparecer en 4 semanas. No hace falta un campo de "unidades por intervalo": sale de la cantidad por defecto y de la cantidad comprada.
 
 Por qué funciona bien:
 
@@ -118,14 +127,54 @@ Transiciones:
 | Desmarcar comprado | Revertir a los valores anteriores (se guardan en el `ShoppingItem` al marcarlo) |
 | Crear producto | Preguntar "¿cuándo lo compraste por última vez?". Si no se sabe, `LastPurchasedOn = null`, que cuenta como vencido y entra a la siguiente lista |
 
-Puntos a decidir:
-
-- **Anticipación**: con "ya pasó t" literal, algo que vence el martes no entra en la compra del sábado anterior, y se acaba antes de la siguiente. Propuesta: evaluar la condición de tiempo **contra el próximo día de compra** (`díaDeCompra >= LastPurchasedOn + t`) en lugar de contra hoy. Si se prefiere la regla literal, al menos mostrar una sección "Por vencer" con lo que vence antes del próximo día de compra.
-- **Aprendizaje del intervalo (a futuro)**: guardar los eventos (comprado, agotado, pospuesto) en un pequeño historial `ProductEvent`. Agotar antes de t indica que el intervalo es largo; posponer seguido indica que es corto. Con eso se puede **sugerir** ajustar t ("se te acaba cada ~20 días, ¿cambio a 3 semanas?"). Conviene guardar los eventos desde el MVP aunque la sugerencia llegue después: es barato y no se puede reconstruir hacia atrás.
+**Decidido**: anticipar contra el día de compra si existe; si no, contra hoy, con la sección "Por vencer".
 
 - **Intervalo en días** en la base de datos y **atajos en la UI** (cada semana / 2 semanas / mes / 2 meses / personalizado). Es simple y alcanza.
 - **`ProductCategory` como enum cerrado** (igual que `MeasurementUnit`). Sirve para agrupar la lista por pasillo o tienda sin tener que modelar varias listas. Se podría pasar a una entidad del hogar más adelante si alguien la pide.
 - Agregar **`Package`** (paquete/caja) a `MeasurementUnit`. En los productos de casa "1 pieza" se queda corto.
+
+### 3.1.1 Historial de eventos (`ProductEvent`) y qué datos guardar de cada compra
+
+**Decisión**: llevar un log de eventos desde el MVP. Es **append-only** (nunca se edita; una corrección es otro evento) y se escribe **en la misma transacción** que el cambio de estado.
+
+```csharp
+public class ProductEvent : IHasHousehold
+{
+    Guid Id; Guid HouseholdId; Guid ProductId;
+    ProductEventType Type;   // Purchased | PurchaseReverted | OutOfStock | Snoozed | IntervalChanged
+    DateTime OccurredAt;     // cuándo pasó (la fecha del ticket, si viene de uno)
+    DateTime RecordedAt;     // cuándo se registró
+    Guid UserId; EventOrigin Origin; // Web | Agent
+    Guid? ShoppingItemId;
+
+    // Solo Purchased (todo opcional salvo la cantidad)
+    decimal? Amount; MeasurementUnit? Unit;  // lo que se compró de verdad
+    decimal? TotalPrice;                     // moneda = Household.Currency
+    string? Brand; string? Store;
+    string? ReceiptLineText;                 // "SHAMP H&S 400ML", para aprender alias
+
+    int? SnoozeDays;         // Snoozed
+    int? OldIntervalDays, NewIntervalDays;   // IntervalChanged
+}
+```
+
+**¿Cuánta información guardar?** El criterio: **guardar todo lo que llega gratis y no pedirle al usuario nada extra.** Capturar datos es justo la fricción que queremos quitar.
+
+| Dato | ¿Guardarlo? | Por qué |
+| --- | --- | --- |
+| Fecha y quién | **Sí, siempre** | Es la base de la regla y del aprendizaje. |
+| Cantidad + unidad comprada | **Sí** (por defecto, la cantidad del producto) | Escala t (comprar 2 dura el doble) y mejora la sugerencia del intervalo. |
+| Precio total | **Opcional**, sin pedirlo en la UI | Llega gratis en el ticket (vía agente). Habilita "gasto por mes/categoría" y "el shampoo subió 20 %". Se guarda el **total de la línea** (es lo que trae el ticket); el unitario se calcula. Moneda a nivel de hogar. |
+| Marca | **Opcional** por compra + `PreferredBrand` en el producto | La marca preferida sí es útil en la lista ("Colgate"). La de cada compra solo sirve para análisis, así que se guarda solo si llega del ticket. |
+| Tienda | **Opcional** | Llega gratis en el ticket. A futuro sirve para comparar precios entre tiendas. |
+| Texto de la línea del ticket | **Sí, si viene del ticket** | Con él se aprenden alias ("SHAMP H&S 400ML" → Shampoo), y el siguiente empate del agente es mejor (un `ProductAlias` a futuro). |
+| Foto del ticket | **No** (por ahora) | Costo de almacenamiento y privacidad, y no aporta después de extraer los datos. |
+
+Lo que sale del log (todo en C#, sin esquema extra):
+
+- **Sugerir t**: mediana de los días entre compras, normalizada por cantidad. Agotar antes de t indica que el intervalo es largo; posponer seguido indica que es corto.
+- **Gasto** por mes y por categoría, y la evolución del precio de cada producto.
+- **Deshacer** una compra: `PurchaseReverted` y recalcular el estado desde el último `Purchased` vigente.
 
 ### 3.2 `ShoppingItem` con varias fuentes
 
@@ -149,8 +198,8 @@ public class ShoppingItem : IHasHousehold
 
 `SyncShoppingListCommand` reemplaza a `GenerateShoppingListCommand`:
 
-1. Calcula la **ventana**: desde hoy hasta el próximo **día de compra** del hogar (nuevo `Household.ShoppingDay : DayOfWeek`, por defecto sábado).
-2. **Recurrentes y agotados**: los `Product` activos que cumplan la regla de aparición (3.1), evaluada contra el fin de la ventana si se adopta la anticipación, que **no** tengan ya un `ShoppingItem` pendiente (sin comprar y sin archivar) con ese `ProductId` → se crean como `Source = Recurring`.
+1. Calcula la **ventana**: desde hoy hasta el próximo **día de compra** del hogar (nuevo `Household.ShoppingDay : DayOfWeek?`, **opcional**). Sin día de compra, la ventana es **hoy + 7 días** (para el menú) y la regla de recurrencia se evalúa contra hoy (3.1).
+2. **Recurrentes y agotados**: los `Product` activos que cumplan la regla de aparición (3.1), que **no** tengan ya un `ShoppingItem` pendiente (sin comprar y sin archivar) con ese `ProductId` → se crean como `Source = Recurring`.
 3. **Menú**: los ingredientes de los `MealPlan` dentro de la ventana, consolidados como hoy. Se reemplazan solo los `MealPlan` **sin comprar**; los comprados se conservan (corrige el problema 1).
 4. Si no hay nada que agregar, no falla: la lista se queda igual (corrige el problema 3).
 
@@ -158,6 +207,15 @@ public class ShoppingItem : IHasHousehold
 
 - **MVP**: al abrir `/shopping` (en el loader) y con el botón "Actualizar lista". Es idempotente, así que repetirlo no causa problemas. No requiere jobs ni cambios de infraestructura.
 - **Después**: un cron semanal (ya existe el patrón de Vercel Cron + `CRON_SECRET` de `/api/images/cleanup`) que recorre los hogares en su `ShoppingDay - 1` para sincronizar y **notificar** ("Tu lista para mañana tiene 12 cosas"). Solo vale la pena cuando haya notificaciones (push/correo).
+
+**¿La lista como vista del log de eventos, o como tabla sincronizada?** Recomendación: **tabla** (`ShoppingItem`) + **log** (`ProductEvent`) + **estado actual en el `Product`**, todo escrito en la misma transacción. Es el patrón "estado + bitácora", no event sourcing:
+
+- **La lista tiene estado propio que no viene del log**: artículos manuales, ingredientes del menú consolidados, cantidades editadas a mano, el check mientras recorres el súper, y el archivo al terminar la compra. Para que fuera una vista, todo eso tendría que convertirse en eventos y la vista tendría que reproducirlos. Eso es event sourcing completo, mucho más complejo de lo que el problema pide.
+- **La regla vive en C#, no en SQL**: "próximo día de compra del hogar", "t escalado por cantidad" y "pospuesto" se expresan y se prueban fácil en el dominio (con EF InMemory, como el resto). Como vista de Postgres, la lógica quedaría en SQL, sin pruebas con InMemory y dependiente de la fecha del servidor.
+- **La UI necesita ids estables**: para el check optimista y para editar. Las filas reales los tienen; las filas calculadas no.
+- **El log sigue siendo la fuente de verdad del historial**: si el estado del `Product` se corrompe, se puede recalcular desde los eventos.
+
+*Alternativa intermedia* (descartada por ahora): no materializar los recurrentes y unirlos "virtualmente" al leer la lista (tabla + productos vencidos calculados). Evita la sincronización, pero complica los ids, las ediciones y el check. La sincronización idempotente es más simple.
 
 ### 3.4 Ciclo de vida de la lista
 
@@ -172,7 +230,7 @@ Cambios recomendados, en orden de valor:
 
 1. **Porciones**: `Dish.Servings` (rinde para N personas) + `MealPlan.Servings` (para cuántos se cocina, por defecto `Household.DefaultServings`). Al generar la lista: `Amount * MealPlan.Servings / Dish.Servings`.
 2. **Ingrediente ↔ Producto (opcional)**: `Ingredient.ProductId?`. Sirve para unificar los nombres ("Arroz" del platillo = "Arroz" de la despensa), sacar la categoría para agrupar y, más adelante, el inventario ("ya tengo arroz"). Se puede hacer **de forma gradual**: al guardar un ingrediente se busca coincidencia por nombre normalizado o se ofrece crear el producto. No es necesario para el MVP de recurrentes.
-3. Semana alineada al `ShoppingDay` del hogar en lugar del lunes fijo (esto viene con 3.3).
+3. Semana alineada al `ShoppingDay` del hogar (o a los próximos 7 días si no tiene) en lugar del lunes fijo (esto viene con 3.3).
 4. *Fuera del alcance*: entradas libres en el menú ("comemos fuera", "sobras"), conversión de unidades e inventario de despensa.
 
 ---
@@ -206,9 +264,9 @@ ComeRico.Core handlers (los mismos que usan los endpoints REST)
 - **Modo stateless** del transporte HTTP: el backend corre en Lambda (Function URL), así que no se pueden mantener sesiones SSE largas. Ninguna herramienta necesita estado de sesión.
 - **Tenancy sin cambios conceptuales**: el token se resuelve en un usuario, de ahí salen sus claims (`household_id`, `household_role`) y `ClaimsTenantService` funciona igual. Solo hay que registrar un segundo esquema de autenticación (bearer) junto a la cookie, con una policy que acepte cualquiera de los dos.
 
-### 4.3 Autenticación: Amazon Cognito + lista de correos permitidos
+### 4.3 Autenticación: Amazon Cognito + invitaciones firmadas
 
-**Propuesta (del dueño del producto)**: usar **Amazon Cognito** (free tier) como proveedor de identidad, tanto para la web como para el MCP, con una **lista de correos permitidos** que controle quién se puede registrar. Así nadie ajeno consume el free tier.
+**Propuesta (del dueño del producto)**: usar **Amazon Cognito** (free tier) como proveedor de identidad, tanto para la web como para el MCP, con un control de quién se puede registrar, para que nadie ajeno consuma el free tier. Ese control se decidió como **invitaciones firmadas** (abajo).
 
 **Lo que se gana**
 
@@ -217,19 +275,33 @@ ComeRico.Core handlers (los mismos que usan los endpoints REST)
 - Encaja con la infraestructura, que ya está en AWS (Lambda + Terraform).
 - Costo: el free tier cubre **10,000 MAU al mes** de inicio de sesión directo o social en los tiers Lite y Essentials. El federado SAML/OIDC solo cubre 50 MAU, pero Google cuenta como "social", no como federado. El tier Plus no tiene free tier: hay que **fijar Essentials o Lite en Terraform**.
 
-**Lista de correos permitidos**
+**Control de registro: enlaces de invitación firmados (sin tabla de correos)**
 
-- Un trigger **Pre sign-up** de Cognito (Lambda) rechaza el registro si el correo no está en la lista. El usuario **nunca llega a crearse**, así que no cuenta como MAU.
-- El trigger también se dispara con proveedores externos (`PreSignUp_ExternalProvider`). Hay que validar el correo ahí también, o el login con Google se salta la lista.
-- **Dónde guardar la lista**: los triggers de Cognito tienen un **timeout de ~5 s**, y conectarse a Neon desde una Lambda fría es arriesgado. Propuesta: **una tabla DynamoDB** `allowed_emails` (PK = correo normalizado en minúsculas), dentro del free tier y **Decisión: solo la administra el admin general** (Terraform/CLI/consola). Más adelante, invitar a alguien al hogar podría escribir en la tabla (requiere permisos IAM de la API sobre esa tabla).
-- La alternativa más simple sería desactivar el auto-registro (`AllowAdminCreateUserOnly`) y crear los usuarios a mano. Funciona, pero la experiencia de invitación es peor.
+Propuesta del dueño del producto: reemplazar la tabla de correos permitidos por un **enlace de invitación firmado criptográficamente y stateless**. Evaluación: **sí, y además simplifica la infraestructura**, siempre que se combine con **desactivar el auto-registro en Cognito**:
+
+1. El admin general genera una invitación: `{ email, householdId?, role?, exp }` firmado (y cifrado) con **ASP.NET Data Protection** (`ITimeLimitedDataProtector`). Las llaves **ya están persistidas en Postgres** (`DataProtectionKeys`), así que no hay que administrar ningún secreto nuevo.
+2. El invitado abre `/invitacion?t=…`. El backend verifica la firma y la expiración, y crea el usuario con **`AdminCreateUser`** de Cognito usando **ese** correo. El auto-registro está desactivado (`AllowAdminCreateUserOnly = true`), así que **nadie puede registrarse sin invitación**, aunque conozca la URL de Managed Login.
+3. Cognito le manda la contraseña temporal (o se usa el flujo de "establecer contraseña" en el primer login de Managed Login), y se redirige al login.
+4. Si la invitación trae `householdId`, al crear el `AppUser` se une a ese hogar. **Unifica "permiso para registrarse" y "unirse al hogar"** (hoy existe un `InviteCode` por hogar; ese puede seguir para usuarios ya registrados).
+
+Las propiedades que importan:
+
+| Riesgo | Cómo se cubre |
+| --- | --- |
+| Reenviar el enlace a otra persona | El token está **ligado al correo**. Cognito verifica ese correo, y quien no lo controla no puede completar el registro. |
+| Usarlo varias veces | Es de un solo uso de forma natural: la segunda vez `AdminCreateUser` falla porque el usuario ya existe. No hace falta guardar estado. |
+| Revocar una invitación antes de que expire | Stateless no permite revocar una por una. Se mitiga con **expiración corta (p. ej. 72 h)**. Como último recurso, una "fecha mínima de emisión" en configuración invalida todas las anteriores. |
+| Abuso del free tier | Solo quien tiene invitación crea usuario, y solo el admin general emite invitaciones (grupo `admins` de Cognito o claim de sistema). |
+
+- **Con esto desaparecen el trigger Pre sign-up, la Lambda extra y la tabla DynamoDB** de la propuesta anterior.
+- **Con Google (issue M)**: un login federado puede crear usuarios aunque el auto-registro esté desactivado. Hay que verificarlo, y probablemente se necesite igual un trigger Pre sign-up `ExternalProvider` que **solo permita vincular** a un usuario ya invitado con el mismo correo (`AdminLinkProviderForUser`). Esa validación no necesita tabla: basta con buscar si ya existe un usuario con ese correo en el pool.
 
 **Cómo encaja con el BFF actual (web)**
 
 - Se mantiene el patrón BFF: el backend es un **cliente OIDC confidencial** de Cognito (authorization code + PKCE). Al volver del login, busca o crea el `AppUser` por `sub` (nueva columna `CognitoSub`, única) y emite **la misma cookie propia** `__Host-…auth` con los claims `household_id` / `household_role`. El resto del sistema (tenancy, policies, `fetchCurrentUser`) no cambia.
 - **Decisión: Managed Login de Cognito al inicio.** Las rutas `login`, `register`, `forgot-password` y `reset-password` del frontend se reemplazan por una redirección. Las pantallas propias (issue L) y el login con Google (issue M) quedan como issues aparte.
 - ASP.NET Identity queda como modelo de usuario/hogar, sin contraseñas. El password hashing y el `SignInManager` de contraseñas se retiran.
-- **Usuarios existentes**: Cognito no puede importar los hashes de Identity. Como hay pocos usuarios, se vinculan por correo en el primer login con Cognito, después de un "restablecer contraseña". La otra opción es un trigger *User migration*, que no vale la pena a esta escala.
+- **Usuarios existentes**: se crean con `AdminCreateUser` (mismo correo) y se vinculan por correo al `AppUser` en su primer login. Cognito no puede importar los hashes de Identity. Como hay pocos usuarios, cada uno establece su contraseña en el primer login. La otra opción es un trigger *User migration*, que no vale la pena a esta escala.
 - El envío de correo predeterminado de Cognito tiene una cuota diaria baja. Alcanza al principio; si crece, se pasa a SES.
 
 **MCP con Cognito: el hueco que hay que cubrir**
@@ -250,8 +322,22 @@ Diseño propuesto (endpoints en la misma API, para tener un solo despliegue):
 | `POST /oauth/token` | Canjea el código propio (verificando el PKCE del cliente) por los tokens de Cognito, y pasa los `refresh_token` a Cognito con el secret del cliente interno. |
 
 - **Los tokens siguen siendo de Cognito**, así que la validación de la API (abajo) no cambia y no emitimos JWT propios.
-- **Estado transitorio** (registros DCR, `state`/PKCE pendientes, códigos propios de ~60 s): **DynamoDB con TTL nativo**. Es estado de la capa de autenticación, efímero y de alta rotación, y así no ensucia Postgres. Los registros DCR que no se usen expiran solos.
-- **Anti-abuso**: `/oauth/register` es público por especificación, así que lleva rate limiting y solo acepta `redirect_uris` de una lista permitida (callback de claude.ai y loopback `http://127.0.0.1` / `http://localhost`). En CIMD, solo se aceptan hosts de `client_id` de confianza (claude.ai, …). De todas formas, nadie obtiene tokens sin un usuario de Cognito, y para eso necesita estar en la lista de correos.
+
+**¿App client de Cognito dinámico por cada cliente de Claude, o uno fijo en Terraform?** **Uno fijo en Terraform, reutilizado.** De hecho, dos: `web-bff` (el login de la web) y `mcp-gateway` (la capa OAuth). Así se pueden dar distintos scopes y duraciones de token a cada uno, y revocarlos por separado. Por qué no crearlos dinámicamente:
+
+- **Nada lo requiere**: Cognito solo ve **nuestro** callback (`/oauth/callback`), nunca el `redirect_uri` de cada cliente, así que un solo app client sirve para todos.
+- **Cuotas y abuso**: `/oauth/register` es público por especificación. Si cada registro creara un app client, cualquiera podría agotar la cuota del pool, y habría que limpiar los clientes huérfanos.
+- **Drift de Terraform**: recursos creados fuera del estado de Terraform, con secrets que habría que guardar en algún lado, y permisos IAM de escritura sobre el user pool para la API.
+- La distinción por cliente ("revocar el acceso de Claude Code") se hace con **nuestro** `client_id` (va en el estado del código y se puede registrar en la auditoría) y con `RevokeToken` de Cognito sobre los refresh tokens del usuario.
+
+**Estado de la capa: casi stateless, y sin DynamoDB.**
+
+- **Registros DCR stateless**: el `client_id` que emite `/oauth/register` **es** un payload protegido con Data Protection que contiene los `redirect_uris` y la fecha. Validarlo no requiere tabla, y los registros abandonados no dejan basura.
+- **`state` / PKCE entre `/authorize` y `/callback`**: también va protegido dentro del `state` que viaja a Cognito y regresa. Sin tabla.
+- **Códigos propios de un solo uso**: es lo único que necesita estado, porque OAuth exige que un código no se use dos veces. Una tabla Postgres pequeña `OAuthAuthorizationCode` (hash del código, tokens de Cognito cifrados con Data Protection, PKCE, `ExpiresAt` de ~60 s, `ConsumedAt`) se consume con un `UPDATE … WHERE ConsumedAt IS NULL` atómico y se limpia en el cron.
+
+Con las invitaciones firmadas y este diseño, **DynamoDB ya no es necesario en ninguna parte**: un almacén menos que operar, permisos IAM menos y nada que emular en local.
+- **Anti-abuso**: `/oauth/register` es público por especificación, así que lleva rate limiting y solo acepta `redirect_uris` de una lista permitida (callback de claude.ai y loopback `http://127.0.0.1` / `http://localhost`). En CIMD, solo se aceptan hosts de `client_id` de confianza (claude.ai, …). De todas formas, nadie obtiene tokens sin un usuario de Cognito, y para eso necesita una invitación.
 - Hay que verificar el comportamiento exacto de los clientes de Claude (cuándo usan CIMD o DCR, y qué campos de metadata exigen) contra la documentación vigente de conectores cuando se tome el issue.
 
 Validación del token en la API: `AddJwtBearer` con `Authority` = issuer del user pool. Los access tokens de Cognito **no traen `aud`**, así que se valida `token_use == "access"` y que `client_id` esté en la lista de app clients permitidos. Un `IClaimsTransformation` mapea `sub` → `AppUser` → claims del hogar (con caché corta), y `ClaimsTenantService` funciona sin cambios. Los scopes `read` / `write` se definen como *custom scopes* de un resource server en Cognito.
@@ -302,13 +388,40 @@ Flujo:
 
 Las operaciones pequeñas y reversibles (`mark_items_purchased`, `mark_out_of_stock`, `postpone_product`, agregar 1 o 2 artículos) **se aplican directo** y devuelven un resumen con la opción de deshacer. Con el ticket, el agente ya muestra el empate en el chat, y obligar a confirmar dos veces cada compra sería fricción.
 
-**¿DynamoDB para las operaciones pendientes?** Opinión: **mejor Postgres** (`PendingOperation : IHasHousehold`, con payload `jsonb`, `PayloadHash`, `Status`, `CreatedByUserId`, `ExpiresAt`):
+**Decisión: Postgres.** Razones: el filtro por hogar (`IHasHousehold`) aplica gratis, se usan los mismos handlers y las mismas pruebas, y no se agregan dependencias de AWS a la API. El TTL se cubre con `ExpiresAt` + limpieza en el cron.
 
-- **Tenancy gratis**: el filtro global por `IHasHousehold` ya impide que otro hogar vea o confirme la operación. En DynamoDB habría que reimplementarlo a mano.
-- **Mismo modelo y mismas pruebas**: se aplica con los mismos handlers y EF, y se prueba con EF InMemory como el resto. DynamoDB metería el SDK de AWS, permisos IAM y un emulador local (DynamoDB Local) en el camino de las peticiones de la API.
-- La ventaja de DynamoDB (TTL nativo) se cubre con un filtro `ExpiresAt > now` y una limpieza en el cron semanal que ya existe (`/api/images/cleanup`, o uno hermano).
+**Modelo propuesto**
 
-**Regla propuesta**: **DynamoDB para lo que vive en la capa de autenticación** (lista de correos, que lee el trigger de Cognito; estado transitorio de la capa OAuth) y **Postgres para todo lo del dominio**, incluidas las operaciones pendientes. Así cada almacén tiene un propósito claro.
+```csharp
+public class PendingOperation : IHasHousehold
+{
+    Guid Id; Guid HouseholdId;
+    Guid CreatedByUserId;
+    string? McpClientId;               // nuestro client_id de la capa OAuth (auditoría)
+    PendingOperationKind Kind;         // CreateDishes | PlanMeals | UpsertProducts | AddShoppingItems | Batch
+    int PayloadVersion;                // para poder cambiar el formato sin romper las pendientes
+    PendingOperationPayload Payload;   // jsonb: los comandos MediatR ya validados (ver abajo)
+    string PayloadHash;                // sha256 del payload canónico: detecta propuestas duplicadas
+    OperationPreview Preview;          // jsonb: el resumen que se mostró al usuario
+    PendingOperationStatus Status;     // Pending | Applying | Applied | Cancelled | Expired | Failed
+    OperationResult? Result;           // jsonb: ids creados, para que confirmar dos veces devuelva lo mismo
+    string? Error;
+    DateTime CreatedAt, ExpiresAt;     // ~30 min
+    DateTime? ResolvedAt;
+    uint Version;                      // token de concurrencia (xmin de Npgsql)
+}
+```
+
+- **El payload son los propios comandos de MediatR**, serializados con un tipo por clase (`[JsonPolymorphic]` / `[JsonDerivedType]`): `CreateDishCommand`, `CreateMealPlanCommand`… No se inventa un formato paralelo.
+- **Ids asignados al proponer**: si la operación crea un platillo y lo programa en la misma propuesta, el platillo ya trae su `Guid` v7 en el payload y `CreateMealPlanCommand` lo referencia. Así el resultado es determinista y la vista previa puede mostrar los ids que tendrán. Requiere que los comandos de creación acepten un `Id` opcional.
+- **Confirmar** (`ConfirmPendingOperationCommand`):
+  1. Carga la operación (con el filtro por hogar), y comprueba `CreatedByUserId == usuario actual`, `Status == Pending` y que no haya expirado.
+  2. La pasa a `Applying` con un update condicional (`WHERE Status = 'Pending'`, o el token de concurrencia), para que dos confirmaciones simultáneas no la apliquen dos veces.
+  3. Abre una transacción y manda cada comando por `IMediator`. **El `ValidationBehavior` corre de nuevo**: esa es la revalidación.
+  4. Si todo sale bien, `Applied` + `Result`. Si algo falla, rollback, `Failed` + `Error` legible, y el agente vuelve a proponer.
+  5. Si ya estaba `Applied`, devuelve el `Result` guardado (idempotente).
+- **Transacciones**: hoy cada handler llama a `SaveChangesAsync`. Para aplicar en bloque hace falta envolverlos en una transacción explícita (`BeginTransactionAsync`), o un `IUnitOfWork` sencillo. EF InMemory ignora las transacciones, así que el rollback se prueba aparte (Testcontainers con Postgres, o se acepta como hueco conocido).
+- **Limpieza**: el cron marca como `Expired` las vencidas y borra las resueltas con más de 30 días. Se pueden conservar más tiempo como auditoría de lo que hizo el agente.
 
 *Alternativa futura*: la **elicitation** de MCP (el servidor le pide confirmación al usuario directamente en la UI del cliente) evitaría depender del agente, pero el soporte en los clientes es desigual. Conviene revisarla más adelante.
 
@@ -323,18 +436,21 @@ Las operaciones pequeñas y reversibles (`mark_items_purchased`, `mark_out_of_st
 ## 5. Preguntas abiertas (para decidir juntos)
 
 1. **Nombre final** y si se compra dominio propio.
-2. ¿La condición de tiempo se evalúa contra **hoy** (regla literal) o contra el **próximo día de compra** (anticipación, propuesta)?
-3. ¿Quién configura el catálogo: cualquier miembro o solo Admin? La propuesta es cualquier miembro, porque se parece a la lista misma.
-4. ¿El "día de compra" es por hogar (propuesta) o hay hogares que compran varias veces por semana? En ese caso, la ventana podría ser "próximos 7 días" en lugar de "hasta el día de compra".
-5. ¿Hacemos el rebranding del nivel 2 (cookie/Data Protection) ahora, aprovechando que hay pocos usuarios, o nunca?
+2. ¿Quién configura el catálogo: cualquier miembro o solo Admin? La propuesta es cualquier miembro, porque se parece a la lista misma.
+3. Moneda: ¿una por hogar (propuesta) o puede variar por compra?
+4. ¿Hacemos el rebranding del nivel 2 (cookie/Data Protection) ahora, aprovechando que hay pocos usuarios, o nunca?
+5. ¿Aprobamos las invitaciones firmadas + auto-registro desactivado en lugar de la tabla de correos (y, con eso, sin DynamoDB)?
 
 ### Decisiones tomadas
 
 - **Autenticación**: Amazon Cognito (free tier, tier Essentials o Lite), con **Managed Login** al inicio. Pantallas propias → issue L. Login con Google → issue M.
-- **Lista de correos permitidos**: la administra solo el admin general (DynamoDB vía Terraform/CLI).
-- **MCP**: capa CIMD + DCR delante de Cognito **desde el inicio** (issue K, requisito del MCP).
+- **Control de registro**: invitaciones firmadas (Data Protection), ligadas al correo, con el auto-registro de Cognito desactivado. Solo las emite el admin general. Sin tabla de correos ni DynamoDB (propuesta tras evaluar la idea; pendiente de visto bueno).
+- **MCP**: capa CIMD + DCR delante de Cognito **desde el inicio** (issue K, requisito del MCP), con **un app client fijo en Terraform** (`mcp-gateway`) y estado casi stateless (solo los códigos de un solo uso en Postgres).
+- **Día de compra opcional**: si existe, se anticipa contra él. Si no, se evalúa contra hoy, con la sección "Por vencer (7 días)", y el menú usa los próximos 7 días.
+- **Historial de eventos** `ProductEvent` desde el MVP. Se guarda lo que llega gratis (cantidad siempre; precio, marca, tienda y línea del ticket si vienen del ticket), y t escala con la cantidad comprada.
+- **Lista = tabla sincronizada + log**, no una vista del log.
 - **Regla de aparición de productos**: entran directo a la lista cuando ya pasó t desde la última compra **o** se marcaron como agotados (3.1).
-- **Cambios en lote del agente**: vista previa y confirmación (4.4.1). Operaciones pendientes en Postgres (pendiente de confirmar: se había propuesto DynamoDB).
+- **Cambios en lote del agente**: vista previa y confirmación (4.4.1). Operaciones pendientes en Postgres con el modelo de 4.4.1.
 
 ---
 
@@ -351,14 +467,15 @@ Orden sugerido: **A** (independiente) · **B → C → D** · **E** (antes de qu
 ### B. Catálogo de productos del hogar con intervalo de reposición
 - Entidad `Product` (3.1), `ProductCategory`, `MeasurementUnit.Package` y la migración.
 - CRUD `/api/products` y la página "Productos del hogar" (nombre, categoría, cantidad por defecto, "cada cuánto", última compra).
-- `OutOfStockAt`, `SnoozedUntil` e historial `ProductEvent`. Acción "Se acabó" en el catálogo.
-- Pruebas: filtro por hogar y regla de aparición (tiempo, agotado, pospuesto, sin intervalo, nunca comprado).
+- `OutOfStockAt`, `SnoozedUntil`, `PreferredBrand`, `LastPurchasedAmount`, `Household.ShoppingDay?` y `Household.Currency`.
+- Historial `ProductEvent` (3.1.1), escrito en la misma transacción que cada cambio de estado. Acción "Se acabó" en el catálogo.
+- Pruebas: filtro por hogar y regla de aparición (tiempo con y sin día de compra, escalado por cantidad, agotado, pospuesto, sin intervalo, nunca comprado).
 
 ### C. Lista de compras unificada: recurrentes + menú + manuales
 - `ShoppingItem.Source`, `ProductId`, `PurchasedAt` y la migración desde `IsAutoGenerated`.
 - `Household.ShoppingDay`.
 - `SyncShoppingListCommand` (3.3), que reemplaza a `generate`. Sincroniza al abrir la lista y con el botón.
-- Marcar como comprado actualiza el `Product` y limpia agotado/pospuesto. Marcar agotado agrega el artículo en el momento. Acción "Todavía tengo" (posponer).
+- Marcar como comprado registra `Purchased` (cantidad, y precio/marca/tienda opcionales), actualiza el `Product` y limpia agotado/pospuesto. Sección "Por vencer" cuando no hay día de compra. Marcar agotado agrega el artículo en el momento. Acción "Todavía tengo" (posponer).
 - Acción "Hacer recurrente" desde un artículo manual.
 - **Corrige**: la regeneración borra comprados, y falla cuando no hay ingredientes.
 - Pruebas: idempotencia, que no haya duplicados y que se conserven los comprados.
@@ -375,25 +492,25 @@ Orden sugerido: **A** (independiente) · **B → C → D** · **E** (antes de qu
 ### G. (Futuro) Recordatorio semanal
 - Cron por hogar en `ShoppingDay - 1` + notificación. Depende de tener un canal de notificaciones.
 
-### J. Migrar la autenticación a Amazon Cognito con lista de correos permitidos
-- User pool (tier Essentials o Lite, fijado en Terraform), **Managed Login** con la marca nueva y app client confidencial para el BFF.
-- Trigger Pre sign-up + tabla DynamoDB `allowed_emails`, administrada solo por el admin general. El trigger ya contempla `PreSignUp_ExternalProvider` para cuando llegue M.
+### J. Migrar la autenticación a Amazon Cognito con invitaciones firmadas
+- User pool (tier Essentials o Lite, fijado en Terraform), **Managed Login** con la marca nueva, **auto-registro desactivado** y app clients fijos `web-bff` y `mcp-gateway`.
+- Invitaciones firmadas con Data Protection (`email`, `householdId?`, `exp`), emitidas solo por el admin general. Al abrirlas: `AdminCreateUser` + unirse al hogar.
 - Backend: login OIDC → `AppUser` por `CognitoSub` → la misma cookie propia con claims del hogar. Retirar contraseñas de Identity.
-- Frontend: reemplazar login/registro/recuperación por la redirección.
-- Migración de los usuarios existentes (vinculación por correo).
-- Pruebas: un correo no permitido no puede registrarse, y la sesión y la tenancy siguen igual.
+- Frontend: reemplazar login/registro/recuperación por la redirección, y agregar la página de invitación.
+- Migración de los usuarios existentes (`AdminCreateUser` + vinculación por correo).
+- Pruebas: sin invitación no hay registro, una invitación expirada o alterada se rechaza, una invitación usada no crea un segundo usuario, y la sesión y la tenancy siguen igual.
 
 ### K. Capa OAuth (CIMD + DCR) delante de Cognito
-- Endpoints de 4.3: metadata RFC 9728/8414, `/oauth/register`, `/oauth/authorize`, `/oauth/callback` y `/oauth/token`. Un único app client interno de Cognito.
-- Estado transitorio en DynamoDB con TTL (registros, `state`/PKCE, códigos propios).
+- Endpoints de 4.3: metadata RFC 9728/8414, `/oauth/register`, `/oauth/authorize`, `/oauth/callback` y `/oauth/token`, con el app client `mcp-gateway` (Terraform).
+- `client_id` de DCR y `state` stateless (Data Protection), y tabla `OAuthAuthorizationCode` para los códigos de un solo uso.
 - Anti-abuso: rate limiting, lista permitida de `redirect_uris` y de hosts CIMD.
 - Criterio de aceptación: agregar el conector **solo con la URL** en claude.ai (web y móvil) y en Claude Code, y obtener un access token de Cognito válido para `/mcp`.
 
 ### I. Servidor MCP v1 (depende de J y K)
 - Endpoint `/mcp` (SDK de C#, Streamable HTTP stateless) en `ComeRico.Api`.
 - Validación de access tokens de Cognito: JwtBearer, `token_use` / `client_id`, custom scopes `read` / `write` y `IClaimsTransformation` `sub` → hogar.
-- Herramientas de 4.4 para platillos, menú y lista (las de productos llegan con B), más los prompts `planear_menu_semanal` y `procesar_ticket`.
-- **Vista previa y confirmación** para cambios en lote (4.4.1): `PendingOperation`, `confirm_operation` y `cancel_operation`, con revalidación al confirmar.
+- Herramientas de 4.4 para platillos, menú y lista (las de productos llegan con B). `mark_items_purchased` acepta precio, marca, tienda y texto de la línea del ticket. Prompts `planear_menu_semanal` y `procesar_ticket`.
+- **Vista previa y confirmación** para cambios en lote (4.4.1): `PendingOperation` (modelo de 4.4.1), `confirm_operation` y `cancel_operation`, revalidación, update condicional contra la doble aplicación, ids asignados al proponer y transacción.
 - Auditoría `Origin = Agent` y rate limiting.
 - Criterio de aceptación: el flujo del menú semanal (con vista previa) y el del ticket desde el móvil.
 - Pruebas: aislamiento por hogar con bearer, scopes, que un usuario no pueda confirmar operaciones de otro hogar o de otro usuario, idempotencia de la confirmación, y que cada herramienta mande el comando correcto.
@@ -402,7 +519,7 @@ Orden sugerido: **A** (independiente) · **B → C → D** · **E** (antes de qu
 - Reemplazar Managed Login por pantallas propias (login, registro, recuperación) con la API de Cognito, si la experiencia de Managed Login se queda corta.
 
 ### M. Login con Google
-- Google como proveedor social en el user pool, con el botón en el login y la lista de correos aplicada vía `PreSignUp_ExternalProvider`.
+- Google como proveedor social en el user pool, con el botón en el login. Trigger `PreSignUp_ExternalProvider` que solo permite vincular a un usuario ya invitado con el mismo correo (sin tabla).
 - Probar el caso de un correo ya registrado con contraseña que entra con Google: vincular cuentas (`AdminLinkProviderForUser`) en lugar de duplicarlas.
 
 ### H. (Opcional, deuda) Rebranding técnico
