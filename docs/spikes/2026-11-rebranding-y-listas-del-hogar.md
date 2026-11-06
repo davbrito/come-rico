@@ -230,7 +230,7 @@ public sealed class ProductPurchased : ProductEvent
     public Guid? ShoppingTripId { get; private set; }  // la compra (checkout) que lo confirmó
     public decimal Amount { get; private set; }        // obligatorio en el tipo
     public MeasurementUnit Unit { get; private set; }
-    public Money? Price { get; private set; }          // owned/complex type: TotalPrice + Currency, juntos o ninguno
+    public Money? LineTotal { get; private set; }      // lo pagado por TODO el renglón (neto de descuentos); unitario = LineTotal / Amount
     public string? Brand { get; private set; }
     public string? Store { get; private set; }
     public string? ReceiptLineText { get; private set; }
@@ -257,14 +257,14 @@ b.Entity<ProductEvent>(e =>
         .HasValue<ProductIntervalChanged>("IntervalChanged");
     e.HasIndex(x => new { x.HouseholdId, x.ProductId, x.OccurredAt });
 });
-b.Entity<ProductPurchased>().ComplexProperty(x => x.Price); // o OwnsOne
+b.Entity<ProductPurchased>().ComplexProperty(x => x.LineTotal); // o OwnsOne
 // + check constraints por tipo, p. ej.: Type <> 'Purchased' OR "Amount" IS NOT NULL
 ```
 
 Por qué TPH:
 
 - **En el código, cada evento solo tiene sus campos.** No se puede crear un `ProductSnoozed` con precio, y los factory methods validan cada caso. En la tabla, las columnas de cada subtipo son nulas para los demás, y unos **check constraints** por `Type` cuidan la integridad en la base de datos.
-- **Consultas tipadas y traducibles a SQL**: `db.ProductEvents.OfType<ProductPurchased>().Where(p => p.Price != null).GroupBy(p => p.Price!.Currency)…` para el gasto, o `OrderByDescending(OccurredAt)` sobre la base para el historial completo de un producto.
+- **Consultas tipadas y traducibles a SQL**: `db.ProductEvents.OfType<ProductPurchased>().Where(p => p.LineTotal != null).GroupBy(p => p.LineTotal!.Currency)…` para el gasto, o `OrderByDescending(OccurredAt)` sobre la base para el historial completo de un producto.
 - **Una sola tabla y un solo índice** (`HouseholdId, ProductId, OccurredAt`), sin joins. Agregar un tipo nuevo es una subclase + un valor del discriminador + columnas nulas nuevas.
 - El DTO hacia la API/MCP es igual de polimórfico: `[JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]` en el DTO base, así Hey-API genera una unión discriminada en TypeScript.
 
@@ -286,7 +286,16 @@ Por qué TPH:
 
 **Hoy el sistema no guarda dinero en ningún lado**: ninguna entidad tiene precios ni montos de dinero. `Ingredient.Amount` y `ShoppingItem.Amount` son **cantidades** (gramos, piezas), no dinero.
 
-Con esta propuesta, el dinero aparece **en un solo lugar**: `ProductPurchased.Price` (`Money` = monto + moneda), y solo en las compras que lo traigan (casi siempre del ticket vía el agente).
+Con esta propuesta, el dinero aparece en `ProductPurchased.LineTotal` y `ShoppingTrip.TotalPaid` (ambos `Money` = monto + moneda), y solo cuando llegan (casi siempre del ticket vía el agente).
+
+**`LineTotal` es el total del renglón, no el precio unitario.** El precio unitario se **calcula** (`LineTotal / Amount`) y no se guarda:
+
+- **Es lo que el ticket siempre trae.** El unitario no siempre aparece.
+- **No es ambiguo con descuentos y promociones** (2×1, "3 por $100", descuento en el renglón): se guarda **lo que realmente se pagó** (neto). Un unitario de lista no diría cuánto se gastó.
+- **Productos a granel o por peso**: 0.85 kg de tomate a $40/kg → `LineTotal = 34`, `Amount = 0.85`, `Unit = Kilogram`. El "$/kg" sale de la división.
+- **Suma directo** contra `ShoppingTrip.TotalPaid` para cuadrar el ticket (la diferencia son los artículos fuera del catálogo).
+- **Evita la pregunta "¿unitario de qué?"**: si el producto es "1 paquete" y el paquete trae 4 rollos, el unitario depende de la unidad; el total no.
+- Se nombra `LineTotal` (y no `Price`) para que nadie lo confunda con un precio unitario.
 
 - **Tipo**: `decimal` en C# / `numeric(12,2)` en Postgres. Nunca `float`/`double` para dinero.
 - **Moneda en cada compra (recomendado)**, no solo a nivel de hogar:
@@ -375,7 +384,7 @@ Detalles:
 - **Sin señal en el súper**: los checks son mutaciones optimistas. Si no hay red, se encolan y se reintentan (TanStack Query con `networkMode: 'offlineFirst'` / persistencia de mutaciones). El checkout sí requiere conexión, porque es la transacción importante.
 - **Carrito olvidado**: si hay artículos `InCart` con más de ~12 h, la lista muestra "Tienes 8 cosas en el carrito desde ayer: ¿confirmar la compra?". **Nunca** se confirma sola.
 - **El ticket vía agente** es un checkout: `checkout(items, store?, total?, date?)` confirma los artículos que ya estaban en el carrito y/o marca directo los que empata el agente (con precio por línea, si viene), y crea el `ShoppingTrip` con la fecha del ticket.
-- **Gasto**: con `ShoppingTrip.TotalPaid` hay gasto por compra **aunque no haya precio por artículo**. El precio por línea (`ProductPurchased.Price`) es un extra que llega con el ticket.
+- **Gasto**: con `ShoppingTrip.TotalPaid` hay gasto por compra **aunque no haya precio por artículo**. El total por renglón (`ProductPurchased.LineTotal`) es un extra que llega con el ticket.
 - Vista agrupada por `Category` (los artículos del menú van bajo "Comida de la semana", o en su categoría si están vinculados a un `Product`), con los `InCart` tachados o al final de su grupo.
 - *Descartado por ahora*: varias listas por hogar (súper / farmacia). La categoría cubre el 90 % del caso con mucha menos complejidad.
 
