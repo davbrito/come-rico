@@ -44,6 +44,7 @@ Criterios para la lista corta:
 | **Casa Lista** | `casalista.mx`, `casalista.app` y `casalista.com.mx`: tomados. `casalista.com`: libre. | `casalista.mx` es un portal inmobiliario en CDMX. Otra categoría, pero dominio `.mx` ocupado. |
 | **Repón** | `repon.app`, `repon.mx` y `repon.com.mx`: **libres**. `repon.com`: tomado. | No se encontró producto con ese nombre. **Mejor disponibilidad de la lista.** |
 | Restocapp | `restocapp.com`, `restoc.app` y `restock.app`: tomados. `restocapp.app`, `.mx` y `.com.mx`: libres. | **Descartado.** `restocapp.com` es **"Restoc: Know before you run out"** (alertas de reorden para tiendas Shopify): mismo concepto y casi el mismo nombre. `restoc.app` es otra app de alertas de stock para Shopify. Además es anglicismo y lleva "app" dentro del nombre. |
+| Rebasto (*re* + *abasto*) | `rebasto.com`: tomado. `.app`, `.io`, `.co`, `.es`, `.ve`/`.com.ve`, `.ar`, `.cl`, `.pe` y `.mx`: libres. | `rebasto.com` es **"Rebasto — Clinic Inventory & Medical Supplier Marketplace"** (inventario e insumos para clínicas). Otra categoría y otro público (B2B médico), pero el mismo concepto de reabastecer, y aparecería primero en buscadores. Lingüística: "abasto" se entiende en toda la región (en Venezuela, la tienda de barrio; Central/Mercado de Abasto en MX/AR). Ojo: "basto" = tosco/grosero, y en el Río de la Plata "re basto" se lee como "muy grosero". |
 | Nos Falta | `nosfalta.app`, `.mx`, `.com.mx` y `.com`: **todos libres**. | No se encontró producto. Frase natural en el hogar ("¿qué nos falta?"). |
 | Se Acabó | `seacabo.app`, `.mx` y `.com.mx`: libres. `.com`: tomado. | Encaja con "marcar agotado". Tono más de alerta que de hogar. |
 | Qué Falta / Falta | `.mx` y `.com.mx`: libres. `.app` y `.com`: tomados. | **Evitar**: `quefalta.app` ya es una app de lista de compras. |
@@ -54,6 +55,7 @@ Criterios para la lista corta:
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | Nos Falta | libre | libre | libre | libre | libre | libre | libre | libre | libre |
 | Repón | tomado | libre | tomado | tomado | tomado | libre | libre | tomado | libre |
+| Rebasto | tomado | libre | libre | libre | libre | libre | libre | libre | libre |
 
 Redes sociales: no se pudieron verificar automáticamente (Instagram, TikTok y X piden sesión; la API de GitHub está restringida en este entorno). Hay que revisarlas a mano para el nombre elegido.
 
