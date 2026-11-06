@@ -48,6 +48,13 @@ Criterios para la lista corta:
 | Se Acabó | `seacabo.app`, `.mx` y `.com.mx`: libres. `.com`: tomado. | Encaja con "marcar agotado". Tono más de alerta que de hogar. |
 | Qué Falta / Falta | `.mx` y `.com.mx`: libres. `.app` y `.com`: tomados. | **Evitar**: `quefalta.app` ya es una app de lista de compras. |
 
+**Nota**: la revisión de `.mx` / `.com.mx` partía de suponer que el mercado era México, y esa suposición fue un error. Los dominios que importan son los globales (`.com` y `.app`), más el ccTLD del mercado real. Disponibilidad ampliada de los dos finalistas:
+
+| Nombre | `.com` | `.app` | `.io` | `.co` | `.es` | `.com.ve` | `.ar` | `.cl` | `.pe` |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Nos Falta | libre | libre | libre | libre | libre | libre | libre | libre | libre |
+| Repón | tomado | libre | tomado | tomado | tomado | libre | libre | tomado | libre |
+
 Redes sociales: no se pudieron verificar automáticamente (Instagram, TikTok y X piden sesión; la API de GitHub está restringida en este entorno). Hay que revisarlas a mano para el nombre elegido.
 
 **Forma del nombre** (aplica a cualquier nombre elegido): la marca es solo el nombre, sin "App". "App" solo se usa donde haga falta desambiguar (dominio o redes ocupados), y en las tiendas de apps el título lleva un descriptor de búsqueda (p. ej. "{Marca}: lista de compras de casa").
