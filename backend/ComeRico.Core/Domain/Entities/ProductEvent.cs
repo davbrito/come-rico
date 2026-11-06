@@ -166,3 +166,38 @@ public sealed class ProductIntervalChanged : ProductEvent
         return e;
     }
 }
+
+/// <summary>The user declared or corrected the date of the last purchase (an estimate, not a real purchase).</summary>
+public sealed class ProductLastPurchaseDeclared : ProductEvent
+{
+    public DateOnly DeclaredOn { get; private set; }
+
+    private ProductLastPurchaseDeclared() { }
+
+    public static ProductLastPurchaseDeclared Create(
+        Guid householdId,
+        Guid productId,
+        Guid userId,
+        EventOrigin origin,
+        DateTime now,
+        DateOnly declaredOn
+    )
+    {
+        var e = new ProductLastPurchaseDeclared { DeclaredOn = declaredOn };
+        e.Init(householdId, productId, userId, origin, now, now);
+        return e;
+    }
+}
+
+/// <summary>"Sí hay": revokes a previous out-of-stock mark.</summary>
+public sealed class ProductMarkedInStock : ProductEvent
+{
+    private ProductMarkedInStock() { }
+
+    public static ProductMarkedInStock Create(Guid householdId, Guid productId, Guid userId, EventOrigin origin, DateTime now)
+    {
+        var e = new ProductMarkedInStock();
+        e.Init(householdId, productId, userId, origin, now, now);
+        return e;
+    }
+}

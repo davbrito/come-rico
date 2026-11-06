@@ -42,7 +42,7 @@ public static class ProductDtoMapper
             p.OutOfStockAt,
             p.SnoozedUntil,
             RestockRule.Evaluate(p, today, shoppingDay),
-            RestockRule.DueOn(p),
+            RestockRule.NextDueOn(p),
             p.CreatedAt
         );
 }
@@ -52,11 +52,12 @@ public sealed class GetProductsQueryHandler(IAppDbContext dbContext, TimeProvide
 {
     public async Task<IReadOnlyList<ProductDto>> Handle(GetProductsQuery request, CancellationToken cancellationToken)
     {
-        var shoppingDay = await dbContext
-            .Households.Where(h => h.Id == dbContext.CurrentHouseholdId)
-            .Select(h => h.ShoppingDay)
+        var h = await dbContext
+            .Households.Where(x => x.Id == dbContext.CurrentHouseholdId)
+            .Select(x => new { x.ShoppingDay, x.TimeZone })
             .FirstOrDefaultAsync(cancellationToken);
-        var today = DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
+        var shoppingDay = h?.ShoppingDay;
+        var today = HouseholdTime.Today(h?.TimeZone ?? "UTC", clock);
 
         var products = await dbContext.Products.Where(p => p.IsActive).OrderBy(p => p.Name).ToListAsync(cancellationToken);
         return [.. products.Select(p => p.ToDto(today, shoppingDay))];

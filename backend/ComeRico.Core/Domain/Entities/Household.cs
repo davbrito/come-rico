@@ -11,7 +11,10 @@ public class Household
     public DayOfWeek? ShoppingDay { get; private set; }
 
     /// <summary>ISO 4217 currency copied into each recorded purchase that doesn't carry its own.</summary>
-    public string DefaultCurrency { get; private set; } = "MXN";
+    /// <summary>IANA time zone (e.g. America/Caracas); "today" for the household is its local date.</summary>
+    public string TimeZone { get; private set; } = "UTC";
+
+    public string DefaultCurrency { get; private set; } = "USD";
 
     public ICollection<AppUser> Members { get; private set; } = [];
     public ICollection<Dish> Dishes { get; private set; } = [];
@@ -22,7 +25,7 @@ public class Household
 
     private Household() { }
 
-    public static Household Create(string name)
+    public static Household Create(string name, string timeZone)
     {
         var now = DateTime.UtcNow;
         return new()
@@ -30,11 +33,14 @@ public class Household
             Id = Guid.CreateVersion7(now),
             Name = name,
             InviteCode = GenerateInviteCode(),
+            TimeZone = timeZone,
             CreatedAt = now,
         };
     }
 
     public void Rename(string newName) => Name = newName;
+
+    public void SetTimeZone(string timeZone) => TimeZone = timeZone;
 
     public void SetShoppingDay(DayOfWeek? day) => ShoppingDay = day;
 

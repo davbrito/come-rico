@@ -50,8 +50,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService
             entity.HasKey(h => h.Id);
             entity.Property(h => h.Name).IsRequired().HasMaxLength(200);
             entity.Property(h => h.InviteCode).IsRequired().HasMaxLength(20);
+            entity.Property(h => h.TimeZone).IsRequired().HasMaxLength(64).HasDefaultValue("UTC");
             entity.Property(h => h.ShoppingDay).HasConversion<string>().HasMaxLength(20);
-            entity.Property(h => h.DefaultCurrency).IsRequired().HasMaxLength(3).IsFixedLength().HasDefaultValue("MXN");
+            entity.Property(h => h.DefaultCurrency).IsRequired().HasMaxLength(3).IsFixedLength().HasDefaultValue("USD");
             entity.HasIndex(h => h.InviteCode).IsUnique();
 
             entity
@@ -141,10 +142,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService
             entity.HasKey(p => p.Id);
             entity.Property(p => p.Name).IsRequired().HasMaxLength(200);
             entity.Property(p => p.Category).HasConversion<string>().HasMaxLength(20).IsRequired();
-            entity.Property(p => p.DefaultQuantity).HasPrecision(10, 2);
+            entity.Property(p => p.DefaultQuantity).HasPrecision(12, 4);
             entity.Property(p => p.DefaultUnit).HasConversion<string>().HasMaxLength(20);
             entity.Property(p => p.PreferredBrand).HasMaxLength(100);
-            entity.Property(p => p.LastPurchasedQuantity).HasPrecision(10, 2);
+            entity.Property(p => p.LastPurchasedQuantity).HasPrecision(12, 4);
             entity.Property(p => p.LastPurchasedUnit).HasConversion<string>().HasMaxLength(20);
             entity.HasIndex(p => new { p.HouseholdId, p.Name });
 
@@ -152,7 +153,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService
             {
                 t.HasCheckConstraint(
                     "CK_Products_RestockIntervalDays",
-                    "\"RestockIntervalDays\" IS NULL OR \"RestockIntervalDays\" > 0"
+                    "\"RestockIntervalDays\" IS NULL OR \"RestockIntervalDays\" > 1"
                 );
                 t.HasCheckConstraint("CK_Products_DefaultQuantity", "\"DefaultQuantity\" IS NULL OR \"DefaultQuantity\" > 0");
             });
@@ -180,6 +181,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService
                     );
                     t.HasCheckConstraint("CK_ProductEvents_Snoozed", "\"Type\" <> 'Snoozed' OR \"Days\" IS NOT NULL");
                     t.HasCheckConstraint(
+                        "CK_ProductEvents_LastPurchaseDeclared",
+                        "\"Type\" <> 'LastPurchaseDeclared' OR \"DeclaredOn\" IS NOT NULL"
+                    );
+                    t.HasCheckConstraint(
                         "CK_ProductEvents_LineTotal",
                         "(\"LineTotal_Amount\" IS NULL) = (\"LineTotal_Currency\" IS NULL) AND (\"LineTotal_Amount\" IS NULL OR \"Type\" = 'Purchased')"
                     );
@@ -192,7 +197,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService
                 .HasValue<ProductPurchaseReverted>("PurchaseReverted")
                 .HasValue<ProductMarkedOutOfStock>("OutOfStock")
                 .HasValue<ProductSnoozed>("Snoozed")
-                .HasValue<ProductIntervalChanged>("IntervalChanged");
+                .HasValue<ProductIntervalChanged>("IntervalChanged")
+                .HasValue<ProductLastPurchaseDeclared>("LastPurchaseDeclared")
+                .HasValue<ProductMarkedInStock>("InStock");
             entity.Property<string>("Type").HasMaxLength(30);
             entity.Property(e => e.Origin).HasConversion<string>().HasMaxLength(10).IsRequired();
             entity.HasIndex(e => new
@@ -208,7 +215,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService
 
         modelBuilder.Entity<ProductPurchased>(entity =>
         {
-            entity.Property(e => e.Quantity).HasPrecision(10, 3);
+            entity.Property(e => e.Quantity).HasPrecision(12, 4);
             entity.Property(e => e.Unit).HasConversion<string>().HasMaxLength(20);
             entity.Property(e => e.Brand).HasMaxLength(100);
             entity.Property(e => e.Store).HasMaxLength(100);

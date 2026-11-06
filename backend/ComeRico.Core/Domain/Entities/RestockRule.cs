@@ -20,6 +20,9 @@ public static class RestockRule
 {
     public const int DueSoonWindowDays = 7;
 
+    /// <summary>Shortest allowed restock interval, also the floor of the quantity-scaled one.</summary>
+    public const int MinIntervalDays = 2;
+
     public static RestockStatus Evaluate(Product product, DateOnly today, DayOfWeek? shoppingDay)
     {
         if (product.OutOfStockAt is not null)
@@ -29,20 +32,32 @@ public static class RestockRule
             return RestockStatus.Ok;
 
         var reference = shoppingDay is { } day ? NextShoppingDay(today, day) : today;
-        var dueOn = DueOn(product);
+        var effective = NextDueOn(product);
 
         // A product never bought counts as overdue (unless snoozed).
-        var threshold = dueOn ?? DateOnly.MinValue;
-        if (product.SnoozedUntil is { } snoozed && snoozed > threshold)
-            threshold = snoozed;
-
-        if (reference >= threshold)
+        if (reference >= (effective ?? DateOnly.MinValue))
             return RestockStatus.Due;
 
-        if (dueOn is { } due && today.AddDays(DueSoonWindowDays) >= due)
+        if (effective is { } next && today.AddDays(DueSoonWindowDays) >= next)
             return RestockStatus.DueSoon;
 
         return RestockStatus.Ok;
+    }
+
+    /// <summary>When the product will next be due: <c>max(DueOn, SnoozedUntil)</c>; null if neither applies.</summary>
+    public static DateOnly? NextDueOn(Product product)
+    {
+        if (product.RestockIntervalDays is null)
+            return null;
+
+        var dueOn = DueOn(product);
+        return (dueOn, product.SnoozedUntil) switch
+        {
+            ({ } due, { } snoozed) => due > snoozed ? due : snoozed,
+            ({ } due, null) => due,
+            (null, { } snoozed) => snoozed,
+            _ => null,
+        };
     }
 
     /// <summary>LastPurchasedOn + effective interval; null if there is no interval or no purchase yet.</summary>
@@ -65,7 +80,8 @@ public static class RestockRule
             && baseline > 0
         )
         {
-            return (int)Math.Round(intervalDays * bought / baseline, MidpointRounding.AwayFromZero);
+            var scaled = (int)Math.Round(intervalDays * bought / baseline, MidpointRounding.AwayFromZero);
+            return Math.Max(scaled, MinIntervalDays);
         }
 
         return intervalDays;

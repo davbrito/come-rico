@@ -18,7 +18,7 @@ namespace ComeRico.Infrastructure.Migrations
                 fixedLength: true,
                 maxLength: 3,
                 nullable: false,
-                defaultValue: "MXN"
+                defaultValue: "USD"
             );
 
             migrationBuilder.AddColumn<string>(
@@ -29,6 +29,15 @@ namespace ComeRico.Infrastructure.Migrations
                 nullable: true
             );
 
+            migrationBuilder.AddColumn<string>(
+                name: "TimeZone",
+                table: "Households",
+                type: "character varying(64)",
+                maxLength: 64,
+                nullable: false,
+                defaultValue: "UTC"
+            );
+
             migrationBuilder.CreateTable(
                 name: "Products",
                 columns: table => new
@@ -37,12 +46,12 @@ namespace ComeRico.Infrastructure.Migrations
                     HouseholdId = table.Column<Guid>(type: "uuid", nullable: false),
                     Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
                     Category = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
-                    DefaultQuantity = table.Column<decimal>(type: "numeric(10,2)", precision: 10, scale: 2, nullable: true),
+                    DefaultQuantity = table.Column<decimal>(type: "numeric(12,4)", precision: 12, scale: 4, nullable: true),
                     DefaultUnit = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: true),
                     RestockIntervalDays = table.Column<int>(type: "integer", nullable: true),
                     PreferredBrand = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
                     LastPurchasedOn = table.Column<DateOnly>(type: "date", nullable: true),
-                    LastPurchasedQuantity = table.Column<decimal>(type: "numeric(10,2)", precision: 10, scale: 2, nullable: true),
+                    LastPurchasedQuantity = table.Column<decimal>(type: "numeric(12,4)", precision: 12, scale: 4, nullable: true),
                     LastPurchasedUnit = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: true),
                     OutOfStockAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     SnoozedUntil = table.Column<DateOnly>(type: "date", nullable: true),
@@ -58,7 +67,7 @@ namespace ComeRico.Infrastructure.Migrations
                     );
                     table.CheckConstraint(
                         "CK_Products_RestockIntervalDays",
-                        "\"RestockIntervalDays\" IS NULL OR \"RestockIntervalDays\" > 0"
+                        "\"RestockIntervalDays\" IS NULL OR \"RestockIntervalDays\" > 1"
                     );
                     table.ForeignKey(
                         name: "FK_Products_Households_HouseholdId",
@@ -84,10 +93,11 @@ namespace ComeRico.Infrastructure.Migrations
                     Type = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
                     OldDays = table.Column<int>(type: "integer", nullable: true),
                     NewDays = table.Column<int>(type: "integer", nullable: true),
+                    DeclaredOn = table.Column<DateOnly>(type: "date", nullable: true),
                     PurchaseEventId = table.Column<Guid>(type: "uuid", nullable: true),
                     ShoppingItemId = table.Column<Guid>(type: "uuid", nullable: true),
                     ShoppingTripId = table.Column<Guid>(type: "uuid", nullable: true),
-                    Quantity = table.Column<decimal>(type: "numeric(10,3)", precision: 10, scale: 3, nullable: true),
+                    Quantity = table.Column<decimal>(type: "numeric(12,4)", precision: 12, scale: 4, nullable: true),
                     Unit = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: true),
                     LineTotal_Amount = table.Column<decimal>(type: "numeric(12,2)", precision: 12, scale: 2, nullable: true),
                     LineTotal_Currency = table.Column<string>(
@@ -104,6 +114,10 @@ namespace ComeRico.Infrastructure.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_ProductEvents", x => x.Id);
+                    table.CheckConstraint(
+                        "CK_ProductEvents_LastPurchaseDeclared",
+                        "\"Type\" <> 'LastPurchaseDeclared' OR \"DeclaredOn\" IS NOT NULL"
+                    );
                     table.CheckConstraint(
                         "CK_ProductEvents_LineTotal",
                         "(\"LineTotal_Amount\" IS NULL) = (\"LineTotal_Currency\" IS NULL) AND (\"LineTotal_Amount\" IS NULL OR \"Type\" = 'Purchased')"
@@ -159,6 +173,8 @@ namespace ComeRico.Infrastructure.Migrations
             migrationBuilder.DropColumn(name: "DefaultCurrency", table: "Households");
 
             migrationBuilder.DropColumn(name: "ShoppingDay", table: "Households");
+
+            migrationBuilder.DropColumn(name: "TimeZone", table: "Households");
         }
     }
 }

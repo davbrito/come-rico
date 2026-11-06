@@ -23,7 +23,7 @@ public sealed record UpdateProductCommand(
 
 public sealed class UpdateProductCommandValidator : AbstractValidator<UpdateProductCommand>
 {
-    public UpdateProductCommandValidator(TimeProvider clock)
+    public UpdateProductCommandValidator()
     {
         RuleFor(x => x.ProductId).NotEmpty().WithMessage("El identificador del producto es obligatorio.");
         this.AddProductFieldRules(
@@ -34,10 +34,6 @@ public sealed class UpdateProductCommandValidator : AbstractValidator<UpdateProd
             x => x.RestockIntervalDays,
             x => x.PreferredBrand
         );
-        RuleFor(x => x.LastPurchasedOn)
-            .Must(d => d <= clock.Today())
-            .WithMessage("La fecha de última compra no puede estar en el futuro.")
-            .When(x => x.LastPurchasedOn is not null);
     }
 }
 
@@ -54,6 +50,8 @@ public sealed class UpdateProductCommandHandler(
         if (product is null)
             return null;
 
+        var ctx = await dbContext.GetHouseholdContextAsync(clock, cancellationToken);
+        ProductCommandSupport.EnsureNotInFuture(request.LastPurchasedOn, ctx.Today);
         var now = clock.GetUtcNow().UtcDateTime;
         var householdId = tenantService.HouseholdId;
         var oldInterval = product.RestockIntervalDays;
@@ -84,24 +82,14 @@ public sealed class UpdateProductCommandHandler(
 
         if (request.LastPurchasedOn is { } last && last != product.LastPurchasedOn)
         {
-            var quantity = request.DefaultQuantity ?? 1;
-            var unit = request.DefaultUnit ?? MeasurementUnit.Piece;
-            product.ApplyPurchase(last, quantity, unit);
+            // A correction of the estimate, not a real purchase: out-of-stock and snooze stay as they are.
+            product.DeclareLastPurchase(last, request.DefaultQuantity ?? 1, request.DefaultUnit ?? MeasurementUnit.Piece);
             dbContext.ProductEvents.Add(
-                ProductPurchased.Create(
-                    householdId,
-                    product.Id,
-                    currentUser.UserId,
-                    EventOrigin.Web,
-                    last.AtUtcMidnight(),
-                    now,
-                    quantity,
-                    unit
-                )
+                ProductLastPurchaseDeclared.Create(householdId, product.Id, currentUser.UserId, EventOrigin.Web, now, last)
             );
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        return product.ToDto(clock, await dbContext.GetShoppingDayAsync(cancellationToken));
+        return product.ToDto(ctx);
     }
 }

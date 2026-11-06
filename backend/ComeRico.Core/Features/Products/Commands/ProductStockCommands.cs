@@ -32,15 +32,19 @@ public sealed class MarkProductOutOfStockCommandHandler(
             await dbContext.SaveChangesAsync(cancellationToken);
         }
 
-        return product.ToDto(clock, await dbContext.GetShoppingDayAsync(cancellationToken));
+        return product.ToDto(await dbContext.GetHouseholdContextAsync(clock, cancellationToken));
     }
 }
 
 /// <summary>"Sí hay": undoes a mistaken "se acabó".</summary>
 public sealed record MarkProductInStockCommand(Guid ProductId) : IRequest<ProductDto?>;
 
-public sealed class MarkProductInStockCommandHandler(IAppDbContext dbContext, TimeProvider clock)
-    : IRequestHandler<MarkProductInStockCommand, ProductDto?>
+public sealed class MarkProductInStockCommandHandler(
+    IAppDbContext dbContext,
+    ITenantService tenantService,
+    ICurrentUserService currentUser,
+    TimeProvider clock
+) : IRequestHandler<MarkProductInStockCommand, ProductDto?>
 {
     public async Task<ProductDto?> Handle(MarkProductInStockCommand request, CancellationToken cancellationToken)
     {
@@ -48,9 +52,23 @@ public sealed class MarkProductInStockCommandHandler(IAppDbContext dbContext, Ti
         if (product is null)
             return null;
 
-        product.MarkInStock();
-        await dbContext.SaveChangesAsync(cancellationToken);
-        return product.ToDto(clock, await dbContext.GetShoppingDayAsync(cancellationToken));
+        if (product.OutOfStockAt is not null)
+        {
+            // Log the correction so interval learning doesn't read the earlier "se acabó" as real.
+            product.MarkInStock();
+            dbContext.ProductEvents.Add(
+                ProductMarkedInStock.Create(
+                    tenantService.HouseholdId,
+                    product.Id,
+                    currentUser.UserId,
+                    EventOrigin.Web,
+                    clock.GetUtcNow().UtcDateTime
+                )
+            );
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        return product.ToDto(await dbContext.GetHouseholdContextAsync(clock, cancellationToken));
     }
 }
 
@@ -81,17 +99,21 @@ public sealed class SnoozeProductCommandHandler(
         if (product.OutOfStockAt is not null)
             throw new InvalidOperationException("El producto está agotado; usa \"Sí hay\" si aún tienes.");
 
-        var shoppingDay = await dbContext.GetShoppingDayAsync(cancellationToken);
-        var today = clock.Today();
+        var ctx = await dbContext.GetHouseholdContextAsync(clock, cancellationToken);
+        var today = ctx.Today;
         var until = today.AddDays(request.Days);
 
         // With a shopping day the rule compares against the next one, so a snooze must at least skip it.
-        if (shoppingDay is { } day)
+        if (ctx.ShoppingDay is { } day)
         {
             var afterNextShopping = RestockRule.NextShoppingDay(today, day).AddDays(1);
             if (until < afterNextShopping)
                 until = afterNextShopping;
         }
+
+        // Snoozing again never shortens an existing, longer snooze.
+        if (product.SnoozedUntil is { } current && current > until)
+            until = current;
 
         var now = clock.GetUtcNow().UtcDateTime;
         product.SnoozeUntil(until);
@@ -106,6 +128,6 @@ public sealed class SnoozeProductCommandHandler(
             )
         );
         await dbContext.SaveChangesAsync(cancellationToken);
-        return product.ToDto(clock, shoppingDay);
+        return product.ToDto(ctx);
     }
 }

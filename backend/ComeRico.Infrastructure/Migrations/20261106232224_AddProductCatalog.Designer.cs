@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace ComeRico.Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261106195428_AddProductCatalog")]
+    [Migration("20261106232224_AddProductCatalog")]
     partial class AddProductCatalog
     {
         /// <inheritdoc />
@@ -156,7 +156,7 @@ namespace ComeRico.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(3)
                         .HasColumnType("character(3)")
-                        .HasDefaultValue("MXN")
+                        .HasDefaultValue("USD")
                         .IsFixedLength();
 
                     b.Property<string>("InviteCode")
@@ -172,6 +172,13 @@ namespace ComeRico.Infrastructure.Migrations
                     b.Property<string>("ShoppingDay")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
+
+                    b.Property<string>("TimeZone")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasDefaultValue("UTC");
 
                     b.HasKey("Id");
 
@@ -259,8 +266,8 @@ namespace ComeRico.Infrastructure.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<decimal?>("DefaultQuantity")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("numeric(10,2)");
+                        .HasPrecision(12, 4)
+                        .HasColumnType("numeric(12,4)");
 
                     b.Property<string>("DefaultUnit")
                         .HasMaxLength(20)
@@ -276,8 +283,8 @@ namespace ComeRico.Infrastructure.Migrations
                         .HasColumnType("date");
 
                     b.Property<decimal?>("LastPurchasedQuantity")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("numeric(10,2)");
+                        .HasPrecision(12, 4)
+                        .HasColumnType("numeric(12,4)");
 
                     b.Property<string>("LastPurchasedUnit")
                         .HasMaxLength(20)
@@ -309,7 +316,7 @@ namespace ComeRico.Infrastructure.Migrations
                         {
                             t.HasCheckConstraint("CK_Products_DefaultQuantity", "\"DefaultQuantity\" IS NULL OR \"DefaultQuantity\" > 0");
 
-                            t.HasCheckConstraint("CK_Products_RestockIntervalDays", "\"RestockIntervalDays\" IS NULL OR \"RestockIntervalDays\" > 0");
+                            t.HasCheckConstraint("CK_Products_RestockIntervalDays", "\"RestockIntervalDays\" IS NULL OR \"RestockIntervalDays\" > 1");
                         });
                 });
 
@@ -352,6 +359,8 @@ namespace ComeRico.Infrastructure.Migrations
 
                     b.ToTable("ProductEvents", null, t =>
                         {
+                            t.HasCheckConstraint("CK_ProductEvents_LastPurchaseDeclared", "\"Type\" <> 'LastPurchaseDeclared' OR \"DeclaredOn\" IS NOT NULL");
+
                             t.HasCheckConstraint("CK_ProductEvents_LineTotal", "(\"LineTotal_Amount\" IS NULL) = (\"LineTotal_Currency\" IS NULL) AND (\"LineTotal_Amount\" IS NULL OR \"Type\" = 'Purchased')");
 
                             t.HasCheckConstraint("CK_ProductEvents_PurchaseReverted", "\"Type\" <> 'PurchaseReverted' OR \"PurchaseEventId\" IS NOT NULL");
@@ -642,6 +651,8 @@ namespace ComeRico.Infrastructure.Migrations
 
                     b.ToTable(t =>
                         {
+                            t.HasCheckConstraint("CK_ProductEvents_LastPurchaseDeclared", "\"Type\" <> 'LastPurchaseDeclared' OR \"DeclaredOn\" IS NOT NULL");
+
                             t.HasCheckConstraint("CK_ProductEvents_LineTotal", "(\"LineTotal_Amount\" IS NULL) = (\"LineTotal_Currency\" IS NULL) AND (\"LineTotal_Amount\" IS NULL OR \"Type\" = 'Purchased')");
 
                             t.HasCheckConstraint("CK_ProductEvents_PurchaseReverted", "\"Type\" <> 'PurchaseReverted' OR \"PurchaseEventId\" IS NOT NULL");
@@ -654,12 +665,57 @@ namespace ComeRico.Infrastructure.Migrations
                     b.HasDiscriminator().HasValue("IntervalChanged");
                 });
 
+            modelBuilder.Entity("ComeRico.Core.Domain.Entities.ProductLastPurchaseDeclared", b =>
+                {
+                    b.HasBaseType("ComeRico.Core.Domain.Entities.ProductEvent");
+
+                    b.Property<DateOnly>("DeclaredOn")
+                        .HasColumnType("date");
+
+                    b.ToTable(t =>
+                        {
+                            t.HasCheckConstraint("CK_ProductEvents_LastPurchaseDeclared", "\"Type\" <> 'LastPurchaseDeclared' OR \"DeclaredOn\" IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_ProductEvents_LineTotal", "(\"LineTotal_Amount\" IS NULL) = (\"LineTotal_Currency\" IS NULL) AND (\"LineTotal_Amount\" IS NULL OR \"Type\" = 'Purchased')");
+
+                            t.HasCheckConstraint("CK_ProductEvents_PurchaseReverted", "\"Type\" <> 'PurchaseReverted' OR \"PurchaseEventId\" IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_ProductEvents_Purchased", "\"Type\" <> 'Purchased' OR (\"Quantity\" IS NOT NULL AND \"Unit\" IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_ProductEvents_Snoozed", "\"Type\" <> 'Snoozed' OR \"Days\" IS NOT NULL");
+                        });
+
+                    b.HasDiscriminator().HasValue("LastPurchaseDeclared");
+                });
+
+            modelBuilder.Entity("ComeRico.Core.Domain.Entities.ProductMarkedInStock", b =>
+                {
+                    b.HasBaseType("ComeRico.Core.Domain.Entities.ProductEvent");
+
+                    b.ToTable(t =>
+                        {
+                            t.HasCheckConstraint("CK_ProductEvents_LastPurchaseDeclared", "\"Type\" <> 'LastPurchaseDeclared' OR \"DeclaredOn\" IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_ProductEvents_LineTotal", "(\"LineTotal_Amount\" IS NULL) = (\"LineTotal_Currency\" IS NULL) AND (\"LineTotal_Amount\" IS NULL OR \"Type\" = 'Purchased')");
+
+                            t.HasCheckConstraint("CK_ProductEvents_PurchaseReverted", "\"Type\" <> 'PurchaseReverted' OR \"PurchaseEventId\" IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_ProductEvents_Purchased", "\"Type\" <> 'Purchased' OR (\"Quantity\" IS NOT NULL AND \"Unit\" IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_ProductEvents_Snoozed", "\"Type\" <> 'Snoozed' OR \"Days\" IS NOT NULL");
+                        });
+
+                    b.HasDiscriminator().HasValue("InStock");
+                });
+
             modelBuilder.Entity("ComeRico.Core.Domain.Entities.ProductMarkedOutOfStock", b =>
                 {
                     b.HasBaseType("ComeRico.Core.Domain.Entities.ProductEvent");
 
                     b.ToTable(t =>
                         {
+                            t.HasCheckConstraint("CK_ProductEvents_LastPurchaseDeclared", "\"Type\" <> 'LastPurchaseDeclared' OR \"DeclaredOn\" IS NOT NULL");
+
                             t.HasCheckConstraint("CK_ProductEvents_LineTotal", "(\"LineTotal_Amount\" IS NULL) = (\"LineTotal_Currency\" IS NULL) AND (\"LineTotal_Amount\" IS NULL OR \"Type\" = 'Purchased')");
 
                             t.HasCheckConstraint("CK_ProductEvents_PurchaseReverted", "\"Type\" <> 'PurchaseReverted' OR \"PurchaseEventId\" IS NOT NULL");
@@ -681,6 +737,8 @@ namespace ComeRico.Infrastructure.Migrations
 
                     b.ToTable(t =>
                         {
+                            t.HasCheckConstraint("CK_ProductEvents_LastPurchaseDeclared", "\"Type\" <> 'LastPurchaseDeclared' OR \"DeclaredOn\" IS NOT NULL");
+
                             t.HasCheckConstraint("CK_ProductEvents_LineTotal", "(\"LineTotal_Amount\" IS NULL) = (\"LineTotal_Currency\" IS NULL) AND (\"LineTotal_Amount\" IS NULL OR \"Type\" = 'Purchased')");
 
                             t.HasCheckConstraint("CK_ProductEvents_PurchaseReverted", "\"Type\" <> 'PurchaseReverted' OR \"PurchaseEventId\" IS NOT NULL");
@@ -702,8 +760,8 @@ namespace ComeRico.Infrastructure.Migrations
                         .HasColumnType("character varying(100)");
 
                     b.Property<decimal>("Quantity")
-                        .HasPrecision(10, 3)
-                        .HasColumnType("numeric(10,3)");
+                        .HasPrecision(12, 4)
+                        .HasColumnType("numeric(12,4)");
 
                     b.Property<string>("ReceiptLineText")
                         .HasMaxLength(300)
@@ -726,6 +784,8 @@ namespace ComeRico.Infrastructure.Migrations
 
                     b.ToTable(t =>
                         {
+                            t.HasCheckConstraint("CK_ProductEvents_LastPurchaseDeclared", "\"Type\" <> 'LastPurchaseDeclared' OR \"DeclaredOn\" IS NOT NULL");
+
                             t.HasCheckConstraint("CK_ProductEvents_LineTotal", "(\"LineTotal_Amount\" IS NULL) = (\"LineTotal_Currency\" IS NULL) AND (\"LineTotal_Amount\" IS NULL OR \"Type\" = 'Purchased')");
 
                             t.HasCheckConstraint("CK_ProductEvents_PurchaseReverted", "\"Type\" <> 'PurchaseReverted' OR \"PurchaseEventId\" IS NOT NULL");
@@ -747,6 +807,8 @@ namespace ComeRico.Infrastructure.Migrations
 
                     b.ToTable(t =>
                         {
+                            t.HasCheckConstraint("CK_ProductEvents_LastPurchaseDeclared", "\"Type\" <> 'LastPurchaseDeclared' OR \"DeclaredOn\" IS NOT NULL");
+
                             t.HasCheckConstraint("CK_ProductEvents_LineTotal", "(\"LineTotal_Amount\" IS NULL) = (\"LineTotal_Currency\" IS NULL) AND (\"LineTotal_Amount\" IS NULL OR \"Type\" = 'Purchased')");
 
                             t.HasCheckConstraint("CK_ProductEvents_PurchaseReverted", "\"Type\" <> 'PurchaseReverted' OR \"PurchaseEventId\" IS NOT NULL");

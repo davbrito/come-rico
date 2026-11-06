@@ -12,7 +12,7 @@ public class HouseholdTests
 
         for (var i = 0; i < count; i++)
         {
-            var household = Household.Create($"Household {i}");
+            var household = Household.Create($"Household {i}", "UTC");
             var added = codes.Add(household.InviteCode);
             Assert.True(added, $"Duplicate InviteCode '{household.InviteCode}' generated at iteration {i}.");
         }
@@ -21,7 +21,7 @@ public class HouseholdTests
     [Fact]
     public void Create_ProducesInviteCodeOfExpectedFormat()
     {
-        var household = Household.Create("Test");
+        var household = Household.Create("Test", "UTC");
 
         Assert.NotNull(household.InviteCode);
         Assert.Equal(8, household.InviteCode.Length);
@@ -31,7 +31,7 @@ public class HouseholdTests
     [Fact]
     public void RotateInviteCode_ChangesToNewCode()
     {
-        var household = Household.Create("Test");
+        var household = Household.Create("Test", "UTC");
 
         var originalCode = household.InviteCode;
         household.RotateInviteCode();

@@ -135,8 +135,44 @@ public class RestockRuleTests
         Assert.Equal(RestockStatus.Due, RestockRule.Evaluate(p, Today, null));
 
         p.SnoozeUntil(Today.AddDays(3));
-        Assert.NotEqual(RestockStatus.Due, RestockRule.Evaluate(p, Today, null));
+        Assert.Equal(RestockStatus.DueSoon, RestockRule.Evaluate(p, Today, null)); // snoozed 3 days: due within the week
         Assert.Equal(RestockStatus.Due, RestockRule.Evaluate(p, Today.AddDays(3), null));
+    }
+
+    [Fact]
+    public void LongSnooze_OfProductDueToday_IsOk_NotDueSoon()
+    {
+        var p = Bought(Today.AddDays(-14)); // due today
+        p.SnoozeUntil(Today.AddDays(14));
+
+        Assert.Equal(RestockStatus.Ok, RestockRule.Evaluate(p, Today, null));
+        Assert.Equal(Today.AddDays(14), RestockRule.NextDueOn(p));
+        Assert.Equal(RestockStatus.DueSoon, RestockRule.Evaluate(p, Today.AddDays(7), null));
+    }
+
+    [Fact]
+    public void NextDueOn_IsTheLaterOfDueDateAndSnooze()
+    {
+        var p = Bought(Today.AddDays(-14)); // due today
+        Assert.Equal(Today, RestockRule.NextDueOn(p));
+
+        p.SnoozeUntil(Today.AddDays(5));
+        Assert.Equal(Today.AddDays(5), RestockRule.NextDueOn(p));
+
+        var later = Bought(Today.AddDays(-1)); // due in 13 days
+        later.SnoozeUntil(Today.AddDays(2));
+        Assert.Equal(Today.AddDays(13), RestockRule.NextDueOn(later));
+
+        Assert.Null(RestockRule.NextDueOn(NewProduct(interval: null)));
+        Assert.Null(RestockRule.NextDueOn(NewProduct())); // never bought
+    }
+
+    [Fact]
+    public void ScaledInterval_NeverDropsBelowTheMinimum()
+    {
+        // default 10 packages per 14 days, bought 0.1 => 0.14 days => clamped.
+        var p = Bought(Today, quantity: 0.1m, defaultQuantity: 10);
+        Assert.Equal(Today.AddDays(RestockRule.MinIntervalDays), RestockRule.DueOn(p));
     }
 
     [Fact]

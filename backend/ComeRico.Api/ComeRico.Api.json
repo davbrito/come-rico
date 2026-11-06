@@ -1696,11 +1696,15 @@
       },
       "CreateHouseholdCommand": {
         "required": [
-          "name"
+          "name",
+          "timeZone"
         ],
         "type": "object",
         "properties": {
           "name": {
+            "type": "string"
+          },
+          "timeZone": {
             "type": "string"
           }
         }

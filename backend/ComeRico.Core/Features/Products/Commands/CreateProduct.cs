@@ -19,7 +19,7 @@ public sealed record CreateProductCommand(
 
 public sealed class CreateProductCommandValidator : AbstractValidator<CreateProductCommand>
 {
-    public CreateProductCommandValidator(TimeProvider clock)
+    public CreateProductCommandValidator()
     {
         this.AddProductFieldRules(
             x => x.Name,
@@ -29,10 +29,6 @@ public sealed class CreateProductCommandValidator : AbstractValidator<CreateProd
             x => x.RestockIntervalDays,
             x => x.PreferredBrand
         );
-        RuleFor(x => x.LastPurchasedOn)
-            .Must(d => d <= clock.Today())
-            .WithMessage("La fecha de última compra no puede estar en el futuro.")
-            .When(x => x.LastPurchasedOn is not null);
     }
 }
 
@@ -45,6 +41,8 @@ public sealed class CreateProductCommandHandler(
 {
     public async Task<ProductDto> Handle(CreateProductCommand request, CancellationToken cancellationToken)
     {
+        var ctx = await dbContext.GetHouseholdContextAsync(clock, cancellationToken);
+        ProductCommandSupport.EnsureNotInFuture(request.LastPurchasedOn, ctx.Today);
         var now = clock.GetUtcNow().UtcDateTime;
         var householdId = tenantService.HouseholdId;
 
@@ -62,24 +60,14 @@ public sealed class CreateProductCommandHandler(
 
         if (request.LastPurchasedOn is { } last)
         {
-            var quantity = request.DefaultQuantity ?? 1;
-            var unit = request.DefaultUnit ?? MeasurementUnit.Piece;
-            product.ApplyPurchase(last, quantity, unit);
+            // An estimate typed in the form, not a real purchase (that is ProductPurchased).
+            product.DeclareLastPurchase(last, request.DefaultQuantity ?? 1, request.DefaultUnit ?? MeasurementUnit.Piece);
             dbContext.ProductEvents.Add(
-                ProductPurchased.Create(
-                    householdId,
-                    product.Id,
-                    currentUser.UserId,
-                    EventOrigin.Web,
-                    last.AtUtcMidnight(),
-                    now,
-                    quantity,
-                    unit
-                )
+                ProductLastPurchaseDeclared.Create(householdId, product.Id, currentUser.UserId, EventOrigin.Web, now, last)
             );
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        return product.ToDto(clock, await dbContext.GetShoppingDayAsync(cancellationToken));
+        return product.ToDto(ctx);
     }
 }

@@ -8,13 +8,22 @@ namespace ComeRico.Core.Features.Products.Commands;
 
 internal static class ProductCommandSupport
 {
-    public static async Task<DayOfWeek?> GetShoppingDayAsync(this IAppDbContext db, CancellationToken ct) =>
-        await db.Households.Where(h => h.Id == db.CurrentHouseholdId).Select(h => h.ShoppingDay).FirstOrDefaultAsync(ct);
+    /// <summary>The household's shopping day and its local "today" (from its time zone).</summary>
+    public static async Task<HouseholdContext> GetHouseholdContextAsync(
+        this IAppDbContext db,
+        TimeProvider clock,
+        CancellationToken ct
+    )
+    {
+        var h = await db
+            .Households.Where(x => x.Id == db.CurrentHouseholdId)
+            .Select(x => new { x.ShoppingDay, x.TimeZone })
+            .FirstOrDefaultAsync(ct);
+        return new(h?.ShoppingDay, HouseholdTime.Today(h?.TimeZone ?? "UTC", clock));
+    }
 
     public static Task<Product?> FindActiveAsync(this IAppDbContext db, Guid id, CancellationToken ct) =>
         db.Products.FirstOrDefaultAsync(p => p.Id == id && p.IsActive, ct);
-
-    public static DateOnly Today(this TimeProvider clock) => DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
 
     public static DateTime AtUtcMidnight(this DateOnly date) => date.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
 
@@ -41,8 +50,8 @@ internal static class ProductCommandSupport
             .When(x => quantity(x) is not null);
         v.RuleFor(x => unit(x)).IsInEnum().WithMessage("La unidad de medida no es válida.").When(x => unit(x) is not null);
         v.RuleFor(x => interval(x))
-            .InclusiveBetween(1, 3650)
-            .WithMessage("El intervalo debe estar entre 1 y 3650 días.")
+            .InclusiveBetween(RestockRule.MinIntervalDays, 3650)
+            .WithMessage($"El intervalo debe estar entre {RestockRule.MinIntervalDays} y 3650 días.")
             .When(x => interval(x) is not null);
         v.RuleFor(x => brand(x))
             .MaximumLength(100)
@@ -52,6 +61,19 @@ internal static class ProductCommandSupport
 
     public static string? NormalizeBrand(string? brand) => string.IsNullOrWhiteSpace(brand) ? null : brand.Trim();
 
-    public static ProductDto ToDto(this Product p, TimeProvider clock, DayOfWeek? shoppingDay) =>
-        p.ToDto(clock.Today(), shoppingDay);
+    public static ProductDto ToDto(this Product p, HouseholdContext ctx) => p.ToDto(ctx.Today, ctx.ShoppingDay);
+
+    /// <summary>The declared last-purchase date can't be in the future (in the household's local time).</summary>
+    public static void EnsureNotInFuture(DateOnly? lastPurchasedOn, DateOnly today)
+    {
+        if (lastPurchasedOn > today)
+            throw new ValidationException([
+                new FluentValidation.Results.ValidationFailure(
+                    "LastPurchasedOn",
+                    "La fecha de última compra no puede estar en el futuro."
+                ),
+            ]);
+    }
 }
+
+internal sealed record HouseholdContext(DayOfWeek? ShoppingDay, DateOnly Today);

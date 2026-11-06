@@ -335,13 +335,13 @@ function ProductForm({ product, onSaved }: { product: ProductDto | null; onSaved
                 name="customDays"
                 validators={{
                   onChange: ({ value }) =>
-                    Number.isInteger(Number(value)) && Number(value) >= 1
+                    Number.isInteger(Number(value)) && Number(value) >= 2
                       ? undefined
-                      : "Días (entero ≥ 1)",
+                      : "Días (entero ≥ 2)",
                 }}
               >
                 {(field) => (
-                  <field.TextField label="Cada (días)" type="number" min="1" className="w-28" />
+                  <field.TextField label="Cada (días)" type="number" min="2" className="w-28" />
                 )}
               </form.AppField>
             )

@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ComeRico.Core.Features.Households.Commands;
 
-public sealed record CreateHouseholdCommand(string Name) : IRequest<HouseholdDto>;
+public sealed record CreateHouseholdCommand(string Name, string TimeZone) : IRequest<HouseholdDto>;
 
 public sealed record HouseholdDto(Guid Id, string Name, string InviteCode, DateTime CreatedAt);
 
@@ -19,6 +19,9 @@ public sealed class CreateHouseholdCommandValidator : AbstractValidator<CreateHo
             .WithMessage("El nombre del hogar es obligatorio.")
             .MaximumLength(200)
             .WithMessage("El nombre no puede superar los 200 caracteres.");
+        RuleFor(x => x.TimeZone)
+            .Must(HouseholdTime.IsValidTimeZone)
+            .WithMessage("La zona horaria no es válida (se espera un identificador IANA, p. ej. America/Caracas).");
     }
 }
 
@@ -34,7 +37,7 @@ public sealed class CreateHouseholdCommandHandler(IAppDbContext dbContext, ICurr
         if (user.HouseholdId is not null)
             throw new InvalidOperationException("Ya perteneces a un hogar. Sal de él antes de crear uno nuevo.");
 
-        var household = Household.Create(request.Name);
+        var household = Household.Create(request.Name, request.TimeZone);
         dbContext.Households.Add(household);
 
         user.JoinHousehold(household.Id, HouseholdRole.Admin);

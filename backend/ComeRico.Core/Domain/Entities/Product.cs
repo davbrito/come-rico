@@ -86,6 +86,17 @@ public class Product : IHasHousehold
         SnoozedUntil = null;
     }
 
+    /// <summary>
+    /// The user declared (or corrected) when it was last bought. Only updates the cache that feeds the
+    /// restock rule; it is not a real purchase, so out-of-stock and snooze are left alone.
+    /// </summary>
+    public void DeclareLastPurchase(DateOnly on, decimal quantity, MeasurementUnit unit)
+    {
+        LastPurchasedOn = on;
+        LastPurchasedQuantity = quantity;
+        LastPurchasedUnit = unit;
+    }
+
     public void MarkOutOfStock(DateTime now) => OutOfStockAt ??= now;
 
     public void MarkInStock() => OutOfStockAt = null;
