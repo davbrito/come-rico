@@ -35,9 +35,18 @@ Criterios para la lista corta:
 | **Canasta** | "Canasta básica" se entiende en toda Latinoamérica. | Suena a supermercado, no a hogar; puede leerse como tienda. | Sin revisar. |
 | **Familist** | Corto, en la idea original. | Anglicismo, y se confunde con **FamyList**. | FamyList existe. |
 
-**Favorito actual: Despi**, propuesto por el dueño del producto (sujeto a revisar el dominio y la marca).
+**Revisión de dominios (2026-11-06, vía RDAP y DNS; "libre" = sin registro/NS visible, hay que confirmarlo con un registrador):**
 
-**Forma del nombre**: la marca es solo **Despi** (logo, header, `<title>`, manifest, textos). "App" no forma parte del nombre; se usa solo donde hace falta desambiguar: dominio o redes si `despi` no está libre (`despiapp.com`, `@despiapp`). En tiendas de apps, el título lleva un descriptor para búsqueda: **"Despi: lista de compras de casa"**. Respaldo: **Alacena**, **Repón** y **Casa Lista**. Siguiente paso: revisar los dominios (`.app`, `.mx`, `.com`) y la marca para esas tres, y elegir.
+| Nombre | Dominios | Hallazgo |
+| --- | --- | --- |
+| **Despi** | `despi.com` (desde 2002), `despi.app` (desde 05/2026), `despi.com.mx`, `despi.co`, `despi.net` y `despi.org`: **tomados**. `despi.mx`, `despi.io`, `getdespi.com`, `holadespi.com` y `despiapp.com`: libres. | **Descartado.** `despi.com.mx` es **"Despi — ¿qué hago de comer?"**, una app mexicana en lista de espera que lee la foto del ticket, llena la despensa, sugiere recetas y reparte porciones por persona. Mismo nombre, mismo país, misma categoría y casi las mismas funciones: confusión segura y riesgo de marca. |
+| **Alacena** | `alacena.app`, `alacena.mx` y `alacena.com.mx`: tomados. | `alacena.mx` es un grupo de marcas gastronómicas (eventos) en Guadalajara. Mismo rubro (comida): mal candidato. |
+| **Casa Lista** | `casalista.mx`, `casalista.app` y `casalista.com.mx`: tomados. `casalista.com`: libre. | `casalista.mx` es un portal inmobiliario en CDMX. Otra categoría, pero dominio `.mx` ocupado. |
+| **Repón** | `repon.app`, `repon.mx` y `repon.com.mx`: **libres**. `repon.com`: tomado. | No se encontró producto con ese nombre. **Mejor disponibilidad de la lista.** |
+
+Redes sociales: no se pudieron verificar automáticamente (Instagram, TikTok y X piden sesión; la API de GitHub está restringida en este entorno). Hay que revisarlas a mano para el nombre elegido.
+
+**Forma del nombre** (aplica a cualquier nombre elegido): la marca es solo el nombre, sin "App". "App" solo se usa donde haga falta desambiguar (dominio o redes ocupados), y en las tiendas de apps el título lleva un descriptor de búsqueda (p. ej. "{Marca}: lista de compras de casa").
 
 > Decisión pendiente (dueño del producto). El resto del documento usa **{marca}** como nombre provisional.
 
@@ -521,7 +530,7 @@ public class PendingOperation : IHasHousehold
 
 ## 5. Preguntas abiertas (para decidir juntos)
 
-1. **Nombre final**: **Despi** como favorito; confirmar después de revisar dominios (`despi.app`, `.mx`, `.com`) y marca (1.1).
+1. **Nombre final**: Despi quedó descartado (ya existe una app mexicana igual). Repón es el mejor disponible; abierto a más ideas (1.1).
 
 ### Decisiones tomadas
 
