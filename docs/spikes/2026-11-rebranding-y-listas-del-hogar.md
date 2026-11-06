@@ -150,7 +150,7 @@ porVencer       = !debeAparecer && t != null && hoy + 7 >= LastPurchasedOn + t_e
 
 1. **Producto**: `DefaultAmount = 1`, `DefaultUnit = Package`, `t = 14 días`.
 2. **Al entrar a la lista**, el `ShoppingItem` se crea con `Amount = 1`, `Unit = Package` (columnas que **ya existen** en `ShoppingItem`).
-3. **Al comprar**, la cantidad se puede ajustar: se edita el renglón a 2, o el agente lee "x2" en el ticket. `SetShoppingItemPurchased` (hoy solo recibe el bool) pasa a aceptar `amount?` y `unit?` opcionales. Por defecto toma los del renglón.
+3. **Al echarlo al carrito o al confirmar en caja** (3.4), la cantidad se puede ajustar: se edita el renglón a 2, o el agente lee "x2" en el ticket. Por defecto se toman los del renglón.
 4. **Se registra** `ProductPurchased { Amount = 2, Unit = Package }`: es la **fuente de verdad**.
 5. **Se actualiza el cache** en el producto: `LastPurchasedOn`, `LastPurchasedAmount = 2`, `LastPurchasedUnit = Package`. Es lo que lee la regla, para no consultar el log en cada sincronización. Si el cache se corrompe, se recalcula desde el último `Purchased` vigente.
 6. **La regla** calcula `t_efectivo = 14 × 2/1 = 28 días`. Si la unidad comprada no coincide con la por defecto (500 ml contra "1 pieza"), no hay conversión de unidades y se usa t sin escalar.
@@ -168,7 +168,7 @@ Transiciones:
 
 | Evento | Efecto |
 | --- | --- |
-| Comprar (marcar comprado un artículo con `ProductId`) | Evento `Purchased` (cantidad + unidad), `LastPurchasedOn/Amount/Unit` del evento, `OutOfStockAt = null`, `SnoozedUntil = null` |
+| Comprar (confirmar en caja un artículo con `ProductId`, 3.4) | Evento `Purchased` (cantidad + unidad), `LastPurchasedOn/Amount/Unit` del evento, `OutOfStockAt = null`, `SnoozedUntil = null` |
 | Marcar agotado | `OutOfStockAt = ahora` y crear el `ShoppingItem` si no hay uno pendiente |
 | "Todavía tengo" | `SnoozedUntil` según la opción elegida (ver 3.1.0), evento `ProductSnoozed` y quitar el artículo pendiente si vino por tiempo. **No aplica si está agotado**: para eso está "Sí hay" |
 | "Sí hay" (deshacer agotado) | `OutOfStockAt = null`. Corrige un "se acabó" marcado por error |
@@ -227,6 +227,7 @@ public abstract class ProductEvent : IHasHousehold
 public sealed class ProductPurchased : ProductEvent
 {
     public Guid? ShoppingItemId { get; private set; }
+    public Guid? ShoppingTripId { get; private set; }  // la compra (checkout) que lo confirmó
     public decimal Amount { get; private set; }        // obligatorio en el tipo
     public MeasurementUnit Unit { get; private set; }
     public Money? Price { get; private set; }          // owned/complex type: TotalPrice + Currency, juntos o ninguno
@@ -310,8 +311,19 @@ public class ShoppingItem : IHasHousehold
     ShoppingItemSource Source;      // Manual | MealPlan | Recurring
     Guid? ProductId;                // si viene de (o se vinculó a) un Product
     DateOnly? GeneratedForWeekStart;// solo Source == MealPlan
-    DateTime? PurchasedAt;          // reemplaza el bool como fuente de verdad
-    DateTime? ArchivedAt;           // "terminé la compra"
+    ShoppingItemStatus Status;      // Pending | InCart | Purchased (reemplaza al bool IsPurchased)
+    DateTime? InCartAt; Guid? InCartByUserId; // "ya lo eché al carrito" (sin efectos en el Product)
+    DateTime? PurchasedAt;          // al confirmar en caja
+    Guid? ShoppingTripId;           // la compra (checkout) en la que se confirmó
+}
+
+public class ShoppingTrip : IHasHousehold   // una compra confirmada en caja
+{
+    Guid Id; Guid HouseholdId; Guid UserId;
+    DateTime CompletedAt;
+    string? Store;
+    Money? TotalPaid;               // opcional: un solo número al pagar, o el total del ticket
+    EventOrigin Origin;             // Web | Agent (ticket)
 }
 ```
 
@@ -342,11 +354,29 @@ public class ShoppingItem : IHasHousehold
 
 *Alternativa intermedia* (descartada por ahora): no materializar los recurrentes y unirlos "virtualmente" al leer la lista (tabla + productos vencidos calculados). Evita la sincronización, pero complica los ids, las ediciones y el check. La sincronización idempotente es más simple.
 
-### 3.4 Ciclo de vida de la lista
+### 3.4 Modo compra: carrito y confirmación en caja
 
-- Acción **"Terminar compra"**: pone `ArchivedAt` en todos los comprados. La lista vuelve a quedar limpia y el historial se guarda (corrige el problema 2).
-- Los pendientes no se archivan: pasan a la siguiente compra.
-- Vista agrupada por `Category` (y los artículos del menú bajo "Comida de la semana" o en su categoría si están vinculados a un `Product`).
+**Requisito**: mientras recorres el súper, vas marcando lo que echas al carrito **sin que cuente como comprado**. Al pagar en caja confirmas, y **solo entonces** se registra la compra.
+
+Estados del artículo: `Pending → InCart → Purchased` (y se puede volver de `InCart` a `Pending`).
+
+| Acción | Efecto |
+| --- | --- |
+| **Al carrito** (check en modo compra) | `Status = InCart`, `InCartAt`, `InCartByUserId`. **No toca el `Product` ni el log**: es reversible sin consecuencias. Se puede ajustar la cantidad ("eché 2"). |
+| **Sacar del carrito** | Vuelve a `Pending`. |
+| **Agregar algo que no estaba en la lista** | Se crea el artículo directamente en `InCart` (compra espontánea). |
+| **Terminar compra / Pagué** | En **una transacción**: se crea un `ShoppingTrip` (tienda y total pagado **opcionales**: un solo número, poca fricción), todos los `InCart` pasan a `Purchased` con `PurchasedAt` y `ShoppingTripId`, se registra `ProductPurchased` por cada uno con producto (con `TripId`), y se actualiza el `Product`. Los artículos confirmados salen de la lista. |
+| **Lo que quedó en `Pending`** | Sigue en la lista para la próxima compra. Opcional: "No compraste X: ¿todavía tienes?" → snooze (3.1.0). |
+
+Detalles:
+
+- **Reemplaza a "Terminar compra" + `ArchivedAt`** de la versión anterior: el checkout **es** el cierre de la compra. "Desmarcar comprado" casi desaparece; solo queda como "deshacer la última compra" (`ProductPurchaseReverted`), por si se confirmó por error.
+- **El carrito se comparte en el hogar**: si dos personas compran juntas, cada una ve lo que la otra ya echó (`InCartByUserId` permite mostrar "lo tomó Ana"). Para el MVP basta con refrescar al enfocar la pantalla + polling cada pocos segundos en modo compra. Tiempo real (SignalR) después, si hace falta.
+- **Sin señal en el súper**: los checks son mutaciones optimistas. Si no hay red, se encolan y se reintentan (TanStack Query con `networkMode: 'offlineFirst'` / persistencia de mutaciones). El checkout sí requiere conexión, porque es la transacción importante.
+- **Carrito olvidado**: si hay artículos `InCart` con más de ~12 h, la lista muestra "Tienes 8 cosas en el carrito desde ayer: ¿confirmar la compra?". **Nunca** se confirma sola.
+- **El ticket vía agente** es un checkout: `checkout(items, store?, total?, date?)` confirma los artículos que ya estaban en el carrito y/o marca directo los que empata el agente (con precio por línea, si viene), y crea el `ShoppingTrip` con la fecha del ticket.
+- **Gasto**: con `ShoppingTrip.TotalPaid` hay gasto por compra **aunque no haya precio por artículo**. El precio por línea (`ProductPurchased.Price`) es un extra que llega con el ticket.
+- Vista agrupada por `Category` (los artículos del menú van bajo "Comida de la semana", o en su categoría si están vinculados a un `Product`), con los `InCart` tachados o al final de su grupo.
 - *Descartado por ahora*: varias listas por hogar (súper / farmacia). La categoría cubre el 90 % del caso con mucha menos complejidad.
 
 ### 3.5 Revisar el modelo del menú
@@ -489,7 +519,8 @@ Hay que pensarlas **para un agente, no como un espejo del CRUD REST**: pocas lla
 | `plan_meals` | escritura | En lote: `[{date, mealType, dishId, servings}]`. Pasa por vista previa y confirmación (4.4.1). |
 | `upsert_products` | escritura | En lote, con intervalo y última compra. |
 | `add_shopping_items` | escritura | En lote. |
-| `mark_items_purchased` | escritura | En lote, por `ids` + `purchasedAt` opcional (la fecha del ticket). Es reversible. |
+| `checkout` | escritura | Confirma una compra (3.4): `ids` empatados (con cantidad, precio + moneda, marca y línea del ticket opcionales), tienda, total y fecha del ticket. Crea el `ShoppingTrip`. Se puede deshacer. |
+| `set_in_cart` | escritura | Marca o desmarca artículos en el carrito (por si el agente acompaña la compra por voz). |
 | `mark_out_of_stock` | escritura | "Se acabó X": acepta nombres, resuelve el producto (o propone crearlo) y lo agrega a la lista. |
 | `postpone_product` | escritura | El "todavía tengo". |
 | `sync_shopping_list` | escritura | Idempotente (3.3). |
@@ -511,7 +542,7 @@ Flujo:
 4. Solo puede confirmarla **el mismo usuario** que la propuso, dentro de su hogar. Expira en ~30 min.
 5. *Después*: un enlace `/aprobar/{operationId}` para revisar y aprobar desde la web, desmarcando renglones. Así la confirmación no depende de lo que el agente diga que dijo el usuario.
 
-Las operaciones pequeñas y reversibles (`mark_items_purchased`, `mark_out_of_stock`, `postpone_product`, agregar 1 o 2 artículos) **se aplican directo** y devuelven un resumen con la opción de deshacer. Con el ticket, el agente ya muestra el empate en el chat, y obligar a confirmar dos veces cada compra sería fricción.
+Las operaciones pequeñas y reversibles (`checkout`, `set_in_cart`, `mark_out_of_stock`, `postpone_product`, agregar 1 o 2 artículos) **se aplican directo** y devuelven un resumen con la opción de deshacer. Con el ticket, el agente ya muestra el empate en el chat, y obligar a confirmar dos veces cada compra sería fricción.
 
 **Decisión: Postgres.** Razones: el filtro por hogar (`IHasHousehold`) aplica gratis, se usan los mismos handlers y las mismas pruebas, y no se agregan dependencias de AWS a la API. El TTL se cubre con `ExpiresAt` + limpieza en el cron.
 
@@ -603,13 +634,13 @@ Orden sugerido: **A** (independiente) · **B → C → D** · **E** (antes de qu
 - `ShoppingItem.Source`, `ProductId`, `PurchasedAt` y la migración desde `IsAutoGenerated`.
 - `Household.ShoppingDay`.
 - `SyncShoppingListCommand` (3.3), que reemplaza a `generate`. Sincroniza al abrir la lista y con el botón.
-- `SetShoppingItemPurchased` acepta `amount?`/`unit?` (y precio + moneda, marca y tienda opcionales). Marcar como comprado registra `ProductPurchased`, actualiza el `Product` y limpia agotado/pospuesto. Sección "Por vencer" cuando no hay día de compra. Marcar agotado agrega el artículo en el momento. Acción "Todavía tengo" (posponer).
+- La compra se confirma en el checkout (D): ahí se registra `ProductPurchased`, se actualiza el `Product` y se limpian agotado/pospuesto. Sección "Por vencer" cuando no hay día de compra. Marcar agotado agrega el artículo en el momento. Acción "Todavía tengo" (posponer).
 - Acción "Hacer recurrente" desde un artículo manual.
 - **Corrige**: la regeneración borra comprados, y falla cuando no hay ingredientes.
 - Pruebas: idempotencia, que no haya duplicados y que se conserven los comprados.
 
-### D. Ciclo de vida de la lista: "Terminar compra" e historial
-- `ArchivedAt`, la acción "Terminar compra" y la vista agrupada por categoría.
+### D. Modo compra: carrito y confirmación en caja
+- Estados `Pending → InCart → Purchased`, carrito compartido en el hogar, checks optimistas con cola sin conexión, checkout transaccional con `ShoppingTrip` (tienda y total opcionales), aviso de carrito olvidado y vista agrupada por categoría (3.4).
 
 ### E. Porciones en platillos y en el menú
 - `Dish.Servings`, `MealPlan.Servings`, `Household.DefaultServings` y el escalado al generar la lista.
@@ -637,7 +668,7 @@ Orden sugerido: **A** (independiente) · **B → C → D** · **E** (antes de qu
 ### I. Servidor MCP v1 (depende de J y K)
 - Endpoint `/mcp` (SDK de C#, Streamable HTTP stateless) en `ComeRico.Api`.
 - Validación de access tokens de Cognito: JwtBearer, `token_use` / `client_id`, custom scopes `read` / `write` y `IClaimsTransformation` `sub` → hogar.
-- Herramientas de 4.4 para platillos, menú y lista (las de productos llegan con B). `mark_items_purchased` acepta precio, marca, tienda y texto de la línea del ticket. Prompts `planear_menu_semanal` y `procesar_ticket`.
+- Herramientas de 4.4 para platillos, menú y lista (las de productos llegan con B). `checkout` acepta precio, marca, tienda, total, fecha y texto de la línea del ticket. Prompts `planear_menu_semanal` y `procesar_ticket`.
 - **Vista previa y confirmación** para cambios en lote (4.4.1): `PendingOperation` (modelo de 4.4.1), `confirm_operation` y `cancel_operation`, revalidación, update condicional contra la doble aplicación, ids asignados al proponer y transacción.
 - Auditoría `Origin = Agent` y rate limiting.
 - Criterio de aceptación: el flujo del menú semanal (con vista previa) y el del ticket desde el móvil.
