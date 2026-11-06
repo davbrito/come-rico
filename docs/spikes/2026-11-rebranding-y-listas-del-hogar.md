@@ -8,7 +8,7 @@
 1. **Rebranding**: "ComeRico" puede leerse como albur. El cambio visible al usuario es barato; renombrar el código y la infraestructura es caro y casi no aporta. Propuesta: cambiar todo lo visible ya y dejar los identificadores técnicos para después (o no tocarlos nunca).
 2. **El producto cambia de foco**: deja de ser solo "¿qué vamos a comer?" y pasa a ser "¿qué hay que comprar para la casa?". El menú semanal se vuelve **una fuente más** de la lista de compras, junto con los **productos recurrentes** (shampoo, pasta dental…) y los artículos manuales.
 3. **Cambios al modelo**: un catálogo `Product` del hogar con intervalo de reposición y `NextDueOn` guardado explícitamente, `ShoppingItem` con `Source` + `ProductId` + `PurchasedAt`, y un comando idempotente que **sincroniza** la lista con todo lo que vence antes del próximo día de compra.
-4. **Servidor MCP con autenticación**: lo que más cuesta es *capturar* (productos, platillos, menús). Un agente (Claude en el móvil, en el escritorio o en Claude Code) puede hacerlo por el usuario: "arma el menú de la semana para 4 personas, sin cerdo, con cenas ligeras" o "aquí está la foto del ticket, marca lo que compré". Como toda la lógica ya vive en handlers de MediatR, el MCP es **otro adaptador delgado**, igual que las Minimal APIs. Lo difícil no son las herramientas: es **la autenticación** (OAuth).
+4. **Servidor MCP con autenticación**: lo que más cuesta es *capturar* (productos, platillos, menús). Un agente (Claude en el móvil, en el escritorio o en Claude Code) puede hacerlo por el usuario: "arma el menú de la semana para 4 personas, sin cerdo, con cenas ligeras" o "aquí está la foto del ticket, marca lo que compré". Como toda la lógica ya vive en handlers de MediatR, el MCP es **otro adaptador delgado**, igual que las Minimal APIs. Lo difícil no son las herramientas: es **la autenticación** (OAuth). Propuesta: **Amazon Cognito** (free tier) con una lista de correos permitidos para registrarse.
 
 ---
 
@@ -180,14 +180,41 @@ ComeRico.Core handlers (los mismos que usan los endpoints REST)
 - **Modo stateless** del transporte HTTP: el backend corre en Lambda (Function URL), así que no se pueden mantener sesiones SSE largas. Ninguna herramienta necesita estado de sesión.
 - **Tenancy sin cambios conceptuales**: el token se resuelve en un usuario, de ahí salen sus claims (`household_id`, `household_role`) y `ClaimsTenantService` funciona igual. Solo hay que registrar un segundo esquema de autenticación (bearer) junto a la cookie, con una policy que acepte cualquiera de los dos.
 
-### 4.3 Autenticación (la decisión importante)
+### 4.3 Autenticación: Amazon Cognito + lista de correos permitidos
 
-| Opción | Funciona con | Costo |
-| --- | --- | --- |
-| **Tokens personales (PAT)** creados en Ajustes, guardados hasheados, revocables, con scopes `read` / `write` | Claude Code, Claude Desktop (configuración con header) y scripts propios | Bajo: una tabla, un handler de autenticación y una pantalla en Ajustes |
-| **OAuth 2.1** (authorization code + PKCE, metadata de recurso protegido, registro de clientes) con el backend como servidor de autorización (p. ej. OpenIddict) y login/consentimiento sobre la sesión de Identity que ya existe | Además: **conectores personalizados de claude.ai y la app móvil**, que es justo donde vive el caso del ticket | Medio/alto: pantalla de consentimiento, registro de clientes (DCR o Client ID Metadata Documents, según lo que pida la versión vigente de la spec MCP) y rotación de tokens |
+**Propuesta (del dueño del producto)**: usar **Amazon Cognito** (free tier) como proveedor de identidad, tanto para la web como para el MCP, con una **lista de correos permitidos** que controle quién se puede registrar. Así nadie ajeno consume el free tier.
 
-**Propuesta: hacerlo en dos fases.** Primero los PAT, para validar las herramientas con Claude Code y Desktop sin bloquearse en OAuth. Después OAuth, que es **requisito** para el caso móvil del ticket (los conectores de claude.ai esperan OAuth; hay que confirmarlo contra su documentación actual cuando se tome el issue). Las dos fases comparten todo lo demás: las herramientas, el esquema bearer y el mapeo token → usuario → claims.
+**Lo que se gana**
+
+- **Un servidor OAuth/OIDC administrado** para el MCP, sin construir uno propio con OpenIddict. Este era el punto más caro de la propuesta anterior.
+- Login administrado (Managed Login, con la marca nueva), **recuperación de contraseña y confirmación de correo** (hoy no están implementadas), MFA y login con Google sin código propio.
+- Encaja con la infraestructura, que ya está en AWS (Lambda + Terraform).
+- Costo: el free tier cubre **10,000 MAU al mes** de inicio de sesión directo o social en los tiers Lite y Essentials. El federado SAML/OIDC solo cubre 50 MAU, pero Google cuenta como "social", no como federado. El tier Plus no tiene free tier: hay que **fijar Essentials o Lite en Terraform**.
+
+**Lista de correos permitidos**
+
+- Un trigger **Pre sign-up** de Cognito (Lambda) rechaza el registro si el correo no está en la lista. El usuario **nunca llega a crearse**, así que no cuenta como MAU.
+- El trigger también se dispara con proveedores externos (`PreSignUp_ExternalProvider`). Hay que validar el correo ahí también, o el login con Google se salta la lista.
+- **Dónde guardar la lista**: los triggers de Cognito tienen un **timeout de ~5 s**, y conectarse a Neon desde una Lambda fría es arriesgado. Propuesta: **una tabla DynamoDB** `allowed_emails` (PK = correo normalizado en minúsculas), dentro del free tier y gestionada con Terraform/CLI por el dueño. Más adelante, invitar a alguien al hogar podría escribir en la tabla (requiere permisos IAM de la API sobre esa tabla).
+- La alternativa más simple sería desactivar el auto-registro (`AllowAdminCreateUserOnly`) y crear los usuarios a mano. Funciona, pero la experiencia de invitación es peor.
+
+**Cómo encaja con el BFF actual (web)**
+
+- Se mantiene el patrón BFF: el backend es un **cliente OIDC confidencial** de Cognito (authorization code + PKCE). Al volver del login, busca o crea el `AppUser` por `sub` (nueva columna `CognitoSub`, única) y emite **la misma cookie propia** `__Host-…auth` con los claims `household_id` / `household_role`. El resto del sistema (tenancy, policies, `fetchCurrentUser`) no cambia.
+- Las rutas `login`, `register`, `forgot-password` y `reset-password` del frontend se reemplazan por una redirección a Managed Login.
+- ASP.NET Identity queda como modelo de usuario/hogar, sin contraseñas. El password hashing y el `SignInManager` de contraseñas se retiran.
+- **Usuarios existentes**: Cognito no puede importar los hashes de Identity. Como hay pocos usuarios, se vinculan por correo en el primer login con Cognito, después de un "restablecer contraseña". La otra opción es un trigger *User migration*, que no vale la pena a esta escala.
+- El envío de correo predeterminado de Cognito tiene una cuota diaria baja. Alcanza al principio; si crece, se pasa a SES.
+
+**MCP con Cognito: el hueco que hay que cubrir**
+
+Cognito **no implementa** Dynamic Client Registration, no acepta Client ID Metadata Documents (client IDs como URL) y no publica metadata RFC 8414. Solo publica OIDC discovery. Claude espera DCR o CIMD de forma automática. Opciones:
+
+1. **App client pre-registrado (propuesta para v1)**: crear en Cognito un app client para claude.ai (callback `https://claude.ai/api/mcp/auth_callback`). El usuario lo agrega como conector personalizado con el *Client ID* (y secret, si aplica) en **Advanced settings**. La API publica la *protected resource metadata* en `/.well-known/oauth-protected-resource` apuntando al issuer de Cognito. Para Claude Code hay reportes de fricción con client IDs fijos sin DCR: hay que probarlo y, si falla, usar la opción 3 solo para ese cliente.
+2. **Capa CIMD/DCR delgada delante de Cognito**: AWS tiene un ejemplo serverless que hace justo esto. Permite agregar el conector solo con la URL. Se deja como mejora si la opción 1 resulta molesta.
+3. **Tokens personales (PAT)** como respaldo para scripts y para Claude Code, si la opción 1 no funciona ahí. Ya no son una fase obligatoria.
+
+Validación del token en la API: `AddJwtBearer` con `Authority` = issuer del user pool. Los access tokens de Cognito **no traen `aud`**, así que se valida `token_use == "access"` y que `client_id` esté en la lista de app clients permitidos. Un `IClaimsTransformation` mapea `sub` → `AppUser` → claims del hogar (con caché corta), y `ClaimsTenantService` funciona sin cambios. Los scopes `read` / `write` se definen como *custom scopes* de un resource server en Cognito.
 
 Reglas comunes:
 
@@ -235,14 +262,15 @@ Hay que pensarlas **para un agente, no como un espejo del CRUD REST**: pocas lla
 3. ¿Quién configura el catálogo: cualquier miembro o solo Admin? La propuesta es cualquier miembro, porque se parece a la lista misma.
 4. ¿El "día de compra" es por hogar (propuesta) o hay hogares que compran varias veces por semana? En ese caso, la ventana podría ser "próximos 7 días" en lugar de "hasta el día de compra".
 5. ¿Hacemos el rebranding del nivel 2 (cookie/Data Protection) ahora, aprovechando que hay pocos usuarios, o nunca?
-6. MCP: ¿pasamos directo a OAuth porque el caso principal es el móvil, o primero PAT para iterar las herramientas? La propuesta es primero PAT.
-7. ¿El agente puede crear platillos y productos nuevos sin confirmación, o siempre con `dryRun` y aprobación? La propuesta es que en lote se muestre una vista previa y se pida confirmación.
+6. Cognito: ¿Managed Login (propuesta, menos código) o mantener las pantallas propias llamando a la API de Cognito? ¿Agregamos login con Google desde el inicio?
+7. Lista de correos: ¿la administra solo el dueño (DynamoDB vía CLI/Terraform, propuesta) o los admins de cada hogar al invitar?
+8. ¿El agente puede crear platillos y productos nuevos sin confirmación, o siempre con `dryRun` y aprobación? La propuesta es que en lote se muestre una vista previa y se pida confirmación.
 
 ---
 
 ## 6. Issues propuestos
 
-Orden sugerido: **A** (independiente) · **B → C → D** · **E** (antes de que el MCP planee menús) · **I → J** en paralelo con B/C. F/G/H después.
+Orden sugerido: **A** (independiente) · **B → C → D** · **E** (antes de que el MCP planee menús) · **J → I** (Cognito, luego MCP) en paralelo con B/C. F/G/H después.
 
 ### A. Rebranding visible: ComeRico → {nombre}
 - Decidir el nombre (sección 1.1) y conseguir el dominio.
@@ -276,17 +304,24 @@ Orden sugerido: **A** (independiente) · **B → C → D** · **E** (antes de qu
 ### G. (Futuro) Recordatorio semanal
 - Cron por hogar en `ShoppingDay - 1` + notificación. Depende de tener un canal de notificaciones.
 
-### I. Servidor MCP v1 con tokens personales
-- Endpoint `/mcp` (SDK de C#, Streamable HTTP stateless) en `ComeRico.Api`.
-- Entidad `PersonalAccessToken` (hash, scopes, último uso, expiración), esquema de autenticación bearer junto a la cookie y una pantalla en Ajustes para crear y revocar tokens.
-- Herramientas de lectura y escritura de 4.4 para platillos, menú y lista (las de productos llegan con B), más los prompts `planear_menu_semanal` y `procesar_ticket`.
-- Auditoría `Origin = Agent` y rate limiting.
-- Pruebas: aislamiento por hogar con tokens, scopes, y que cada herramienta mande el comando correcto.
-- Documentación para conectarlo desde Claude Code y Desktop.
+### J. Migrar la autenticación a Amazon Cognito con lista de correos permitidos
+- User pool (tier Essentials o Lite, fijado en Terraform), Managed Login con la marca nueva y app client confidencial para el BFF.
+- Trigger Pre sign-up + tabla DynamoDB `allowed_emails` (cubriendo también proveedores externos).
+- Backend: login OIDC → `AppUser` por `CognitoSub` → la misma cookie propia con claims del hogar. Retirar contraseñas de Identity.
+- Frontend: reemplazar login/registro/recuperación por la redirección.
+- Migración de los usuarios existentes (vinculación por correo).
+- Pruebas: un correo no permitido no puede registrarse (ni con Google), y la sesión y la tenancy siguen igual.
 
-### J. OAuth 2.1 para conectores remotos (claude.ai / móvil)
-- El backend como servidor de autorización (evaluar OpenIddict), metadata de recurso protegido en `/mcp`, consentimiento sobre la sesión de Identity y registro de clientes según la spec MCP vigente.
-- Criterio de aceptación: agregarlo como conector personalizado en claude.ai y completar el flujo del ticket desde el móvil.
+### I. Servidor MCP v1 (depende de J)
+- Endpoint `/mcp` (SDK de C#, Streamable HTTP stateless) en `ComeRico.Api`.
+- Autenticación con access tokens de Cognito: JwtBearer, `token_use` / `client_id`, custom scopes `read` / `write` y `IClaimsTransformation` `sub` → hogar. Protected resource metadata en `/.well-known/oauth-protected-resource`.
+- App client pre-registrado para claude.ai. Criterio de aceptación: agregarlo como conector personalizado y completar el flujo del ticket desde el móvil. Probar Claude Code; si no funciona sin DCR, documentar el respaldo.
+- Herramientas de 4.4 para platillos, menú y lista (las de productos llegan con B), más los prompts `planear_menu_semanal` y `procesar_ticket`.
+- Auditoría `Origin = Agent` y rate limiting.
+- Pruebas: aislamiento por hogar con bearer, scopes, y que cada herramienta mande el comando correcto.
+
+### K. (Opcional) Capa CIMD/DCR delante de Cognito o tokens personales
+- Solo si el app client pre-registrado resulta molesto (claude.ai) o no funciona (Claude Code).
 
 ### H. (Opcional, deuda) Rebranding técnico
 - Namespaces `ComeRico.*`, paquetes `@comerico/*`, cookie/Data Protection (cierra todas las sesiones), recursos de infraestructura con `moved`. Un PR mecánico aislado.
