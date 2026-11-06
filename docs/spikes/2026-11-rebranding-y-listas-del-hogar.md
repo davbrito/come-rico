@@ -170,7 +170,8 @@ Transiciones:
 | --- | --- |
 | Comprar (marcar comprado un artículo con `ProductId`) | Evento `Purchased` (cantidad + unidad), `LastPurchasedOn/Amount/Unit` del evento, `OutOfStockAt = null`, `SnoozedUntil = null` |
 | Marcar agotado | `OutOfStockAt = ahora` y crear el `ShoppingItem` si no hay uno pendiente |
-| "Todavía tengo" (+N días) | `SnoozedUntil = hoy + N` y quitar el artículo pendiente si vino por tiempo. **No aplica si está agotado**: sería contradictorio |
+| "Todavía tengo" | `SnoozedUntil` según la opción elegida (ver 3.1.0), evento `ProductSnoozed` y quitar el artículo pendiente si vino por tiempo. **No aplica si está agotado**: para eso está "Sí hay" |
+| "Sí hay" (deshacer agotado) | `OutOfStockAt = null`. Corrige un "se acabó" marcado por error |
 | Desmarcar comprado | Revertir a los valores anteriores (se guardan en el `ShoppingItem` al marcarlo) |
 | Crear producto | Preguntar "¿cuándo lo compraste por última vez?". Si no se sabe, `LastPurchasedOn = null`, que cuenta como vencido y entra a la siguiente lista |
 
@@ -179,6 +180,22 @@ Transiciones:
 - **Intervalo en días** en la base de datos y **atajos en la UI** (cada semana / 2 semanas / mes / 2 meses / personalizado). Es simple y alcanza.
 - **`ProductCategory` como enum cerrado** (igual que `MeasurementUnit`). Sirve para agrupar la lista por pasillo o tienda sin tener que modelar varias listas. Se podría pasar a una entidad del hogar más adelante si alguien la pide.
 - Agregar **`Package`** (paquete/caja) a `MeasurementUnit`. En los productos de casa "1 pieza" se queda corto.
+
+### 3.1.0 Cómo se le dice al sistema que algo todavía no se acaba
+
+Con **"Todavía tengo"** (el snooze). Detalles que importan:
+
+- **Dónde está**:
+  - En el renglón de la lista (artículos `Recurring`).
+  - En la sección "Por vencer" y en el catálogo, para adelantarse antes de que aparezca.
+  - En el agente: `postpone_product` ("todavía hay shampoo").
+- **Opciones, no un número libre**:
+  - **Con día de compra**: la opción por defecto es **"Saltar esta compra"** → `SnoozedUntil = próximo día de compra + 1`. Atajos: "+1 semana" y "+2 semanas".
+  - **Sin día de compra**: "+3 días", "+1 semana" y "+2 semanas".
+- ⚠️ **Snooze y anticipación**: con día de compra, la regla compara contra el **próximo día de compra**. Un snooze de "+3 días" que termina antes de ese día **no sirve**: el artículo vuelve a aparecer en cuanto se sincroniza la lista. Por eso las opciones se calculan para saltarse al menos la compra actual, y `SnoozedUntil` nunca puede quedar antes del día de compra siguiente.
+- **Borrar un artículo recurrente de la lista equivale a "Saltar esta compra"**. Si no, la siguiente sincronización lo vuelve a agregar y parece un bug. La UI lo dice ("No lo agregaremos en esta compra").
+- **Al "Terminar compra"**, los recurrentes no comprados pasan a la siguiente compra (siguen vencidos). *Opcional*: preguntar "No compraste X: ¿todavía tienes?" y convertir el "sí" en un snooze.
+- **Aprendizaje**: cada snooze queda en el log (`ProductSnoozed`). Si un producto se pospone 2 o 3 veces seguidas, se sugiere alargar t ("lo pospusiste 3 veces, ¿cambio a cada 6 semanas?").
 
 ### 3.1.1 Historial de eventos (`ProductEvent`) y qué datos guardar de cada compra
 
