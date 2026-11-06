@@ -42,7 +42,7 @@
 
 **Nivel 2: identificadores de runtime (con cuidado: rompe las sesiones)**
 
-- Cookie `__Host-comerico.auth` y `AddDataProtection().SetApplicationName("ComeRico")` en `Program.cs`. Si cambia **cualquiera** de los dos, **todos los usuarios pierden la sesión** (el nombre de la aplicación aísla las llaves de Data Protection). No es grave en la etapa actual, pero hay que hacerlo a propósito y en un solo despliegue, o simplemente no cambiarlos: el usuario no los ve.
+- Cookie `__Host-comerico.auth` y `AddDataProtection().SetApplicationName("ComeRico")` en `Program.cs`. Si cambia **cualquiera** de los dos, **todos los usuarios pierden la sesión** (el nombre de la aplicación aísla las llaves de Data Protection). **Decisión: se cambian ya** (no hay usuarios en producción), en el issue A. De todas formas la migración a Cognito (J) emite sesiones nuevas.
 - Bucket R2 `comerico-storage` y base de datos `comerico`: **no renombrar**. El usuario no los ve y migrarlos cuesta mucho.
 
 **Nivel 3: código e infraestructura (no recomendado por ahora)**
@@ -85,7 +85,8 @@ public class Product : IHasHousehold
     int? RestockIntervalDays;    // t = lo que dura DefaultAmount; null = sin recurrencia (solo si se marca agotado)
     string? PreferredBrand;      // "Colgate"; se muestra en la lista, opcional
     DateOnly? LastPurchasedOn;
-    decimal? LastPurchasedAmount;// para escalar t por cantidad (ver abajo)
+    decimal? LastPurchasedAmount;// cache del último evento Purchased: para escalar t por cantidad
+    MeasurementUnit? LastPurchasedUnit;
     DateTime? OutOfStockAt;      // "se acabó"; se limpia al comprar
     DateOnly? SnoozedUntil;      // "todavía tengo"; solo afecta a la regla de tiempo
     bool IsActive;
@@ -100,7 +101,7 @@ public class Product : IHasHousehold
 
 ```text
 fechaReferencia = Household.ShoppingDay != null ? próximoDíaDeCompra : hoy
-t_efectivo      = t * (LastPurchasedAmount / DefaultAmount)   // misma unidad; si no, t
+t_efectivo      = LastPurchasedUnit == DefaultUnit ? t * (LastPurchasedAmount / DefaultAmount) : t
 debeAparecer    = OutOfStockAt != null
                || (t != null && fechaReferencia >= max(LastPurchasedOn + t_efectivo, SnoozedUntil ?? min))
 porVencer       = !debeAparecer && t != null && hoy + 7 >= LastPurchasedOn + t_efectivo
@@ -109,6 +110,17 @@ porVencer       = !debeAparecer && t != null && hoy + 7 >= LastPurchasedOn + t_e
 - **Con día de compra** (opcional, `Household.ShoppingDay : DayOfWeek?`): se **anticipa** contra el próximo día de compra, así que lo que vence el martes entra en la compra del sábado anterior.
 - **Sin día de compra**: se evalúa contra **hoy** y la lista muestra una sección **"Por vencer (próximos 7 días)"** con lo que está por tocar, para quien quiera adelantarse.
 - **t escala con la cantidad comprada**: t es "lo que dura la cantidad por defecto". Si el papel de baño es "1 paquete cada 2 semanas" y compraste 2, vuelve a aparecer en 4 semanas. No hace falta un campo de "unidades por intervalo": sale de la cantidad por defecto y de la cantidad comprada.
+
+**Dónde vive el "2" (el recorrido completo)**:
+
+1. **Producto**: `DefaultAmount = 1`, `DefaultUnit = Package`, `t = 14 días`.
+2. **Al entrar a la lista**, el `ShoppingItem` se crea con `Amount = 1`, `Unit = Package` (columnas que **ya existen** en `ShoppingItem`).
+3. **Al comprar**, la cantidad se puede ajustar: se edita el renglón a 2, o el agente lee "x2" en el ticket. `SetShoppingItemPurchased` (hoy solo recibe el bool) pasa a aceptar `amount?` y `unit?` opcionales. Por defecto toma los del renglón.
+4. **Se registra** `ProductEvent { Type = Purchased, Amount = 2, Unit = Package }`: es la **fuente de verdad**.
+5. **Se actualiza el cache** en el producto: `LastPurchasedOn`, `LastPurchasedAmount = 2`, `LastPurchasedUnit = Package`. Es lo que lee la regla, para no consultar el log en cada sincronización. Si el cache se corrompe, se recalcula desde el último `Purchased` vigente.
+6. **La regla** calcula `t_efectivo = 14 × 2/1 = 28 días`. Si la unidad comprada no coincide con la por defecto (500 ml contra "1 pieza"), no hay conversión de unidades y se usa t sin escalar.
+
+*Caso borde: comprar de nuevo antes de que toque.* Con la regla anterior, una compra nueva **reinicia** el conteo desde esa fecha y se pierde lo que quedaba. Es aceptable para el MVP: es la estimación conservadora, y en el peor caso aparece antes de tiempo, donde "Todavía tengo" lo corrige. La alternativa de **acumular** cobertura (`cubiertoHasta = max(cubiertoHasta, compra) + t_efectivo`) es más precisa, pero introduce un campo derivado que habría que recalcular desde el log cuando cambia t. Se deja para cuando exista la sugerencia de intervalo.
 
 Por qué funciona bien:
 
@@ -121,7 +133,7 @@ Transiciones:
 
 | Evento | Efecto |
 | --- | --- |
-| Comprar (marcar comprado un artículo con `ProductId`) | `LastPurchasedOn = fecha de compra`, `OutOfStockAt = null`, `SnoozedUntil = null` |
+| Comprar (marcar comprado un artículo con `ProductId`) | Evento `Purchased` (cantidad + unidad), `LastPurchasedOn/Amount/Unit` del evento, `OutOfStockAt = null`, `SnoozedUntil = null` |
 | Marcar agotado | `OutOfStockAt = ahora` y crear el `ShoppingItem` si no hay uno pendiente |
 | "Todavía tengo" (+N días) | `SnoozedUntil = hoy + N` y quitar el artículo pendiente si vino por tiempo. **No aplica si está agotado**: sería contradictorio |
 | Desmarcar comprado | Revertir a los valores anteriores (se guardan en el `ShoppingItem` al marcarlo) |
@@ -149,7 +161,8 @@ public class ProductEvent : IHasHousehold
 
     // Solo Purchased (todo opcional salvo la cantidad)
     decimal? Amount; MeasurementUnit? Unit;  // lo que se compró de verdad
-    decimal? TotalPrice;                     // moneda = Household.Currency
+    decimal? TotalPrice;                     // numeric(12,2): total de la línea del ticket
+    string? Currency;                        // ISO 4217 ("MXN", "USD"); obligatorio si hay TotalPrice
     string? Brand; string? Store;
     string? ReceiptLineText;                 // "SHAMP H&S 400ML", para aprender alias
 
@@ -164,11 +177,25 @@ public class ProductEvent : IHasHousehold
 | --- | --- | --- |
 | Fecha y quién | **Sí, siempre** | Es la base de la regla y del aprendizaje. |
 | Cantidad + unidad comprada | **Sí** (por defecto, la cantidad del producto) | Escala t (comprar 2 dura el doble) y mejora la sugerencia del intervalo. |
-| Precio total | **Opcional**, sin pedirlo en la UI | Llega gratis en el ticket (vía agente). Habilita "gasto por mes/categoría" y "el shampoo subió 20 %". Se guarda el **total de la línea** (es lo que trae el ticket); el unitario se calcula. Moneda a nivel de hogar. |
+| Precio total | **Opcional**, sin pedirlo en la UI | Llega gratis en el ticket (vía agente). Habilita "gasto por mes/categoría" y "el shampoo subió 20 %". Se guarda el **total de la línea** (es lo que trae el ticket); el unitario se calcula. La moneda va **en cada compra** (ver 3.1.2). |
 | Marca | **Opcional** por compra + `PreferredBrand` en el producto | La marca preferida sí es útil en la lista ("Colgate"). La de cada compra solo sirve para análisis, así que se guarda solo si llega del ticket. |
 | Tienda | **Opcional** | Llega gratis en el ticket. A futuro sirve para comparar precios entre tiendas. |
 | Texto de la línea del ticket | **Sí, si viene del ticket** | Con él se aprenden alias ("SHAMP H&S 400ML" → Shampoo), y el siguiente empate del agente es mejor (un `ProductAlias` a futuro). |
 | Foto del ticket | **No** (por ahora) | Costo de almacenamiento y privacidad, y no aporta después de extraer los datos. |
+
+### 3.1.2 Dinero y moneda
+
+**Hoy el sistema no guarda dinero en ningún lado**: ninguna entidad tiene precios ni montos de dinero. `Ingredient.Amount` y `ShoppingItem.Amount` son **cantidades** (gramos, piezas), no dinero.
+
+Con esta propuesta, el dinero aparece **en un solo lugar**: `ProductEvent.TotalPrice` + `ProductEvent.Currency`, y solo en eventos `Purchased` que lo traigan (casi siempre del ticket vía el agente).
+
+- **Tipo**: `decimal` en C# / `numeric(12,2)` en Postgres. Nunca `float`/`double` para dinero.
+- **Moneda en cada compra (recomendado)**, no solo a nivel de hogar:
+  - El hogar tiene `DefaultCurrency` (p. ej. `MXN`), que se **copia** al evento al registrarlo si no viene otra. El agente puede mandar otra si el ticket es de otra moneda.
+  - **Por qué no solo por hogar**: si el hogar cambia de moneda, compra en un viaje o paga en dos monedas (pasa en algunos países), un valor solo por hogar **reetiquetaría todo el historial** de golpe. Guardarla en el evento lo deja inmutable y correcto, y cuesta una columna de 3 caracteres.
+  - Los reportes **agrupan por moneda** y nunca suman monedas distintas. No hay conversión de tipo de cambio (fuera del alcance).
+- **No se guarda precio** en `Product` (ni "precio estimado") ni en `ShoppingItem` en el MVP. Si más adelante se quiere un presupuesto estimado de la lista, el "último precio conocido" sale del log.
+- *A futuro*, si el dinero crece (presupuestos, gastos que no son productos), conviene un value object `Money(decimal Amount, string Currency)` mapeado como *owned type* de EF. Para un solo par de columnas no vale la pena todavía.
 
 Lo que sale del log (todo en C#, sin esquema extra):
 
@@ -436,10 +463,8 @@ public class PendingOperation : IHasHousehold
 ## 5. Preguntas abiertas (para decidir juntos)
 
 1. **Nombre final** y si se compra dominio propio.
-2. ¿Quién configura el catálogo: cualquier miembro o solo Admin? La propuesta es cualquier miembro, porque se parece a la lista misma.
-3. Moneda: ¿una por hogar (propuesta) o puede variar por compra?
-4. ¿Hacemos el rebranding del nivel 2 (cookie/Data Protection) ahora, aprovechando que hay pocos usuarios, o nunca?
-5. ¿Aprobamos las invitaciones firmadas + auto-registro desactivado en lugar de la tabla de correos (y, con eso, sin DynamoDB)?
+2. Moneda: ¿se guarda en cada compra con un default por hogar (recomendado, 3.1.2) o solo una por hogar?
+3. ¿Aprobamos las invitaciones firmadas + auto-registro desactivado en lugar de la tabla de correos (y, con eso, sin DynamoDB)?
 
 ### Decisiones tomadas
 
@@ -449,6 +474,9 @@ public class PendingOperation : IHasHousehold
 - **Día de compra opcional**: si existe, se anticipa contra él. Si no, se evalúa contra hoy, con la sección "Por vencer (7 días)", y el menú usa los próximos 7 días.
 - **Historial de eventos** `ProductEvent` desde el MVP. Se guarda lo que llega gratis (cantidad siempre; precio, marca, tienda y línea del ticket si vienen del ticket), y t escala con la cantidad comprada.
 - **Lista = tabla sincronizada + log**, no una vista del log.
+- **Catálogo**: lo edita **cualquier miembro** del hogar (sin `IRequireHouseholdAdmin`).
+- **Cookie y Data Protection**: se renombran ya, en el issue A (no hay usuarios en producción).
+- **Cantidad comprada**: `ShoppingItem.Amount/Unit` → evento `Purchased` (fuente de verdad) → cache en `Product.LastPurchasedAmount/Unit`.
 - **Regla de aparición de productos**: entran directo a la lista cuando ya pasó t desde la última compra **o** se marcaron como agotados (3.1).
 - **Cambios en lote del agente**: vista previa y confirmación (4.4.1). Operaciones pendientes en Postgres con el modelo de 4.4.1.
 
@@ -462,12 +490,13 @@ Orden sugerido: **A** (independiente) · **B → C → D** · **E** (antes de qu
 - Decidir el nombre (sección 1.1) y conseguir el dominio.
 - Cambiar los textos, el título, OG, el manifest, el header, la landing (nueva propuesta: lista + menú), el README y los íconos.
 - Configurar el dominio nuevo en Vercel/infra con un 301 desde `comerico.davbrito.dev`.
-- **Fuera del alcance**: namespaces, cookie, buckets, base de datos y repo.
+- **Incluye** renombrar la cookie (`__Host-{marca}.auth`) y `SetApplicationName("{Marca}")` de Data Protection (decidido: no hay usuarios en producción).
+- **Fuera del alcance**: namespaces, buckets, base de datos y repo.
 
 ### B. Catálogo de productos del hogar con intervalo de reposición
 - Entidad `Product` (3.1), `ProductCategory`, `MeasurementUnit.Package` y la migración.
 - CRUD `/api/products` y la página "Productos del hogar" (nombre, categoría, cantidad por defecto, "cada cuánto", última compra).
-- `OutOfStockAt`, `SnoozedUntil`, `PreferredBrand`, `LastPurchasedAmount`, `Household.ShoppingDay?` y `Household.Currency`.
+- `OutOfStockAt`, `SnoozedUntil`, `PreferredBrand`, `LastPurchasedAmount/Unit`, `Household.ShoppingDay?` y `Household.DefaultCurrency`. Cualquier miembro puede editar.
 - Historial `ProductEvent` (3.1.1), escrito en la misma transacción que cada cambio de estado. Acción "Se acabó" en el catálogo.
 - Pruebas: filtro por hogar y regla de aparición (tiempo con y sin día de compra, escalado por cantidad, agotado, pospuesto, sin intervalo, nunca comprado).
 
@@ -475,7 +504,7 @@ Orden sugerido: **A** (independiente) · **B → C → D** · **E** (antes de qu
 - `ShoppingItem.Source`, `ProductId`, `PurchasedAt` y la migración desde `IsAutoGenerated`.
 - `Household.ShoppingDay`.
 - `SyncShoppingListCommand` (3.3), que reemplaza a `generate`. Sincroniza al abrir la lista y con el botón.
-- Marcar como comprado registra `Purchased` (cantidad, y precio/marca/tienda opcionales), actualiza el `Product` y limpia agotado/pospuesto. Sección "Por vencer" cuando no hay día de compra. Marcar agotado agrega el artículo en el momento. Acción "Todavía tengo" (posponer).
+- `SetShoppingItemPurchased` acepta `amount?`/`unit?` (y precio + moneda, marca y tienda opcionales). Marcar como comprado registra `Purchased`, actualiza el `Product` y limpia agotado/pospuesto. Sección "Por vencer" cuando no hay día de compra. Marcar agotado agrega el artículo en el momento. Acción "Todavía tengo" (posponer).
 - Acción "Hacer recurrente" desde un artículo manual.
 - **Corrige**: la regeneración borra comprados, y falla cuando no hay ingredientes.
 - Pruebas: idempotencia, que no haya duplicados y que se conserven los comprados.
@@ -523,4 +552,4 @@ Orden sugerido: **A** (independiente) · **B → C → D** · **E** (antes de qu
 - Probar el caso de un correo ya registrado con contraseña que entra con Google: vincular cuentas (`AdminLinkProviderForUser`) en lugar de duplicarlas.
 
 ### H. (Opcional, deuda) Rebranding técnico
-- Namespaces `ComeRico.*`, paquetes `@comerico/*`, cookie/Data Protection (cierra todas las sesiones), recursos de infraestructura con `moved`. Un PR mecánico aislado.
+- Namespaces `ComeRico.*`, paquetes `@comerico/*`, recursos de infraestructura con `moved`. Un PR mecánico aislado.
