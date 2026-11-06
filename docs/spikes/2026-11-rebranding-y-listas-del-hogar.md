@@ -7,7 +7,7 @@
 
 1. **Rebranding**: "ComeRico" puede leerse como albur. El cambio visible al usuario es barato; renombrar el código y la infraestructura es caro y casi no aporta. Propuesta: cambiar todo lo visible ya y dejar los identificadores técnicos para después (o no tocarlos nunca).
 2. **El producto cambia de foco**: deja de ser solo "¿qué vamos a comer?" y pasa a ser "¿qué hay que comprar para la casa?". El menú semanal se vuelve **una fuente más** de la lista de compras, junto con los **productos recurrentes** (shampoo, pasta dental…) y los artículos manuales.
-3. **Cambios al modelo**: un catálogo `Product` del hogar con intervalo de reposición y `NextDueOn` guardado explícitamente, `ShoppingItem` con `Source` + `ProductId` + `PurchasedAt`, y un comando idempotente que **sincroniza** la lista con todo lo que vence antes del próximo día de compra.
+3. **Cambios al modelo**: un catálogo `Product` del hogar que aparece en la lista cuando **ya pasó t desde la última compra o se marcó como agotado**, `ShoppingItem` con `Source` + `ProductId` + `PurchasedAt`, y un comando idempotente que **sincroniza** la lista con todo lo que vence antes del próximo día de compra.
 4. **Servidor MCP con autenticación**: lo que más cuesta es *capturar* (productos, platillos, menús). Un agente (Claude en el móvil, en el escritorio o en Claude Code) puede hacerlo por el usuario: "arma el menú de la semana para 4 personas, sin cerdo, con cenas ligeras" o "aquí está la foto del ticket, marca lo que compré". Como toda la lógica ya vive en handlers de MediatR, el MCP es **otro adaptador delgado**, igual que las Minimal APIs. Lo difícil no son las herramientas: es **la autenticación** (OAuth). Decisión: **Amazon Cognito** (free tier) con una lista de correos permitidos, y una capa OAuth delgada (CIMD + DCR) para que Claude se conecte solo con la URL. Los cambios en lote del agente pasan por vista previa y confirmación.
 
 ---
@@ -82,24 +82,50 @@ public class Product : IHasHousehold
     ProductCategory Category;    // Higiene, Limpieza, Despensa, Frescos, Bebés, Mascotas, Otros
     decimal? DefaultAmount;      // 1
     MeasurementUnit? DefaultUnit;// Piece / Package
-    int? RestockIntervalDays;    // null = no es recurrente (solo está en el catálogo)
+    int? RestockIntervalDays;    // t; null = sin recurrencia (solo aparece si se marca agotado)
     DateOnly? LastPurchasedOn;
-    DateOnly? NextDueOn;         // se guarda explícito (ver abajo)
+    DateTime? OutOfStockAt;      // "se acabó"; se limpia al comprar
+    DateOnly? SnoozedUntil;      // "todavía tengo"; solo afecta a la regla de tiempo
     bool IsActive;
     DateTime CreatedAt;
 }
 ```
 
-Decisiones y por qué:
+**Regla de aparición en la lista (decisión)**: un producto aparece en la lista si se cumple **cualquiera** de estas dos condiciones:
 
-- **Guardar `NextDueOn` en lugar de calcularlo**: así existe la acción **"Todavía tengo"** (posponer N días), que en la práctica es indispensable. Los intervalos son estimaciones y la gente necesita corregirlos sin cambiar la configuración. Las reglas:
-  - Al comprar: `LastPurchasedOn = hoy` y `NextDueOn = hoy + RestockIntervalDays`.
-  - Al posponer: `NextDueOn = hoy + N` (con atajos de +3 días, +1 semana…).
-  - Al crear el producto: `NextDueOn = hoy` (entra a la siguiente lista) o una fecha que elija el usuario ("lo compré hace una semana").
+1. **Ya pasó t desde la última compra**: `hoy >= LastPurchasedOn + t`, salvo que esté pospuesto (`hoy < SnoozedUntil`).
+2. **Se marcó como agotado**: `OutOfStockAt != null`. Esta gana siempre, incluso si está pospuesto o no tiene intervalo.
+
+```text
+debeAparecer = OutOfStockAt != null
+            || (t != null && hoy >= max(LastPurchasedOn + t, SnoozedUntil ?? min))
+```
+
+Por qué funciona bien:
+
+- **El tiempo es una estimación y "agotado" es la señal real.** El intervalo cubre lo que la gente olvida revisar, y "agotado" cubre lo que se acabó antes de lo previsto. Juntas evitan los dos fallos típicos: quedarse sin algo y comprar algo que todavía hay.
+- **Unifica el catálogo**: un producto **sin** intervalo (p. ej. "pilas", "foco") también sirve. Solo aparece cuando alguien lo marca agotado. El intervalo pasa a ser opcional.
+- **Se calcula en vez de guardar `NextDueOn`**: si alguien cambia t, la próxima fecha se recalcula sola y no queda un campo derivado desactualizado. "Todavía tengo" se expresa con `SnoozedUntil`.
+- **Es lo ideal para el agente y para la UI rápida**: "se acabó el shampoo" es una sola acción (botón en el catálogo o la herramienta MCP `mark_out_of_stock`). Marcar agotado **agrega el artículo a la lista en el momento**, sin esperar a la sincronización.
+
+Transiciones:
+
+| Evento | Efecto |
+| --- | --- |
+| Comprar (marcar comprado un artículo con `ProductId`) | `LastPurchasedOn = fecha de compra`, `OutOfStockAt = null`, `SnoozedUntil = null` |
+| Marcar agotado | `OutOfStockAt = ahora` y crear el `ShoppingItem` si no hay uno pendiente |
+| "Todavía tengo" (+N días) | `SnoozedUntil = hoy + N` y quitar el artículo pendiente si vino por tiempo. **No aplica si está agotado**: sería contradictorio |
+| Desmarcar comprado | Revertir a los valores anteriores (se guardan en el `ShoppingItem` al marcarlo) |
+| Crear producto | Preguntar "¿cuándo lo compraste por última vez?". Si no se sabe, `LastPurchasedOn = null`, que cuenta como vencido y entra a la siguiente lista |
+
+Puntos a decidir:
+
+- **Anticipación**: con "ya pasó t" literal, algo que vence el martes no entra en la compra del sábado anterior, y se acaba antes de la siguiente. Propuesta: evaluar la condición de tiempo **contra el próximo día de compra** (`díaDeCompra >= LastPurchasedOn + t`) en lugar de contra hoy. Si se prefiere la regla literal, al menos mostrar una sección "Por vencer" con lo que vence antes del próximo día de compra.
+- **Aprendizaje del intervalo (a futuro)**: guardar los eventos (comprado, agotado, pospuesto) en un pequeño historial `ProductEvent`. Agotar antes de t indica que el intervalo es largo; posponer seguido indica que es corto. Con eso se puede **sugerir** ajustar t ("se te acaba cada ~20 días, ¿cambio a 3 semanas?"). Conviene guardar los eventos desde el MVP aunque la sugerencia llegue después: es barato y no se puede reconstruir hacia atrás.
+
 - **Intervalo en días** en la base de datos y **atajos en la UI** (cada semana / 2 semanas / mes / 2 meses / personalizado). Es simple y alcanza.
 - **`ProductCategory` como enum cerrado** (igual que `MeasurementUnit`). Sirve para agrupar la lista por pasillo o tienda sin tener que modelar varias listas. Se podría pasar a una entidad del hogar más adelante si alguien la pide.
 - Agregar **`Package`** (paquete/caja) a `MeasurementUnit`. En los productos de casa "1 pieza" se queda corto.
-- *A futuro*: con el historial de `PurchasedAt` (3.2) se puede **sugerir** el intervalo real ("lo compras cada ~24 días"). No es parte del MVP.
 
 ### 3.2 `ShoppingItem` con varias fuentes
 
@@ -116,7 +142,7 @@ public class ShoppingItem : IHasHousehold
 ```
 
 - `IsAutoGenerated` → `Source`. La migración toma `true` como `MealPlan` y `false` como `Manual`.
-- Al marcar como comprado un artículo con `ProductId`, se actualiza `Product.LastPurchasedOn/NextDueOn`. **Así se cierra el ciclo.** Si se desmarca el mismo día, se revierte (se guardan los valores anteriores o se recalcula desde el historial).
+- Al marcar como comprado un artículo con `ProductId`, se actualiza el `Product` (`LastPurchasedOn`, y se limpian `OutOfStockAt` y `SnoozedUntil`). **Así se cierra el ciclo.** Si se desmarca el mismo día, se revierte (se guardan los valores anteriores o se recalcula desde el historial).
 - Un artículo manual puede pedir **"hacerlo recurrente"**: se crea el `Product` y se vincula. Es la forma más natural de llenar el catálogo.
 
 ### 3.3 Sincronizar la lista (un comando, idempotente)
@@ -124,7 +150,7 @@ public class ShoppingItem : IHasHousehold
 `SyncShoppingListCommand` reemplaza a `GenerateShoppingListCommand`:
 
 1. Calcula la **ventana**: desde hoy hasta el próximo **día de compra** del hogar (nuevo `Household.ShoppingDay : DayOfWeek`, por defecto sábado).
-2. **Recurrentes**: los `Product` activos con `NextDueOn <= fin de la ventana` que **no** tengan ya un `ShoppingItem` pendiente (sin comprar y sin archivar) con ese `ProductId` → se crean como `Source = Recurring`.
+2. **Recurrentes y agotados**: los `Product` activos que cumplan la regla de aparición (3.1), evaluada contra el fin de la ventana si se adopta la anticipación, que **no** tengan ya un `ShoppingItem` pendiente (sin comprar y sin archivar) con ese `ProductId` → se crean como `Source = Recurring`.
 3. **Menú**: los ingredientes de los `MealPlan` dentro de la ventana, consolidados como hoy. Se reemplazan solo los `MealPlan` **sin comprar**; los comprados se conservan (corrige el problema 1).
 4. Si no hay nada que agregar, no falla: la lista se queda igual (corrige el problema 3).
 
@@ -247,12 +273,13 @@ Hay que pensarlas **para un agente, no como un espejo del CRUD REST**: pocas lla
 | `search_dishes` | lectura | Por nombre, etiqueta o ingrediente. Devuelve ingredientes resumidos. |
 | `get_meal_plan` | lectura | Rango de fechas. |
 | `get_shopping_list` | lectura | Pendientes por defecto, agrupados por categoría, con `id`, `source` y `productId`. |
-| `list_products` | lectura | Incluye `nextDueOn`. |
+| `list_products` | lectura | Incluye la última compra, si está agotado y cuándo vuelve a tocar. |
 | `create_dishes` | escritura | **En lote**: platillos con ingredientes, etiquetas (se crean si no existen) y porciones, en una sola llamada. |
 | `plan_meals` | escritura | En lote: `[{date, mealType, dishId, servings}]`. Pasa por vista previa y confirmación (4.4.1). |
 | `upsert_products` | escritura | En lote, con intervalo y última compra. |
 | `add_shopping_items` | escritura | En lote. |
 | `mark_items_purchased` | escritura | En lote, por `ids` + `purchasedAt` opcional (la fecha del ticket). Es reversible. |
+| `mark_out_of_stock` | escritura | "Se acabó X": acepta nombres, resuelve el producto (o propone crearlo) y lo agrega a la lista. |
 | `postpone_product` | escritura | El "todavía tengo". |
 | `sync_shopping_list` | escritura | Idempotente (3.3). |
 
@@ -273,7 +300,7 @@ Flujo:
 4. Solo puede confirmarla **el mismo usuario** que la propuso, dentro de su hogar. Expira en ~30 min.
 5. *Después*: un enlace `/aprobar/{operationId}` para revisar y aprobar desde la web, desmarcando renglones. Así la confirmación no depende de lo que el agente diga que dijo el usuario.
 
-Las operaciones pequeñas y reversibles (`mark_items_purchased`, `postpone_product`, agregar 1 o 2 artículos) **se aplican directo** y devuelven un resumen con la opción de deshacer. Con el ticket, el agente ya muestra el empate en el chat, y obligar a confirmar dos veces cada compra sería fricción.
+Las operaciones pequeñas y reversibles (`mark_items_purchased`, `mark_out_of_stock`, `postpone_product`, agregar 1 o 2 artículos) **se aplican directo** y devuelven un resumen con la opción de deshacer. Con el ticket, el agente ya muestra el empate en el chat, y obligar a confirmar dos veces cada compra sería fricción.
 
 **¿DynamoDB para las operaciones pendientes?** Opinión: **mejor Postgres** (`PendingOperation : IHasHousehold`, con payload `jsonb`, `PayloadHash`, `Status`, `CreatedByUserId`, `ExpiresAt`):
 
@@ -296,7 +323,7 @@ Las operaciones pequeñas y reversibles (`mark_items_purchased`, `postpone_produ
 ## 5. Preguntas abiertas (para decidir juntos)
 
 1. **Nombre final** y si se compra dominio propio.
-2. ¿Los recurrentes vencidos **entran directo** a la lista (propuesta) o aparecen como **sugerencias** que hay que confirmar? La propuesta es que entren directo, en su propia sección, con "Todavía tengo" a un toque.
+2. ¿La condición de tiempo se evalúa contra **hoy** (regla literal) o contra el **próximo día de compra** (anticipación, propuesta)?
 3. ¿Quién configura el catálogo: cualquier miembro o solo Admin? La propuesta es cualquier miembro, porque se parece a la lista misma.
 4. ¿El "día de compra" es por hogar (propuesta) o hay hogares que compran varias veces por semana? En ese caso, la ventana podría ser "próximos 7 días" en lugar de "hasta el día de compra".
 5. ¿Hacemos el rebranding del nivel 2 (cookie/Data Protection) ahora, aprovechando que hay pocos usuarios, o nunca?
@@ -306,6 +333,7 @@ Las operaciones pequeñas y reversibles (`mark_items_purchased`, `postpone_produ
 - **Autenticación**: Amazon Cognito (free tier, tier Essentials o Lite), con **Managed Login** al inicio. Pantallas propias → issue L. Login con Google → issue M.
 - **Lista de correos permitidos**: la administra solo el admin general (DynamoDB vía Terraform/CLI).
 - **MCP**: capa CIMD + DCR delante de Cognito **desde el inicio** (issue K, requisito del MCP).
+- **Regla de aparición de productos**: entran directo a la lista cuando ya pasó t desde la última compra **o** se marcaron como agotados (3.1).
 - **Cambios en lote del agente**: vista previa y confirmación (4.4.1). Operaciones pendientes en Postgres (pendiente de confirmar: se había propuesto DynamoDB).
 
 ---
@@ -323,13 +351,14 @@ Orden sugerido: **A** (independiente) · **B → C → D** · **E** (antes de qu
 ### B. Catálogo de productos del hogar con intervalo de reposición
 - Entidad `Product` (3.1), `ProductCategory`, `MeasurementUnit.Package` y la migración.
 - CRUD `/api/products` y la página "Productos del hogar" (nombre, categoría, cantidad por defecto, "cada cuánto", última compra).
-- Pruebas: filtro por hogar y cálculo de `NextDueOn`.
+- `OutOfStockAt`, `SnoozedUntil` e historial `ProductEvent`. Acción "Se acabó" en el catálogo.
+- Pruebas: filtro por hogar y regla de aparición (tiempo, agotado, pospuesto, sin intervalo, nunca comprado).
 
 ### C. Lista de compras unificada: recurrentes + menú + manuales
 - `ShoppingItem.Source`, `ProductId`, `PurchasedAt` y la migración desde `IsAutoGenerated`.
 - `Household.ShoppingDay`.
 - `SyncShoppingListCommand` (3.3), que reemplaza a `generate`. Sincroniza al abrir la lista y con el botón.
-- Marcar como comprado actualiza el `Product`. Acción "Todavía tengo" (posponer).
+- Marcar como comprado actualiza el `Product` y limpia agotado/pospuesto. Marcar agotado agrega el artículo en el momento. Acción "Todavía tengo" (posponer).
 - Acción "Hacer recurrente" desde un artículo manual.
 - **Corrige**: la regeneración borra comprados, y falla cuando no hay ingredientes.
 - Pruebas: idempotencia, que no haya duplicados y que se conserven los comprados.
