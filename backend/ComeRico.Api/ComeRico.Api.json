@@ -641,6 +641,37 @@
         }
       }
     },
+    "/api/households/settings": {
+      "put": {
+        "tags": [
+          "Households"
+        ],
+        "summary": "Actualiza día de compra, moneda y zona horaria del hogar (solo admin)",
+        "operationId": "UpdateHouseholdSettings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateHouseholdSettingsCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HouseholdSettingsDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/households/invite-code/rotate": {
       "post": {
         "tags": [
@@ -1870,7 +1901,8 @@
           "householdId",
           "householdName",
           "inviteCode",
-          "role"
+          "role",
+          "householdSettings"
         ],
         "type": "object",
         "properties": {
@@ -1905,8 +1937,30 @@
           },
           "role": {
             "type": "string"
+          },
+          "householdSettings": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/HouseholdSettingsDto"
+              }
+            ]
           }
         }
+      },
+      "DayOfWeek": {
+        "enum": [
+          "Sunday",
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday",
+          null
+        ]
       },
       "DishDto": {
         "required": [
@@ -2036,6 +2090,32 @@
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "HouseholdSettingsDto": {
+        "required": [
+          "shoppingDay",
+          "defaultCurrency",
+          "timeZone"
+        ],
+        "type": "object",
+        "properties": {
+          "shoppingDay": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DayOfWeek"
+              }
+            ]
+          },
+          "defaultCurrency": {
+            "type": "string"
+          },
+          "timeZone": {
+            "type": "string"
           }
         }
       },
@@ -2758,6 +2838,32 @@
           "removeImage": {
             "type": "boolean",
             "default": false
+          }
+        }
+      },
+      "UpdateHouseholdSettingsCommand": {
+        "required": [
+          "shoppingDay",
+          "defaultCurrency",
+          "timeZone"
+        ],
+        "type": "object",
+        "properties": {
+          "shoppingDay": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DayOfWeek"
+              }
+            ]
+          },
+          "defaultCurrency": {
+            "type": "string"
+          },
+          "timeZone": {
+            "type": "string"
           }
         }
       },

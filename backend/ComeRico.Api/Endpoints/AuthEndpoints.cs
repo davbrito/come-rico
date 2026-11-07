@@ -1,5 +1,6 @@
 using ComeRico.Core.Domain.Entities;
 using ComeRico.Core.Features.Households;
+using ComeRico.Core.Features.Households.Commands;
 using ComeRico.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
@@ -27,7 +28,8 @@ public sealed record CurrentUserDto(
     Guid? HouseholdId,
     string? HouseholdName,
     string? InviteCode,
-    string Role
+    string Role,
+    HouseholdSettingsDto? HouseholdSettings
 );
 
 public static class AuthEndpoints
@@ -252,6 +254,7 @@ public static class AuthEndpoints
             user.HouseholdId,
             household?.Name,
             household?.InviteCode,
-            user.Role.ToString()
+            user.Role.ToString(),
+            household is null ? null : new HouseholdSettingsDto(household.ShoppingDay, household.DefaultCurrency, household.TimeZone)
         );
 }
