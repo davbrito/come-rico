@@ -5,12 +5,24 @@ using MediatR;
 
 namespace ComeRico.Core.Features.Households.Commands;
 
-public sealed record HouseholdSettingsDto(DayOfWeek? ShoppingDay, string DefaultCurrency, string TimeZone);
+public sealed record HouseholdSettingsDto(DayOfWeek? ShoppingDay, string DefaultCurrency, string TimeZone, int DefaultServings);
 
-/// <summary>Only household admins can change these (same rule as renaming / rotating the invite code).</summary>
-public sealed record UpdateHouseholdSettingsCommand(DayOfWeek? ShoppingDay, string DefaultCurrency, string TimeZone)
-    : IRequest<HouseholdSettingsDto>,
-        IRequireHouseholdAdmin;
+public static class HouseholdSettingsMapper
+{
+    public static HouseholdSettingsDto ToSettingsDto(this Household household) =>
+        new(household.ShoppingDay, household.DefaultCurrency, household.TimeZone, household.DefaultServings);
+}
+
+/// <summary>
+/// Only household admins can change these (same rule as renaming / rotating the invite code).
+/// DefaultServings null keeps the current value.
+/// </summary>
+public sealed record UpdateHouseholdSettingsCommand(
+    DayOfWeek? ShoppingDay,
+    string DefaultCurrency,
+    string TimeZone,
+    int? DefaultServings = null
+) : IRequest<HouseholdSettingsDto>, IRequireHouseholdAdmin;
 
 public sealed class UpdateHouseholdSettingsCommandValidator : AbstractValidator<UpdateHouseholdSettingsCommand>
 {
@@ -23,6 +35,10 @@ public sealed class UpdateHouseholdSettingsCommandValidator : AbstractValidator<
         RuleFor(x => x.TimeZone)
             .Must(HouseholdTime.IsValidTimeZone)
             .WithMessage("La zona horaria no es válida (se espera un identificador IANA, p. ej. America/Caracas).");
+        RuleFor(x => x.DefaultServings)
+            .InclusiveBetween(Portions.Min, Portions.Max)
+            .WithMessage($"Las porciones deben estar entre {Portions.Min} y {Portions.Max}.")
+            .When(x => x.DefaultServings is not null);
     }
 }
 
@@ -38,8 +54,10 @@ public sealed class UpdateHouseholdSettingsCommandHandler(IAppDbContext dbContex
         household.SetShoppingDay(request.ShoppingDay);
         household.SetDefaultCurrency(request.DefaultCurrency);
         household.SetTimeZone(request.TimeZone);
+        if (request.DefaultServings is { } servings)
+            household.SetDefaultServings(servings);
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        return new HouseholdSettingsDto(household.ShoppingDay, household.DefaultCurrency, household.TimeZone);
+        return household.ToSettingsDto();
     }
 }

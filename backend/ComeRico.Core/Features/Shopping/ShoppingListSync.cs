@@ -100,13 +100,18 @@ internal static class ShoppingListSync
 
         var planned = await db
             .MealPlans.Where(m => m.Date >= window.From && m.Date <= window.To)
-            .SelectMany(m => m.Dish.Ingredients)
-            .Select(i => new
-            {
-                i.Name,
-                i.Amount,
-                i.Unit,
-            })
+            .SelectMany(
+                m => m.Dish.Ingredients,
+                (m, i) =>
+                    new
+                    {
+                        i.Name,
+                        i.Quantity,
+                        i.Unit,
+                        Planned = m.Servings,
+                        Yields = m.Dish.Servings,
+                    }
+            )
             .ToListAsync(ct);
 
         var menuItems = await db.ShoppingItems.Where(s => s.Source == ShoppingItemSource.MealPlan).ToListAsync(ct);
@@ -135,7 +140,11 @@ internal static class ShoppingListSync
                     // Keep the casing of the first occurrence for display
                     Name: g.First().Name.Trim(),
                     g.Key.Unit,
-                    Quantity: g.Sum(i => i.Amount) - purchased.GetValueOrDefault(g.Key)
+                    // Scaled to the people each meal is cooked for (spike 3.5), then rounded for buying.
+                    Quantity: Portions.RoundForList(
+                        g.Sum(i => Portions.Scale(i.Quantity, i.Planned, i.Yields)) - purchased.GetValueOrDefault(g.Key),
+                        g.Key.Unit
+                    )
                 )
             )
             .Where(n => n.Quantity > 0);

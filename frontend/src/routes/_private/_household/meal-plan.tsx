@@ -6,6 +6,7 @@ import { useState } from "react";
 import {
   createMealPlanMutation,
   deleteMealPlanMutation,
+  setMealPlanServingsMutation,
   getDishesOptions,
   getMealPlansOptions,
   getMealPlansQueryKey,
@@ -27,6 +28,13 @@ export const Route = createFileRoute("/_private/_household/meal-plan")({
   },
   component: MealPlanPage,
 });
+
+/** "para N" options: 1–12 people, plus the current value if it's outside that range. */
+function servingsItems(current: number) {
+  const values = Array.from({ length: 12 }, (_, i) => i + 1);
+  if (!values.includes(current)) values.push(current);
+  return values.map((n) => ({ label: `para ${n}`, value: n }));
+}
 
 function MealPlanPage() {
   const qc = useQueryClient();
@@ -51,10 +59,12 @@ function MealPlanPage() {
   });
 
   const deleteMut = useMutation({ ...deleteMealPlanMutation(), onSuccess: invalidate });
+  const servingsMut = useMutation({ ...setMealPlanServingsMutation(), onSuccess: invalidate });
 
   const error =
     (createMut.isError && getApiErrorMessage(createMut.error)) ||
     (deleteMut.isError && getApiErrorMessage(deleteMut.error)) ||
+    (servingsMut.isError && getApiErrorMessage(servingsMut.error)) ||
     null;
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -149,7 +159,18 @@ function MealPlanPage() {
                             key={entry.id}
                             className="mt-1 flex items-center justify-between gap-2"
                           >
-                            <span className="text-sm text-[var(--sea-ink)]">{entry.dishName}</span>
+                            <span className="min-w-0 flex-1 text-sm text-[var(--sea-ink)]">
+                              {entry.dishName}
+                            </span>
+                            <Select
+                              size="sm"
+                              items={servingsItems(Number(entry.servings))}
+                              value={Number(entry.servings)}
+                              onValueChange={(servings) =>
+                                servingsMut.mutate({ path: { id: entry.id }, body: { servings } })
+                              }
+                              className="shrink-0"
+                            />
                             <Button
                               variant="danger-ghost"
                               size="sm"

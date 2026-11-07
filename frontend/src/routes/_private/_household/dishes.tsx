@@ -22,6 +22,7 @@ export const Route = createFileRoute("/_private/_household/dishes")({
 
 function DishesPage() {
   const qc = useQueryClient();
+  const { user } = Route.useRouteContext();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -52,6 +53,7 @@ function DishesPage() {
       {showForm && (
         <DishForm
           dishes={dishes}
+          defaultServings={Number(user.householdSettings?.defaultServings ?? 2)}
           onSaved={() => {
             invalidate();
             setShowForm(false);
@@ -95,7 +97,7 @@ function DishesPage() {
               )}
               {dish.ingredients.length > 0 && (
                 <p className="text-xs text-sea-ink-soft">
-                  🧾 {dish.ingredients.length} ingrediente(s)
+                  🧾 {dish.ingredients.length} ingrediente(s) · rinde para {dish.servings}
                 </p>
               )}
               <div className="mt-auto flex gap-2 pt-2">
@@ -105,7 +107,7 @@ function DishesPage() {
                   onClick={() => setEditingId((id) => (id === dish.id ? null : dish.id))}
                   className="py-1 font-medium"
                 >
-                  Ingredientes y etiquetas
+                  Receta y etiquetas
                 </Button>
                 <Button
                   variant="danger"

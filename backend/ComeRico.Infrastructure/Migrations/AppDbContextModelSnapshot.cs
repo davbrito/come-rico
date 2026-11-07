@@ -132,11 +132,17 @@ namespace ComeRico.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<int>("Servings")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("HouseholdId");
 
-                    b.ToTable("Dishes");
+                    b.ToTable("Dishes", t =>
+                        {
+                            t.HasCheckConstraint("CK_Dishes_Servings", "\"Servings\" > 0");
+                        });
                 });
 
             modelBuilder.Entity("ComeRico.Core.Domain.Entities.Household", b =>
@@ -155,6 +161,9 @@ namespace ComeRico.Infrastructure.Migrations
                         .HasColumnType("character(3)")
                         .HasDefaultValue("USD")
                         .IsFixedLength();
+
+                    b.Property<int>("DefaultServings")
+                        .HasColumnType("integer");
 
                     b.Property<string>("InviteCode")
                         .IsRequired()
@@ -182,7 +191,10 @@ namespace ComeRico.Infrastructure.Migrations
                     b.HasIndex("InviteCode")
                         .IsUnique();
 
-                    b.ToTable("Households");
+                    b.ToTable("Households", t =>
+                        {
+                            t.HasCheckConstraint("CK_Households_DefaultServings", "\"DefaultServings\" > 0");
+                        });
                 });
 
             modelBuilder.Entity("ComeRico.Core.Domain.Entities.Ingredient", b =>
@@ -190,10 +202,6 @@ namespace ComeRico.Infrastructure.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
-
-                    b.Property<decimal>("Amount")
-                        .HasPrecision(10, 2)
-                        .HasColumnType("numeric(10,2)");
 
                     b.Property<Guid>("DishId")
                         .HasColumnType("uuid");
@@ -205,6 +213,10 @@ namespace ComeRico.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(12, 4)
+                        .HasColumnType("numeric(12,4)");
 
                     b.Property<string>("Unit")
                         .IsRequired()
@@ -239,13 +251,19 @@ namespace ComeRico.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int>("Servings")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("DishId");
 
                     b.HasIndex("HouseholdId", "Date");
 
-                    b.ToTable("MealPlans");
+                    b.ToTable("MealPlans", t =>
+                        {
+                            t.HasCheckConstraint("CK_MealPlans_Servings", "\"Servings\" > 0");
+                        });
                 });
 
             modelBuilder.Entity("ComeRico.Core.Domain.Entities.Product", b =>
