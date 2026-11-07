@@ -161,6 +161,32 @@ public class ShoppingListSyncTests
         Assert.Single(await f.SyncAsync());
     }
 
+    [Fact]
+    public async Task SnoozeOfAProductDueSoon_CountsFromWhenItWouldBeDue()
+    {
+        await using var f = await Fixture.CreateAsync();
+        // Bought Tue 3 Nov every 7 days: due Tue 10 Nov.
+        var product = await f.AddProductAsync("Papel", interval: 7, lastPurchased: new DateOnly(2026, 11, 3));
+
+        await new SnoozeProductCommandHandler(f.Db, f.User, f.Clock).Handle(new(product.Id, 7), Ct);
+
+        Assert.Equal(new DateOnly(2026, 11, 17), product.SnoozedUntil);
+    }
+
+    [Fact]
+    public async Task SkipThisShopping_OfAProductDueSoon_SkipsTheTripWhereItWouldShowUp()
+    {
+        await using var f = await Fixture.CreateAsync(DayOfWeek.Saturday);
+        // Due Tue 10 Nov: not in Saturday 7's trip but in Saturday 14's, so skipping means until Sunday 15.
+        var product = await f.AddProductAsync("Papel", interval: 7, lastPurchased: new DateOnly(2026, 11, 3));
+
+        await new SnoozeProductCommandHandler(f.Db, f.User, f.Clock).Handle(new(product.Id, 1), Ct);
+
+        Assert.Equal(new DateOnly(2026, 11, 15), product.SnoozedUntil);
+        f.Clock.Now = Wednesday.AddDays(9); // Friday 13, the eve of that trip
+        Assert.Empty(await f.SyncAsync());
+    }
+
     // ---- Removing items ----
 
     [Fact]

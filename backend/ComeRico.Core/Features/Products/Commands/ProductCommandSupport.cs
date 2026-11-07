@@ -24,9 +24,10 @@ internal static class ProductCommandSupport
     }
 
     /// <summary>
-    /// "Todavía tengo": snoozes the time-based reminder for <paramref name="days"/> and logs it.
-    /// With a shopping day the rule compares against the next one, so the snooze always skips at least that
-    /// trip; snoozing again never shortens an existing, longer snooze. Returns the effective end date.
+    /// "Todavía tengo": snoozes the time-based reminder for <paramref name="days"/> past the date it would be
+    /// due (today if it already is) and logs it. With a shopping day the rule compares against the next trip,
+    /// so the snooze always skips at least the trip where the product would show up; snoozing again never
+    /// shortens an existing, longer snooze. Returns the effective end date.
     /// </summary>
     public static DateOnly Snooze(
         this IAppDbContext db,
@@ -38,13 +39,17 @@ internal static class ProductCommandSupport
     )
     {
         var today = ctx.Today;
-        var until = today.AddDays(days);
+        // Counted from when it would be due: "todavía tengo +1 semana" on a product due in 3 days means
+        // a week after that, not 4 days of it (and today for one already due).
+        var dueOn = RestockRule.DueOn(product) is { } due && due > today ? due : today;
+        var until = dueOn.AddDays(days);
 
+        // With a shopping day: skip at least the trip where it would show up (the first one on/after it's due).
         if (ctx.ShoppingDay is { } day)
         {
-            var afterNextShopping = RestockRule.NextShoppingDay(today, day).AddDays(1);
-            if (until < afterNextShopping)
-                until = afterNextShopping;
+            var afterThatTrip = RestockRule.NextShoppingDay(dueOn, day).AddDays(1);
+            if (until < afterThatTrip)
+                until = afterThatTrip;
         }
 
         if (product.SnoozedUntil is { } current && current > until)
