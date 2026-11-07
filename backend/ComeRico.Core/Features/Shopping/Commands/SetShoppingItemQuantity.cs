@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ComeRico.Core.Features.Shopping.Commands;
 
-/// <summary>"Eché 2": adjusts how much is (or will be) bought. Not allowed once purchased.</summary>
+/// <summary>"Eché 2": adjusts how much is (or will be) bought; the menu sync keeps it from then on. Not allowed once purchased.</summary>
 public sealed record SetShoppingItemQuantityCommand(Guid Id, decimal? Quantity) : IRequest<ShoppingItemDto?>;
 
 public sealed class SetShoppingItemQuantityCommandValidator : AbstractValidator<SetShoppingItemQuantityCommand>
@@ -34,7 +34,7 @@ public sealed class SetShoppingItemQuantityCommandHandler(IAppDbContext dbContex
         if (item is null)
             return null;
 
-        item.SetQuantity(request.Quantity);
+        item.OverrideQuantity(request.Quantity);
         await dbContext.SaveChangesAsync(cancellationToken);
         var ctx = await dbContext.GetHouseholdContextAsync(clock, cancellationToken);
         return await item.ToDtoAsync(dbContext, ctx, cancellationToken);
