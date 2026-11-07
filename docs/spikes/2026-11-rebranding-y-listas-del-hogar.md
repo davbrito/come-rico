@@ -8,7 +8,7 @@
 1. **Rebranding**: "ComeRico" puede leerse como albur. El cambio visible al usuario es barato; renombrar el código y la infraestructura es caro y casi no aporta. Propuesta: cambiar todo lo visible ya y dejar los identificadores técnicos para después (o no tocarlos nunca).
 2. **El producto cambia de foco**: deja de ser solo "¿qué vamos a comer?" y pasa a ser "¿qué hay que comprar para la casa?". El menú semanal se vuelve **una fuente más** de la lista de compras, junto con los **productos recurrentes** (shampoo, pasta dental…) y los artículos manuales.
 3. **Cambios al modelo**: un catálogo `Product` del hogar que aparece en la lista cuando **ya pasó t desde la última compra o se marcó como agotado**, `ShoppingItem` con `Source` + `ProductId` + `PurchasedAt`, y un comando idempotente que **sincroniza** la lista con todo lo que vence antes del próximo día de compra.
-4. **Servidor MCP con autenticación**: lo que más cuesta es *capturar* (productos, platillos, menús). Un agente (Claude en el móvil, en el escritorio o en Claude Code) puede hacerlo por el usuario: "arma el menú de la semana para 4 personas, sin cerdo, con cenas ligeras" o "aquí está la foto del ticket, marca lo que compré". Como toda la lógica ya vive en handlers de MediatR, el MCP es **otro adaptador delgado**, igual que las Minimal APIs. Lo difícil no son las herramientas: es **la autenticación** (OAuth). Decisión: **Amazon Cognito** (free tier) con invitaciones firmadas, y una capa OAuth delgada (CIMD) para que Claude se conecte solo con la URL. Los cambios en lote del agente pasan por vista previa y confirmación.
+4. **Servidor MCP con autenticación**: lo que más cuesta es *capturar* (productos, platillos, menús). Un agente (Claude en el móvil, en el escritorio o en Claude Code) puede hacerlo por el usuario: "arma el menú de la semana para 4 personas, sin cerdo, con cenas ligeras" o "aquí está la foto del ticket, marca lo que compré". Como toda la lógica ya vive en handlers de MediatR, el MCP es **otro adaptador delgado**, igual que las Minimal APIs. Lo difícil no son las herramientas: es **la autenticación** (OAuth). Decisión: **WorkOS AuthKit** (free tier de 1M MAU) como proveedor de identidad y servidor OAuth con CIMD, para que Claude y ChatGPT se conecten solo con la URL, sin capa OAuth propia (4.3.0). Cognito + capa propia queda como plan B. Los cambios en lote del agente pasan por vista previa y confirmación.
 
 ---
 
@@ -442,7 +442,35 @@ ComeRico.Core handlers (los mismos que usan los endpoints REST)
 - **Modo stateless** del transporte HTTP: el backend corre en Lambda (Function URL), así que no se pueden mantener sesiones SSE largas. Ninguna herramienta necesita estado de sesión.
 - **Tenancy sin cambios conceptuales**: el token se resuelve en un usuario, de ahí salen sus claims (`household_id`, `household_role`) y `ClaimsTenantService` funciona igual. Solo hay que registrar un segundo esquema de autenticación (bearer) junto a la cookie, con una policy que acepte cualquiera de los dos.
 
-### 4.3 Autenticación: Amazon Cognito + invitaciones firmadas
+### 4.3.0 Decisión final: WorkOS AuthKit (2026-11-07)
+
+Después de comparar los proveedores de identidad con free tier (Cognito, Clerk, WorkOS AuthKit, Stytch, Auth0, Keycloak, Logto, Supabase, Firebase, Descope, Kinde y una solución propia con OpenIddict), **se elige WorkOS AuthKit**. El criterio decisivo fue el soporte de CIMD, que la spec MCP 2026-07-28 prefiere sobre DCR: con CIMD **no hay que construir ni mantener una capa OAuth propia**.
+
+| Requisito | WorkOS AuthKit ([guía MCP](https://workos.com/docs/authkit/mcp), [precios](https://workos.com/pricing)) |
+| --- | --- |
+| CIMD | ✅ En producción desde noviembre de 2025 (Connect → Configuration). DCR opcional; no se activa. |
+| `aud` = URL del MCP (RFC 8707) | ✅ "Resource Indicators" en el dashboard: `https://rebasto.davbrito.dev/mcp`. |
+| Rotación de refresh tokens | ✅ Los clientes públicos (CIMD) rotan en cada uso. |
+| Consentimiento, PKCE S256, metadata RFC 8414, `offline_access` | ✅ |
+| Tokens | JWT. JWKS en `https://<authkit_domain>/oauth2/jwks`. La API valida `iss`, `aud`, firma y expiración con JwtBearer. |
+| Registro solo por invitación | ✅ Registro desactivado + invitaciones. |
+| Español | ✅ 90 idiomas en la UI hospedada (`es`, `es-ES`, `es-US`). |
+| MFA, Google, passkeys | ✅ Incluidos en el free tier. |
+| Costo | Gratis hasta 1M MAU. **Dominio propio: $99 al mes → no se contrata.** El login y el consentimiento se muestran en `<algo>.authkit.app`, y el `issuer` es ese dominio. |
+
+**Por verificar en la prueba de concepto, al empezar la fase de autenticación** (se pospone por decisión del dueño del producto):
+1. Claude Code con su loopback de puerto variable. WorkOS publica una [guía para Claude Code](https://workos.com/blog/claude-code-connector-workos-authkit-mcp), así que probablemente funciona.
+2. ChatGPT. Si AuthKit no devuelve `iss` (RFC 9207), ChatGPT usa un callback y un `client_id` por conector; hay que confirmar que AuthKit acepta esos CIMD sin registrarlos uno por uno.
+3. Que el registro desactivado con invitaciones funcione en el plan gratis.
+
+**Plan B** si la prueba falla en algo clave: Cognito (tier Essentials) + capa OAuth propia en .NET, según el diseño de abajo, usando el sample de AWS [sample-serverless-architecture-cimd-with-cognito](https://github.com/aws-samples/sample-serverless-architecture-cimd-with-cognito) como referencia (vinculación de recursos de Cognito para `aud`, protecciones al descargar el CIMD, consentimiento con CSRF). El sample no se despliega tal cual: no soporta loopback (Claude Code) ni `iss`, crea un app client por cliente CIMD, y usa otro stack (Python, CDK, DynamoDB).
+
+**Implicaciones de WorkOS en la arquitectura:**
+- **Web:** el backend .NET hace el canje del código de AuthKit y sigue emitiendo **nuestra propia cookie** con los claims del hogar. Se mantiene el patrón BFF; el `AppUser` se liga por el ID de usuario de WorkOS.
+- **MCP:** `/.well-known/oauth-protected-resource` con `authorization_servers = ["https://<authkit_domain>"]`, `401` con `resource_metadata`, y JwtBearer contra el JWKS de AuthKit con `audience = https://rebasto.davbrito.dev/mcp`. Ya **no** hay `/oauth/*`, tabla de códigos ni reescrituras de `/oauth/*` en Vercel: solo `/mcp` y `/.well-known/oauth-protected-resource`.
+- **Dependencia:** los usuarios viven en WorkOS. Migrar en el futuro obligaría a que los usuarios vuelvan a entrar o restablezcan su contraseña.
+
+### 4.3 (Plan B) Autenticación: Amazon Cognito + invitaciones firmadas
 
 **Propuesta (del dueño del producto)**: usar **Amazon Cognito** (free tier) como proveedor de identidad, tanto para la web como para el MCP, con un control de quién se puede registrar, para que nadie ajeno consuma el free tier. Ese control se decidió como **invitaciones firmadas** (abajo).
 
@@ -650,9 +678,9 @@ No quedan preguntas abiertas de producto. Quedan tareas: comprar el dominio, rev
 ### Decisiones tomadas
 
 - **Nombre**: **Rebasto**, en **`rebasto.davbrito.dev`** (1.1). MCP en `https://rebasto.davbrito.dev/mcp`.
-- **Autenticación**: Amazon Cognito (free tier, **tier Essentials**, por la rotación de refresh tokens), con **Managed Login** al inicio. Pantallas propias → issue L. Login con Google → issue M.
-- **Control de registro**: invitaciones firmadas (Data Protection), ligadas al correo, con el auto-registro de Cognito desactivado. Solo las emite el admin general. Sin tabla de correos ni DynamoDB (**aprobado**).
-- **MCP**: capa OAuth delante de Cognito **desde el inicio** (issue K, requisito del MCP), **solo CIMD en v1** (sin DCR), con pantalla de consentimiento, compatible con **Claude y ChatGPT** (RFC 9207 + `resource`), **un app client fijo en Terraform** (`mcp-gateway`) y estado casi stateless (solo los códigos de un solo uso en Postgres). URL pública `https://rebasto.davbrito.dev/mcp` (reescritura de Vercel). Rotación de refresh tokens de Cognito confirmada (tier Essentials).
+- **Autenticación**: **WorkOS AuthKit** (free tier, 1M MAU), UI hospedada en `*.authkit.app` (sin dominio propio por costo). Prueba de concepto al empezar la fase de autenticación. Plan B: Cognito Essentials + capa OAuth propia (4.3.0).
+- **Control de registro**: registro desactivado en AuthKit + invitaciones de WorkOS, emitidas solo por el admin general. (Las invitaciones firmadas con Data Protection quedan para el plan B.)
+- **MCP**: con WorkOS, AuthKit es el servidor OAuth (CIMD, `aud`, rotación) y la API solo valida JWT. En el plan B: capa OAuth delante de Cognito **desde el inicio** (issue K, requisito del MCP), **solo CIMD en v1** (sin DCR), con pantalla de consentimiento, compatible con **Claude y ChatGPT** (RFC 9207 + `resource`), **un app client fijo en Terraform** (`mcp-gateway`) y estado casi stateless (solo los códigos de un solo uso en Postgres). URL pública `https://rebasto.davbrito.dev/mcp` (reescritura de Vercel). Rotación de refresh tokens de Cognito confirmada (tier Essentials).
 - **Día de compra opcional**: si existe, se anticipa contra él. Si no, se evalúa contra hoy, con la sección "Por vencer (7 días)", y el menú usa los próximos 7 días.
 - **Historial de eventos** `ProductEvent` desde el MVP. Se guarda lo que llega gratis (cantidad siempre; precio, marca, tienda y línea del ticket si vienen del ticket), y t escala con la cantidad comprada.
 - **Lista = tabla sincronizada + log**, no una vista del log.
