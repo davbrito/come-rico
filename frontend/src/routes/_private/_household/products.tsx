@@ -24,6 +24,7 @@ import { Button } from "#/components/ui/Button";
 import { ConfirmDialog } from "#/components/ui/ConfirmDialog";
 import { getApiErrorMessage } from "#/lib/api";
 import { PRODUCT_CATEGORIES, PRODUCT_CATEGORY_LABELS, UNIT_LABELS, UNITS } from "#/lib/food";
+import { snoozeOptions } from "#/lib/snooze";
 
 export const Route = createFileRoute("/_private/_household/products")({
   component: ProductsPage,
@@ -51,12 +52,6 @@ const INTERVAL_ITEMS = [
   { label: "Personalizado…", value: CUSTOM },
 ];
 const PRESET_DAYS = new Set(["7", "14", "30", "60"]);
-
-const SNOOZE_OPTIONS = [
-  { label: "+3 días", days: 3 },
-  { label: "+1 semana", days: 7 },
-  { label: "+2 semanas", days: 14 },
-];
 
 const STATUS_LABELS: Record<RestockStatus, { label: string; className: string } | null> = {
   Ok: null,
@@ -86,6 +81,8 @@ function formatDate(iso: string): string {
 
 function ProductsPage() {
   const qc = useQueryClient();
+  const { user } = Route.useRouteContext();
+  const snoozeChoices = snoozeOptions(user.householdSettings?.shoppingDay);
   const [formFor, setFormFor] = useState<ProductDto | "new" | null>(null);
   const [deleting, setDeleting] = useState<ProductDto | null>(null);
 
@@ -205,7 +202,7 @@ function ProductsPage() {
                         Se acabó
                       </Button>
                       {(p.status === "Due" || p.status === "DueSoon") &&
-                        SNOOZE_OPTIONS.map((o) => (
+                        snoozeChoices.map((o) => (
                           <Button
                             key={o.days}
                             variant="outline"

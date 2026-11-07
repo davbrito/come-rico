@@ -97,6 +97,17 @@ public class Product : IHasHousehold
         LastPurchasedUnit = unit;
     }
 
+    /// <summary>
+    /// After a purchase is reverted: the cache goes back to the latest purchase still in effect
+    /// (all null if there is none). Out-of-stock and snooze, cleared by the purchase, stay cleared.
+    /// </summary>
+    public void RestoreLastPurchase(DateOnly? on, decimal? quantity, MeasurementUnit? unit)
+    {
+        LastPurchasedOn = on;
+        LastPurchasedQuantity = on is null ? null : quantity;
+        LastPurchasedUnit = on is null ? null : unit;
+    }
+
     public void MarkOutOfStock(DateTime now) => OutOfStockAt ??= now;
 
     public void MarkInStock() => OutOfStockAt = null;

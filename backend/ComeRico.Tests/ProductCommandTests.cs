@@ -92,7 +92,7 @@ public class ProductCommandTests
         await new MarkProductOutOfStockCommandHandler(db, tenant, who, Clock).Handle(new(created.Id), Ct);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            new SnoozeProductCommandHandler(db, tenant, who, Clock).Handle(new(created.Id, 7), Ct)
+            new SnoozeProductCommandHandler(db, who, Clock).Handle(new(created.Id, 7), Ct)
         );
     }
 
@@ -105,12 +105,10 @@ public class ProductCommandTests
         var created = await create.Handle(NewCommand(new DateOnly(2026, 10, 1)), Ct);
         Assert.Equal(RestockStatus.Due, created.Status);
 
-        var result = await new SnoozeProductCommandHandler(
-            db,
-            new FakeTenantService(household),
-            new FakeCurrentUserService(user),
-            Clock
-        ).Handle(new(created.Id, 7), Ct);
+        var result = await new SnoozeProductCommandHandler(db, new FakeCurrentUserService(user), Clock).Handle(
+            new(created.Id, 7),
+            Ct
+        );
 
         Assert.Equal(new DateOnly(2026, 11, 11), result!.SnoozedUntil);
         Assert.NotEqual(RestockStatus.Due, result.Status);
@@ -128,12 +126,10 @@ public class ProductCommandTests
         var (create, user) = Setup(db, household.Id);
         var created = await create.Handle(NewCommand(new DateOnly(2026, 10, 1)), Ct);
 
-        var result = await new SnoozeProductCommandHandler(
-            db,
-            new FakeTenantService(household.Id),
-            new FakeCurrentUserService(user),
-            Clock
-        ).Handle(new(created.Id, 3), Ct);
+        var result = await new SnoozeProductCommandHandler(db, new FakeCurrentUserService(user), Clock).Handle(
+            new(created.Id, 3),
+            Ct
+        );
 
         Assert.Equal(new DateOnly(2026, 11, 8), result!.SnoozedUntil);
         Assert.NotEqual(RestockStatus.Due, result.Status);
@@ -191,12 +187,7 @@ public class ProductCommandTests
         await using var db = TestDb.Create(Guid.NewGuid().ToString(), household);
         var (create, user) = Setup(db, household);
         var created = await create.Handle(NewCommand(new DateOnly(2026, 10, 1)), Ct);
-        var handler = new SnoozeProductCommandHandler(
-            db,
-            new FakeTenantService(household),
-            new FakeCurrentUserService(user),
-            Clock
-        );
+        var handler = new SnoozeProductCommandHandler(db, new FakeCurrentUserService(user), Clock);
 
         await handler.Handle(new(created.Id, 14), Ct);
         var again = await handler.Handle(new(created.Id, 3), Ct);

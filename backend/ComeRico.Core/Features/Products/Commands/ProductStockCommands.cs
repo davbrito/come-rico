@@ -1,5 +1,6 @@
 using ComeRico.Core.Domain.Entities;
 using ComeRico.Core.Features.Products.Queries;
+using ComeRico.Core.Features.Shopping;
 using ComeRico.Core.Interfaces;
 using FluentValidation;
 using MediatR;
@@ -22,17 +23,20 @@ public sealed class MarkProductOutOfStockCommandHandler(
         if (product is null)
             return null;
 
+        var ctx = await dbContext.GetHouseholdContextAsync(clock, cancellationToken);
+        var now = clock.GetUtcNow().UtcDateTime;
         if (product.OutOfStockAt is null)
         {
-            var now = clock.GetUtcNow().UtcDateTime;
             product.MarkOutOfStock(now);
             dbContext.ProductEvents.Add(
                 ProductMarkedOutOfStock.Create(tenantService.HouseholdId, product.Id, currentUser.UserId, EventOrigin.Web, now)
             );
-            await dbContext.SaveChangesAsync(cancellationToken);
         }
 
-        return product.ToDto(await dbContext.GetHouseholdContextAsync(clock, cancellationToken));
+        // Goes on the list right away (no-op if it's already there).
+        await dbContext.SyncProductOnListAsync(product, ctx, now, cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return product.ToDto(ctx);
     }
 }
 
@@ -52,23 +56,21 @@ public sealed class MarkProductInStockCommandHandler(
         if (product is null)
             return null;
 
+        var ctx = await dbContext.GetHouseholdContextAsync(clock, cancellationToken);
+        var now = clock.GetUtcNow().UtcDateTime;
         if (product.OutOfStockAt is not null)
         {
             // Log the correction so interval learning doesn't read the earlier "se acabó" as real.
             product.MarkInStock();
             dbContext.ProductEvents.Add(
-                ProductMarkedInStock.Create(
-                    tenantService.HouseholdId,
-                    product.Id,
-                    currentUser.UserId,
-                    EventOrigin.Web,
-                    clock.GetUtcNow().UtcDateTime
-                )
+                ProductMarkedInStock.Create(tenantService.HouseholdId, product.Id, currentUser.UserId, EventOrigin.Web, now)
             );
-            await dbContext.SaveChangesAsync(cancellationToken);
         }
 
-        return product.ToDto(await dbContext.GetHouseholdContextAsync(clock, cancellationToken));
+        // Leaves the list unless it's also due by time.
+        await dbContext.SyncProductOnListAsync(product, ctx, now, cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return product.ToDto(ctx);
     }
 }
 
@@ -83,12 +85,8 @@ public sealed class SnoozeProductCommandValidator : AbstractValidator<SnoozeProd
     }
 }
 
-public sealed class SnoozeProductCommandHandler(
-    IAppDbContext dbContext,
-    ITenantService tenantService,
-    ICurrentUserService currentUser,
-    TimeProvider clock
-) : IRequestHandler<SnoozeProductCommand, ProductDto?>
+public sealed class SnoozeProductCommandHandler(IAppDbContext dbContext, ICurrentUserService currentUser, TimeProvider clock)
+    : IRequestHandler<SnoozeProductCommand, ProductDto?>
 {
     public async Task<ProductDto?> Handle(SnoozeProductCommand request, CancellationToken cancellationToken)
     {
@@ -100,33 +98,9 @@ public sealed class SnoozeProductCommandHandler(
             throw new InvalidOperationException("El producto está agotado; usa \"Sí hay\" si aún tienes.");
 
         var ctx = await dbContext.GetHouseholdContextAsync(clock, cancellationToken);
-        var today = ctx.Today;
-        var until = today.AddDays(request.Days);
-
-        // With a shopping day the rule compares against the next one, so a snooze must at least skip it.
-        if (ctx.ShoppingDay is { } day)
-        {
-            var afterNextShopping = RestockRule.NextShoppingDay(today, day).AddDays(1);
-            if (until < afterNextShopping)
-                until = afterNextShopping;
-        }
-
-        // Snoozing again never shortens an existing, longer snooze.
-        if (product.SnoozedUntil is { } current && current > until)
-            until = current;
-
         var now = clock.GetUtcNow().UtcDateTime;
-        product.SnoozeUntil(until);
-        dbContext.ProductEvents.Add(
-            ProductSnoozed.Create(
-                tenantService.HouseholdId,
-                product.Id,
-                currentUser.UserId,
-                EventOrigin.Web,
-                now,
-                until.DayNumber - today.DayNumber
-            )
-        );
+        dbContext.Snooze(product, ctx, request.Days, currentUser.UserId, now);
+        await dbContext.SyncProductOnListAsync(product, ctx, now, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
         return product.ToDto(ctx);
     }

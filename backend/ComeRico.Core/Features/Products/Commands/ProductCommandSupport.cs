@@ -19,8 +19,56 @@ internal static class ProductCommandSupport
             .Households.Where(x => x.Id == db.CurrentHouseholdId)
             .Select(x => new { x.ShoppingDay, x.TimeZone })
             .FirstOrDefaultAsync(ct);
-        return new(h?.ShoppingDay, HouseholdTime.Today(h?.TimeZone ?? "UTC", clock));
+        var tz = h?.TimeZone ?? "UTC";
+        return new(db.CurrentHouseholdId, h?.ShoppingDay, HouseholdTime.Today(tz, clock), tz);
     }
+
+    /// <summary>
+    /// "Todavía tengo": snoozes the time-based reminder for <paramref name="days"/> and logs it.
+    /// With a shopping day the rule compares against the next one, so the snooze always skips at least that
+    /// trip; snoozing again never shortens an existing, longer snooze. Returns the effective end date.
+    /// </summary>
+    public static DateOnly Snooze(
+        this IAppDbContext db,
+        Product product,
+        HouseholdContext ctx,
+        int days,
+        Guid userId,
+        DateTime now
+    )
+    {
+        var today = ctx.Today;
+        var until = today.AddDays(days);
+
+        if (ctx.ShoppingDay is { } day)
+        {
+            var afterNextShopping = RestockRule.NextShoppingDay(today, day).AddDays(1);
+            if (until < afterNextShopping)
+                until = afterNextShopping;
+        }
+
+        if (product.SnoozedUntil is { } current && current > until)
+            until = current;
+
+        product.SnoozeUntil(until);
+        db.ProductEvents.Add(
+            ProductSnoozed.Create(
+                product.HouseholdId,
+                product.Id,
+                userId,
+                EventOrigin.Web,
+                now,
+                until.DayNumber - today.DayNumber
+            )
+        );
+        return until;
+    }
+
+    /// <summary>
+    /// Days for "Saltar esta compra": with a shopping day, 1 is enough (the snooze is stretched past the next
+    /// trip); without one, the shortest option (+3 días).
+    /// </summary>
+    public static int SkipThisShoppingDays(HouseholdContext ctx) => ctx.ShoppingDay is null ? 3 : 1;
 
     public static Task<Product?> FindActiveAsync(this IAppDbContext db, Guid id, CancellationToken ct) =>
         db.Products.FirstOrDefaultAsync(p => p.Id == id && p.IsActive, ct);
@@ -76,4 +124,4 @@ internal static class ProductCommandSupport
     }
 }
 
-internal sealed record HouseholdContext(DayOfWeek? ShoppingDay, DateOnly Today);
+internal sealed record HouseholdContext(Guid HouseholdId, DayOfWeek? ShoppingDay, DateOnly Today, string TimeZone);
