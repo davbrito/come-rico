@@ -7,6 +7,9 @@ public class Dish : IHasHousehold
     public string Name { get; private set; } = string.Empty;
     public string? Description { get; private set; }
     public string? ImageKey { get; private set; }
+
+    /// <summary>How many people the recipe (its ingredient quantities) yields.</summary>
+    public int Servings { get; private set; } = Portions.Default;
     public bool IsActive { get; private set; } = true;
     public DateTime CreatedAt { get; private set; }
 
@@ -16,7 +19,13 @@ public class Dish : IHasHousehold
 
     private Dish() { }
 
-    public static Dish Create(Guid householdId, string name, string? description = null, string? imageKey = null)
+    public static Dish Create(
+        Guid householdId,
+        string name,
+        string? description = null,
+        string? imageKey = null,
+        int servings = Portions.Default
+    )
     {
         var now = DateTime.UtcNow;
         return new()
@@ -27,10 +36,13 @@ public class Dish : IHasHousehold
             Name = name,
             Description = description,
             ImageKey = imageKey,
+            Servings = servings,
         };
     }
 
     public void Deactivate() => IsActive = false;
+
+    public void SetServings(int servings) => Servings = servings;
 
     public void Update(string name, string? description, string? imageKey)
     {

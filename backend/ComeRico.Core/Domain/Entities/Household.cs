@@ -10,11 +10,14 @@ public class Household
     /// <summary>Optional weekly shopping day; when set, product restock dates are anticipated against the next one.</summary>
     public DayOfWeek? ShoppingDay { get; private set; }
 
-    /// <summary>ISO 4217 currency copied into each recorded purchase that doesn't carry its own.</summary>
     /// <summary>IANA time zone (e.g. America/Caracas); "today" for the household is its local date.</summary>
     public string TimeZone { get; private set; } = "UTC";
 
+    /// <summary>ISO 4217 currency copied into each recorded purchase that doesn't carry its own.</summary>
     public string DefaultCurrency { get; private set; } = "USD";
+
+    /// <summary>How many people the household usually cooks for: the default for new dishes and planned meals.</summary>
+    public int DefaultServings { get; private set; } = Portions.Default;
 
     public ICollection<AppUser> Members { get; private set; } = [];
     public ICollection<Dish> Dishes { get; private set; } = [];
@@ -43,6 +46,8 @@ public class Household
     public void SetTimeZone(string timeZone) => TimeZone = timeZone;
 
     public void SetShoppingDay(DayOfWeek? day) => ShoppingDay = day;
+
+    public void SetDefaultServings(int servings) => DefaultServings = servings;
 
     public void SetDefaultCurrency(string currency) => DefaultCurrency = currency.Trim().ToUpperInvariant();
 

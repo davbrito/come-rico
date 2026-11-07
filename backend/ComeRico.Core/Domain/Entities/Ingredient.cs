@@ -6,21 +6,21 @@ public class Ingredient : IHasHousehold
     public Guid HouseholdId { get; private set; }
     public Guid DishId { get; private set; }
     public string Name { get; private set; } = string.Empty;
-    public decimal Amount { get; private set; }
+    public decimal Quantity { get; private set; }
     public MeasurementUnit Unit { get; private set; } = MeasurementUnit.Piece;
 
     public Dish Dish { get; private set; } = null!;
 
     private Ingredient() { }
 
-    public static Ingredient Create(Guid householdId, Guid dishId, string name, decimal amount, MeasurementUnit unit) =>
+    public static Ingredient Create(Guid householdId, Guid dishId, string name, decimal quantity, MeasurementUnit unit) =>
         new()
         {
             Id = Guid.CreateVersion7(),
             HouseholdId = householdId,
             DishId = dishId,
             Name = name,
-            Amount = amount,
+            Quantity = quantity,
             Unit = unit,
         };
 }

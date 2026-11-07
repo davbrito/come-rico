@@ -1212,6 +1212,51 @@
         }
       }
     },
+    "/api/meal-plans/{id}/servings": {
+      "patch": {
+        "tags": [
+          "MealPlans"
+        ],
+        "summary": "Cambia para cuántas personas se cocina una comida planificada",
+        "operationId": "SetMealPlanServings",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetServingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MealPlanDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/api/shopping-items": {
       "get": {
         "tags": [
@@ -1757,6 +1802,15 @@
             "items": {
               "$ref": "#/components/schemas/IngredientInput"
             }
+          },
+          "servings": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -1793,6 +1847,15 @@
           },
           "mealType": {
             "$ref": "#/components/schemas/MealType"
+          },
+          "servings": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -2004,6 +2067,7 @@
           "name",
           "description",
           "imageUrl",
+          "servings",
           "isActive",
           "createdAt",
           "ingredients",
@@ -2033,6 +2097,14 @@
               "null",
               "string"
             ]
+          },
+          "servings": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           },
           "isActive": {
             "type": "boolean"
@@ -2120,7 +2192,8 @@
         "required": [
           "shoppingDay",
           "defaultCurrency",
-          "timeZone"
+          "timeZone",
+          "defaultServings"
         ],
         "type": "object",
         "properties": {
@@ -2139,6 +2212,14 @@
           },
           "timeZone": {
             "type": "string"
+          },
+          "defaultServings": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -2231,7 +2312,7 @@
         "required": [
           "id",
           "name",
-          "amount",
+          "quantity",
           "unit"
         ],
         "type": "object",
@@ -2243,7 +2324,7 @@
           "name": {
             "type": "string"
           },
-          "amount": {
+          "quantity": {
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
             "type": [
               "number",
@@ -2259,7 +2340,7 @@
       "IngredientInput": {
         "required": [
           "name",
-          "amount",
+          "quantity",
           "unit"
         ],
         "type": "object",
@@ -2267,7 +2348,7 @@
           "name": {
             "type": "string"
           },
-          "amount": {
+          "quantity": {
             "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
             "type": [
               "number",
@@ -2344,8 +2425,10 @@
           "id",
           "date",
           "mealType",
+          "servings",
           "dishId",
           "dishName",
+          "dishServings",
           "dishImageUrl"
         ],
         "type": "object",
@@ -2361,12 +2444,28 @@
           "mealType": {
             "$ref": "#/components/schemas/MealType"
           },
+          "servings": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
           "dishId": {
             "type": "string",
             "format": "uuid"
           },
           "dishName": {
             "type": "string"
+          },
+          "dishServings": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           },
           "dishImageUrl": {
             "type": [
@@ -2689,6 +2788,22 @@
           }
         }
       },
+      "SetServingsRequest": {
+        "required": [
+          "servings"
+        ],
+        "type": "object",
+        "properties": {
+          "servings": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          }
+        }
+      },
       "SetTagsRequest": {
         "required": [
           "tagNames"
@@ -2909,6 +3024,15 @@
           "removeImage": {
             "type": "boolean",
             "default": false
+          },
+          "servings": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },
@@ -2935,6 +3059,15 @@
           },
           "timeZone": {
             "type": "string"
+          },
+          "defaultServings": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "null",
+              "integer",
+              "string"
+            ],
+            "format": "int32"
           }
         }
       },

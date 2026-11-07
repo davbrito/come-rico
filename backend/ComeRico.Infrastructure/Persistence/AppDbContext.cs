@@ -53,6 +53,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService
             entity.Property(h => h.TimeZone).IsRequired().HasMaxLength(64).HasDefaultValue("UTC");
             entity.Property(h => h.ShoppingDay).HasConversion<string>().HasMaxLength(20);
             entity.Property(h => h.DefaultCurrency).IsRequired().HasMaxLength(3).IsFixedLength().HasDefaultValue("USD");
+            entity.ToTable(t => t.HasCheckConstraint("CK_Households_DefaultServings", "\"DefaultServings\" > 0"));
             entity.HasIndex(h => h.InviteCode).IsUnique();
 
             entity
@@ -68,13 +69,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService
             entity.Property(d => d.Name).IsRequired().HasMaxLength(200);
             entity.Property(d => d.Description).HasMaxLength(1000);
             entity.Property(d => d.ImageKey).HasMaxLength(2048);
+            entity.ToTable(t => t.HasCheckConstraint("CK_Dishes_Servings", "\"Servings\" > 0"));
         });
 
         modelBuilder.Entity<Ingredient>(entity =>
         {
             entity.HasKey(i => i.Id);
             entity.Property(i => i.Name).IsRequired().HasMaxLength(200);
-            entity.Property(i => i.Amount).HasPrecision(10, 2);
+            entity.Property(i => i.Quantity).HasPrecision(12, 4);
             entity.Property(i => i.Unit).HasConversion<string>().IsRequired();
 
             entity.HasOne(i => i.Dish).WithMany(d => d.Ingredients).HasForeignKey(i => i.DishId).OnDelete(DeleteBehavior.Cascade);
@@ -99,6 +101,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService
         {
             entity.HasKey(m => m.Id);
             entity.Property(m => m.MealType).HasConversion<string>().IsRequired();
+            entity.ToTable(t => t.HasCheckConstraint("CK_MealPlans_Servings", "\"Servings\" > 0"));
             entity.HasIndex(m => new { m.HouseholdId, m.Date });
 
             entity
