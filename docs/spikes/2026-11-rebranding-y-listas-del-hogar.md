@@ -8,7 +8,7 @@
 1. **Rebranding**: "ComeRico" puede leerse como albur. El cambio visible al usuario es barato; renombrar el código y la infraestructura es caro y casi no aporta. Propuesta: cambiar todo lo visible ya y dejar los identificadores técnicos para después (o no tocarlos nunca).
 2. **El producto cambia de foco**: deja de ser solo "¿qué vamos a comer?" y pasa a ser "¿qué hay que comprar para la casa?". El menú semanal se vuelve **una fuente más** de la lista de compras, junto con los **productos recurrentes** (shampoo, pasta dental…) y los artículos manuales.
 3. **Cambios al modelo**: un catálogo `Product` del hogar que aparece en la lista cuando **ya pasó t desde la última compra o se marcó como agotado**, `ShoppingItem` con `Source` + `ProductId` + `PurchasedAt`, y un comando idempotente que **sincroniza** la lista con todo lo que vence antes del próximo día de compra.
-4. **Servidor MCP con autenticación**: lo que más cuesta es *capturar* (productos, platillos, menús). Un agente (Claude en el móvil, en el escritorio o en Claude Code) puede hacerlo por el usuario: "arma el menú de la semana para 4 personas, sin cerdo, con cenas ligeras" o "aquí está la foto del ticket, marca lo que compré". Como toda la lógica ya vive en handlers de MediatR, el MCP es **otro adaptador delgado**, igual que las Minimal APIs. Lo difícil no son las herramientas: es **la autenticación** (OAuth). Decisión: **Amazon Cognito** (free tier) con invitaciones firmadas, y una capa OAuth delgada (CIMD + DCR) para que Claude se conecte solo con la URL. Los cambios en lote del agente pasan por vista previa y confirmación.
+4. **Servidor MCP con autenticación**: lo que más cuesta es *capturar* (productos, platillos, menús). Un agente (Claude en el móvil, en el escritorio o en Claude Code) puede hacerlo por el usuario: "arma el menú de la semana para 4 personas, sin cerdo, con cenas ligeras" o "aquí está la foto del ticket, marca lo que compré". Como toda la lógica ya vive en handlers de MediatR, el MCP es **otro adaptador delgado**, igual que las Minimal APIs. Lo difícil no son las herramientas: es **la autenticación** (OAuth). Decisión: **Amazon Cognito** (free tier) con invitaciones firmadas, y una capa OAuth delgada (CIMD) para que Claude se conecte solo con la URL. Los cambios en lote del agente pasan por vista previa y confirmación.
 
 ---
 
@@ -484,39 +484,48 @@ Las propiedades que importan:
 
 **MCP con Cognito: el hueco que hay que cubrir**
 
-Cognito **no implementa** Dynamic Client Registration, no acepta Client ID Metadata Documents (client IDs como URL) y no publica metadata RFC 8414. Solo publica OIDC discovery. Claude espera DCR o CIMD de forma automática. Opciones:
+Cognito **no implementa** Dynamic Client Registration, no acepta Client ID Metadata Documents (client IDs como URL) y no publica metadata RFC 8414; solo publica OIDC discovery. Claude necesita CIMD o DCR para conectarse solo con la URL.
 
-**Decisión: construir desde el inicio una capa OAuth delgada delante de Cognito** (CIMD + DCR), para que el conector se agregue **solo con la URL** en claude.ai, en la app móvil y en Claude Code, sin copiar client IDs. Así se evitan las fricciones conocidas con client IDs fijos. AWS tiene un ejemplo serverless de este patrón que sirve de referencia.
+**Decisión: una capa OAuth delgada delante de Cognito, solo con CIMD en v1.** Referencia: la guía [Authentication for connectors](https://claude.com/docs/connectors/building/authentication) (revisada el 2026-11-07).
 
-Diseño propuesto (endpoints en la misma API, para tener un solo despliegue):
+- **Todas las superficies de Claude se identifican con CIMD.** claude.ai, Desktop, el móvil y Cowork usan el documento que aloja Anthropic; Claude Code usa el suyo (`https://claude.ai/oauth/claude-code-client-metadata`). Claude elige CIMD cuando la metadata del servidor anuncia **ambos** `"client_id_metadata_document_supported": true` y `"none"` en `token_endpoint_auth_methods_supported`; si falta alguno, cae a DCR.
+- **Sin DCR en v1.** Si anunciamos CIMD correctamente, Claude no necesita DCR. Quitarlo elimina el único endpoint público de registro (y su riesgo de abuso) y su lógica. La guía también recomienda CIMD sobre DCR para servidores con mucho tráfico. Si más adelante se quiere soportar clientes MCP que no sean Claude, se agrega DCR con `client_id` stateless (payload protegido con Data Protection, sin tabla).
+- **Los tokens siguen siendo de Cognito.** La validación de la API no cambia y no emitimos JWT propios.
+
+**URL pública del MCP (pendiente de decidir).** El campo `resource` de la metadata debe ser **exactamente** la URL que el usuario pega en Claude, ruta incluida. Opciones:
+1. `https://rebasto.app/mcp`, a través de la reescritura de Vercel. Hay que reenviar al backend `/mcp`, `/oauth/*` y `/.well-known/oauth-*` en `vercel.json`, y comprobar que la reescritura no corta las respuestas en streaming.
+2. Un dominio propio del API (p. ej. `api.rebasto.app/mcp`) apuntando al Lambda.
+
+Con cualquiera de las dos, el `401` puede apuntar `resource_metadata` a **cualquier** URL HTTPS que sirva el JSON. La guía lo recomienda justo para plataformas donde servir `/.well-known/*` en la raíz es complicado.
+
+**Endpoints** (en la misma API, un solo despliegue):
 
 | Endpoint | Qué hace |
 | --- | --- |
-| `/.well-known/oauth-protected-resource` | Metadata del recurso `/mcp` → el authorization server es **nuestra capa**, no Cognito directamente. |
-| `/.well-known/oauth-authorization-server` | Metadata RFC 8414: `authorization_endpoint`, `token_endpoint`, `registration_endpoint`, soporte de CIMD, PKCE `S256`, `token_endpoint_auth_methods: none`. |
-| `POST /oauth/register` | DCR. **No crea un app client en Cognito por cada registro** (hay cuotas y sería fácil de abusar): emite un `client_id` propio y guarda sus `redirect_uris`. |
-| `GET /oauth/authorize` | Valida el cliente: con CIMD descarga el documento de metadata del `client_id` (URL); con DCR busca el registro. Comprueba `redirect_uri`, guarda `state` + `code_challenge` del cliente y redirige a Cognito Managed Login con **un único app client interno** (confidencial) y **nuestro** callback. |
-| `GET /oauth/callback` | Recibe el código de Cognito, lo canjea del lado del servidor y emite **un código propio de un solo uso** hacia el `redirect_uri` del cliente. Esto resuelve que Cognito exige callbacks exactos y Claude Code usa puertos de loopback aleatorios. |
-| `POST /oauth/token` | Canjea el código propio (verificando el PKCE del cliente) por los tokens de Cognito, y pasa los `refresh_token` a Cognito con el secret del cliente interno. |
+| `/mcp` sin token | Responde **`401`** con `WWW-Authenticate: Bearer resource_metadata="…", scope="read write"`. Claude ignora ese header en un `200`, y el JwtBearer por defecto no incluye `resource_metadata`, así que hace falta un `OnChallenge` propio. |
+| `/.well-known/oauth-protected-resource` | `resource` = la URL pública exacta del MCP; `authorization_servers` = **solo nuestra capa**, como primera y única entrada (Claude usa la primera y no prueba las demás); `scopes_supported: ["read", "write"]`. |
+| `/.well-known/oauth-authorization-server` | Metadata RFC 8414: `issuer`, `authorization_endpoint`, `token_endpoint`, `client_id_metadata_document_supported: true`, `token_endpoint_auth_methods_supported: ["none"]`, `code_challenge_methods_supported: ["S256"]`, `scopes_supported: ["read", "write", "offline_access"]`. Sin `offline_access`, Claude no pide refresh token. |
+| `GET /oauth/authorize` | Descarga el documento CIMD del `client_id` (solo de hosts de confianza: `claude.ai`), comprueba el `redirect_uri` contra los `redirect_uris` del documento (los loopback `http://localhost/callback` y `http://127.0.0.1/callback` **sin comparar el puerto**), guarda `state` + `code_challenge` dentro de un `state` protegido y redirige a Cognito Managed Login con el app client `mcp-gateway` y **nuestro** callback. |
+| `GET /oauth/callback` | Canjea el código de Cognito del lado del servidor y muestra la **pantalla de consentimiento** (abajo). Si el usuario acepta, emite **un código propio de un solo uso** hacia el `redirect_uri` del cliente. |
+| `POST /oauth/token` | Acepta **`application/x-www-form-urlencoded`** (RFC 6749). Ojo: en Minimal APIs de .NET 8+, el binding de formularios exige antiforgery, así que el endpoint lleva `.DisableAntiforgery()`. `authorization_code`: verifica el PKCE y devuelve los tokens de Cognito. `refresh_token`: lo pasa a Cognito con el secret de `mcp-gateway`. Un refresh inválido responde **`invalid_grant`**. |
 
-- **Los tokens siguen siendo de Cognito**, así que la validación de la API (abajo) no cambia y no emitimos JWT propios.
+**Pantalla de consentimiento (obligatoria).** La spec MCP exige mostrar el host del `redirect_uri`, con un aviso extra cuando todos los redirects del cliente son loopback (cualquier proceso local puede abrir un puerto y hacerse pasar por el cliente). Va después del login de Cognito: "**Claude** (`claude.ai`) quiere acceder a tu hogar *X* en Rebasto: ver tus listas y menús / modificarlos", con los botones Permitir y Cancelar. El consentimiento puede recordarse por usuario + `client_id` para no pedirlo en cada reconexión.
 
-**¿App client de Cognito dinámico por cada cliente de Claude, o uno fijo en Terraform?** **Uno fijo en Terraform, reutilizado.** De hecho, dos: `web-bff` (el login de la web) y `mcp-gateway` (la capa OAuth). Así se pueden dar distintos scopes y duraciones de token a cada uno, y revocarlos por separado. Por qué no crearlos dinámicamente:
+**Refresh tokens.**
+- Claude refresca de forma reactiva ante un `401`, y de forma proactiva hasta 5 minutos antes de que expire el token.
+- OAuth 2.1 exige **rotar** los refresh tokens de los clientes públicos (con CIMD, Claude es cliente público). Como devolvemos los refresh tokens de Cognito tal cual, hay que activar la rotación de refresh tokens en el app client `mcp-gateway`. **Hay que confirmar** que Cognito la soporta con nuestra configuración; si no, la capa tendría que emitir refresh tokens propios (opacos) y guardar el de Cognito.
 
-- **Nada lo requiere**: Cognito solo ve **nuestro** callback (`/oauth/callback`), nunca el `redirect_uri` de cada cliente, así que un solo app client sirve para todos.
-- **Cuotas y abuso**: `/oauth/register` es público por especificación. Si cada registro creara un app client, cualquiera podría agotar la cuota del pool, y habría que limpiar los clientes huérfanos.
-- **Drift de Terraform**: recursos creados fuera del estado de Terraform, con secrets que habría que guardar en algún lado, y permisos IAM de escritura sobre el user pool para la API.
-- La distinción por cliente ("revocar el acceso de Claude Code") se hace con **nuestro** `client_id` (va en el estado del código y se puede registrar en la auditoría) y con `RevokeToken` de Cognito sobre los refresh tokens del usuario.
+**Latencia.** Claude espera **10 s** en discovery y token, y **30 s** en refresh. Un canje en frío puede sumar el arranque en frío de .NET en Lambda, despertar Neon (por la tabla de códigos) y la llamada a Cognito. Mitigaciones: SnapStart o concurrencia provisionada para el Lambda, endpoints de OAuth sin trabajo extra, y medir los tiempos en frío.
 
-**Estado de la capa: casi stateless, y sin DynamoDB.**
+**Red.** El tráfico de Anthropic sale de `160.79.104.0/21`. Solo importa si algún día ponemos un WAF delante de la API o de Cognito.
 
-- **Registros DCR stateless**: el `client_id` que emite `/oauth/register` **es** un payload protegido con Data Protection que contiene los `redirect_uris` y la fecha. Validarlo no requiere tabla, y los registros abandonados no dejan basura.
-- **`state` / PKCE entre `/authorize` y `/callback`**: también va protegido dentro del `state` que viaja a Cognito y regresa. Sin tabla.
-- **Códigos propios de un solo uso**: es lo único que necesita estado, porque OAuth exige que un código no se use dos veces. Una tabla Postgres pequeña `OAuthAuthorizationCode` (hash del código, tokens de Cognito cifrados con Data Protection, PKCE, `ExpiresAt` de ~60 s, `ConsumedAt`) se consume con un `UPDATE … WHERE ConsumedAt IS NULL` atómico y se limpia en el cron.
+**¿App client de Cognito dinámico por cada cliente de Claude, o uno fijo en Terraform?** **Fijo en Terraform.** De hecho, dos: `web-bff` (el login de la web) y `mcp-gateway` (la capa OAuth), para dar a cada uno sus propios scopes, duración de tokens y rotación, y revocarlos por separado. Cognito solo ve **nuestro** callback, así que un app client sirve para todos los clientes. La distinción por cliente ("revocar el acceso de Claude Code") se hace con el `client_id` del CIMD (queda en el consentimiento y en la auditoría) y con `RevokeToken` de Cognito.
 
-Con las invitaciones firmadas y este diseño, **DynamoDB ya no es necesario en ninguna parte**: un almacén menos que operar, permisos IAM menos y nada que emular en local.
-- **Anti-abuso**: `/oauth/register` es público por especificación, así que lleva rate limiting y solo acepta `redirect_uris` de una lista permitida (callback de claude.ai y loopback `http://127.0.0.1` / `http://localhost`). En CIMD, solo se aceptan hosts de `client_id` de confianza (claude.ai, …). De todas formas, nadie obtiene tokens sin un usuario de Cognito, y para eso necesita una invitación.
-- Hay que verificar el comportamiento exacto de los clientes de Claude (cuándo usan CIMD o DCR, y qué campos de metadata exigen) contra la documentación vigente de conectores cuando se tome el issue.
+**Estado de la capa: casi stateless, sin DynamoDB.**
+- `state` / PKCE entre `/authorize` y `/callback`: protegido dentro del `state` que va a Cognito y regresa. Sin tabla.
+- Códigos propios de un solo uso: una tabla Postgres pequeña `OAuthAuthorizationCode` (hash del código, tokens de Cognito cifrados con Data Protection, PKCE, `client_id`, `redirect_uri`, `ExpiresAt` de ~60 s, `ConsumedAt`), consumida con un `UPDATE … WHERE ConsumedAt IS NULL` atómico y limpiada en el cron.
+- Consentimientos recordados (opcional): `OAuthConsent` (usuario + `client_id` + scopes).
+- **Anti-abuso**: rate limiting en `/oauth/*` y solo hosts CIMD de confianza. De todas formas, nadie obtiene tokens sin un usuario de Cognito, y para eso necesita una invitación.
 
 Validación del token en la API: `AddJwtBearer` con `Authority` = issuer del user pool. Los access tokens de Cognito **no traen `aud`**, así que se valida `token_use == "access"` y que `client_id` esté en la lista de app clients permitidos. Un `IClaimsTransformation` mapea `sub` → `AppUser` → claims del hogar (con caché corta), y `ClaimsTenantService` funciona sin cambios. Los scopes `read` / `write` se definen como *custom scopes* de un resource server en Cognito.
 
@@ -621,7 +630,7 @@ No quedan preguntas abiertas de producto. Quedan tareas: comprar el dominio, rev
 - **Nombre**: **Rebasto**, con `rebasto.app` como dominio principal (1.1).
 - **Autenticación**: Amazon Cognito (free tier, tier Essentials o Lite), con **Managed Login** al inicio. Pantallas propias → issue L. Login con Google → issue M.
 - **Control de registro**: invitaciones firmadas (Data Protection), ligadas al correo, con el auto-registro de Cognito desactivado. Solo las emite el admin general. Sin tabla de correos ni DynamoDB (**aprobado**).
-- **MCP**: capa CIMD + DCR delante de Cognito **desde el inicio** (issue K, requisito del MCP), con **un app client fijo en Terraform** (`mcp-gateway`) y estado casi stateless (solo los códigos de un solo uso en Postgres).
+- **MCP**: capa OAuth delante de Cognito **desde el inicio** (issue K, requisito del MCP), **solo CIMD en v1** (sin DCR), con pantalla de consentimiento, **un app client fijo en Terraform** (`mcp-gateway`) y estado casi stateless (solo los códigos de un solo uso en Postgres). Pendiente: URL pública del MCP y confirmar la rotación de refresh tokens en Cognito.
 - **Día de compra opcional**: si existe, se anticipa contra él. Si no, se evalúa contra hoy, con la sección "Por vencer (7 días)", y el menú usa los próximos 7 días.
 - **Historial de eventos** `ProductEvent` desde el MVP. Se guarda lo que llega gratis (cantidad siempre; precio, marca, tienda y línea del ticket si vienen del ticket), y t escala con la cantidad comprada.
 - **Lista = tabla sincronizada + log**, no una vista del log.
@@ -682,10 +691,9 @@ Orden sugerido: **A** (independiente) · **B → C → D** · **E** (antes de qu
 - Migración de los usuarios existentes (`AdminCreateUser` + vinculación por correo).
 - Pruebas: sin invitación no hay registro, una invitación expirada o alterada se rechaza, una invitación usada no crea un segundo usuario, y la sesión y la tenancy siguen igual.
 
-### K. Capa OAuth (CIMD + DCR) delante de Cognito
-- Endpoints de 4.3: metadata RFC 9728/8414, `/oauth/register`, `/oauth/authorize`, `/oauth/callback` y `/oauth/token`, con el app client `mcp-gateway` (Terraform).
-- `client_id` de DCR y `state` stateless (Data Protection), y tabla `OAuthAuthorizationCode` para los códigos de un solo uso.
-- Anti-abuso: rate limiting, lista permitida de `redirect_uris` y de hosts CIMD.
+### K. Capa OAuth (CIMD) delante de Cognito
+- Requisitos de la guía de conectores de Claude (4.3): `401` con `resource_metadata`, metadata RFC 9728 y RFC 8414 (CIMD + `none` + S256 + `offline_access`), `/oauth/authorize`, `/oauth/callback` con pantalla de consentimiento, `/oauth/token` form-urlencoded con `invalid_grant`, loopback sin puerto, rotación de refresh tokens y latencia < 10 s.
+- Sin DCR en v1. App client `mcp-gateway` (Terraform). Tabla `OAuthAuthorizationCode`.
 - Criterio de aceptación: agregar el conector **solo con la URL** en claude.ai (web y móvil) y en Claude Code, y obtener un access token de Cognito válido para `/mcp`.
 
 ### I. Servidor MCP v1 (depende de J y K)
