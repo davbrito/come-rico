@@ -37,7 +37,7 @@ export function Select<T>({
     >
       <BaseSelect.Trigger
         className={cn(
-          "flex items-center justify-between gap-1 border border-line text-sea-ink outline-none focus-visible:border-orange-400 data-[popup-open]:border-orange-400",
+          "flex items-center justify-between gap-1 border border-line text-sea-ink outline-none focus-visible:border-orange-400 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-60 data-[popup-open]:border-orange-400",
           triggerSizeClasses[size],
           className,
         )}
