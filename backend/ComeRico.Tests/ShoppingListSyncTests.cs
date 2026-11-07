@@ -92,8 +92,21 @@ public class ShoppingListSyncTests
             await Db.SaveChangesAsync(Ct);
         }
 
-        public Task<ShoppingItemDto?> SetPurchasedAsync(Guid id, bool purchased) =>
-            new SetShoppingItemPurchasedCommandHandler(Db, User, Clock).Handle(new(id, purchased), Ct);
+        public Task<ShoppingItemDto?> CartAsync(Guid id, bool inCart = true) =>
+            new SetShoppingItemInCartCommandHandler(Db, User, Clock).Handle(new(id, inCart), Ct);
+
+        public Task<ShoppingTripDto> CheckoutAsync(string? store = null, decimal? total = null) =>
+            new CheckoutCommandHandler(Db, User, Clock).Handle(new(store, total), Ct);
+
+        public Task<ShoppingTripDto?> UndoAsync(Guid tripId) =>
+            new UndoCheckoutCommandHandler(Db, User, Clock).Handle(new(tripId), Ct);
+
+        public Task<ShoppingItemDto> CreateItemAsync(
+            string name,
+            decimal? quantity = null,
+            MeasurementUnit? unit = null,
+            bool inCart = false
+        ) => new CreateShoppingItemCommandHandler(Db, Tenant, User, Clock).Handle(new(name, quantity, unit, inCart), Ct);
 
         public Task<bool> DeleteAsync(Guid id) => new DeleteShoppingItemCommandHandler(Db, User, Clock).Handle(new(id), Ct);
 
@@ -232,7 +245,7 @@ public class ShoppingListSyncTests
     public async Task DeletingAManualItem_DeletesIt()
     {
         await using var f = await Fixture.CreateAsync();
-        var item = await new CreateShoppingItemCommandHandler(f.Db, f.Tenant, f.Clock).Handle(
+        var item = await new CreateShoppingItemCommandHandler(f.Db, f.Tenant, f.User, f.Clock).Handle(
             new("Pilas", 4, MeasurementUnit.Piece),
             Ct
         );
@@ -301,20 +314,21 @@ public class ShoppingListSyncTests
     }
 
     [Fact]
-    public async Task Menu_PurchasedItemsAreKept_AndCountAgainstWhatIsNeeded()
+    public async Task Menu_ItemsInCartOrPurchasedAreKept_AndCountAgainstWhatIsNeeded()
     {
         await using var f = await Fixture.CreateAsync();
         await f.PlanAsync(new DateOnly(2026, 11, 5), ("Cebolla", 3, MeasurementUnit.Piece));
         var item = Assert.Single(await f.SyncAsync());
-        await f.SetPurchasedAsync(item.Id, true);
 
-        var afterBuying = await f.SyncAsync();
-        Assert.Equal(item.Id, Assert.Single(afterBuying).Id); // the purchased one, untouched
-        Assert.True(afterBuying[0].IsPurchased);
+        await f.CartAsync(item.Id);
+        var inCart = Assert.Single(await f.SyncAsync());
+        Assert.Equal((item.Id, ShoppingItemStatus.InCart), (inCart.Id, inCart.Status)); // untouched, no duplicate
+
+        await f.CheckoutAsync();
+        Assert.Empty(await f.SyncAsync()); // bought: off the list and not re-added
 
         await f.PlanAsync(new DateOnly(2026, 11, 6), ("Cebolla", 2, MeasurementUnit.Piece));
-        var more = await f.SyncAsync();
-        Assert.Equal(2, more.Single(i => !i.IsPurchased).Quantity); // only the extra 2
+        Assert.Equal(2, Assert.Single(await f.SyncAsync()).Quantity); // only the extra 2
     }
 
     [Fact]
@@ -330,44 +344,151 @@ public class ShoppingListSyncTests
         Assert.NotNull((await f.Db.ShoppingItems.SingleAsync(s => s.Name == "Sal", Ct)).DismissedAt);
     }
 
-    // ---- Purchases ----
+    // ---- Cart and checkout (#60) ----
 
     [Fact]
-    public async Task CheckingARecurringItem_RecordsThePurchase_AndUncheckingRevertsIt()
+    public async Task Cart_DoesNotTouchTheProductOrItsHistory()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var product = await f.AddProductAsync("Shampoo", lastPurchased: new DateOnly(2026, 10, 1));
+        var item = Assert.Single(await f.SyncAsync());
+
+        var inCart = await f.CartAsync(item.Id);
+        Assert.Equal(ShoppingItemStatus.InCart, inCart!.Status);
+        Assert.Equal(f.User.UserId, inCart.InCartByUserId);
+        Assert.Equal(new DateOnly(2026, 10, 1), product.LastPurchasedOn);
+        Assert.Empty(await f.Db.ProductEvents.OfType<ProductPurchased>().ToListAsync(Ct));
+
+        var back = await f.CartAsync(item.Id, inCart: false);
+        Assert.Equal((ShoppingItemStatus.Pending, (Guid?)null), (back!.Status, back.InCartByUserId));
+    }
+
+    [Fact]
+    public async Task Cart_ItemOfAProductThatStopsBeingDue_StaysInTheCart()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var product = await f.AddProductAsync("Shampoo", lastPurchased: new DateOnly(2026, 10, 1));
+        var item = Assert.Single(await f.SyncAsync());
+        await f.CartAsync(item.Id);
+
+        await new SnoozeProductCommandHandler(f.Db, f.User, f.Clock).Handle(new(product.Id, 7), Ct);
+
+        Assert.Equal(item.Id, Assert.Single(await f.SyncAsync()).Id);
+    }
+
+    [Fact]
+    public async Task Checkout_IsAtomic_CreatesOneTrip_AndOnlyConfirmsTheCart()
+    {
+        await using var f = await Fixture.CreateAsync();
+        f.Household.SetDefaultCurrency("EUR");
+        var shampoo = await f.AddProductAsync("Shampoo", lastPurchased: new DateOnly(2026, 10, 1));
+        var soap = await f.AddProductAsync("Jabón", lastPurchased: new DateOnly(2026, 10, 1));
+        soap.MarkOutOfStock(Wednesday.UtcDateTime);
+        await f.Db.SaveChangesAsync(Ct);
+        var items = await f.SyncAsync();
+        var manual = await f.CreateItemAsync("Pilas", 4, MeasurementUnit.Piece, inCart: true); // off the list
+        await f.CartAsync(items.Single(i => i.ProductId == shampoo.Id).Id);
+
+        var trip = await f.CheckoutAsync("  Súper  ", 42.5m);
+
+        Assert.Equal(("Súper", new Money(42.5m, "EUR"), 2), (trip.Store, trip.TotalPaid, trip.ItemCount));
+        var dbTrip = Assert.Single(await f.Db.ShoppingTrips.ToListAsync(Ct));
+        Assert.Equal(trip.Id, dbTrip.Id);
+
+        var purchase = Assert.Single(await f.Db.ProductEvents.OfType<ProductPurchased>().ToListAsync(Ct));
+        Assert.Equal((shampoo.Id, (Guid?)trip.Id, "Súper"), (purchase.ProductId, purchase.ShoppingTripId, purchase.Store));
+        Assert.Equal(new DateOnly(2026, 11, 4), shampoo.LastPurchasedOn);
+        Assert.NotNull(soap.OutOfStockAt); // still pending: untouched
+
+        var list = await f.SyncAsync();
+        Assert.Equal(["Jabón"], list.Select(i => i.Name)); // confirmed items left the list
+        var pilas = await f.Db.ShoppingItems.SingleAsync(s => s.Id == manual.Id, Ct);
+        Assert.Equal((ShoppingItemStatus.Purchased, (Guid?)trip.Id), (pilas.Status, pilas.ShoppingTripId));
+    }
+
+    [Fact]
+    public async Task Checkout_WithAnEmptyCart_Fails()
+    {
+        await using var f = await Fixture.CreateAsync();
+        await f.AddProductAsync("Shampoo");
+        await f.SyncAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => f.CheckoutAsync());
+        Assert.Empty(await f.Db.ShoppingTrips.ToListAsync(Ct));
+    }
+
+    [Fact]
+    public async Task UndoCheckout_PutsItemsBackInTheCart_AndRestoresTheProduct()
     {
         await using var f = await Fixture.CreateAsync();
         var declared = new DateOnly(2026, 10, 1);
         var product = await f.AddProductAsync("Shampoo", lastPurchased: declared);
         var item = Assert.Single(await f.SyncAsync());
+        await f.CartAsync(item.Id);
+        var trip = await f.CheckoutAsync();
+        Assert.Equal(RestockStatus.Ok, RestockRule.Evaluate(product, new DateOnly(2026, 11, 4), null));
 
-        var bought = await f.SetPurchasedAsync(item.Id, true);
-        Assert.Equal(RestockStatus.Ok, bought!.ProductStatus);
-        Assert.Equal(new DateOnly(2026, 11, 4), product.LastPurchasedOn);
-        var purchase = Assert.Single(await f.Db.ProductEvents.OfType<ProductPurchased>().ToListAsync(Ct));
-        Assert.Equal(item.Id, purchase.ShoppingItemId);
-        Assert.Equal(item.Id, Assert.Single(await f.SyncAsync()).Id); // no new pending item
+        var undone = await f.UndoAsync(trip.Id);
 
-        var undone = await f.SetPurchasedAsync(item.Id, false);
+        Assert.NotNull(undone!.RevertedAt);
         Assert.Equal(declared, product.LastPurchasedOn);
-        Assert.Equal(RestockStatus.Due, undone!.ProductStatus);
+        var purchase = Assert.Single(await f.Db.ProductEvents.OfType<ProductPurchased>().ToListAsync(Ct));
         Assert.Equal(
             purchase.Id,
             Assert.Single(await f.Db.ProductEvents.OfType<ProductPurchaseReverted>().ToListAsync(Ct)).PurchaseEventId
         );
-        Assert.Equal(item.Id, Assert.Single(await f.SyncAsync()).Id); // still a single pending item
+        var back = Assert.Single(await f.SyncAsync());
+        Assert.Equal((item.Id, ShoppingItemStatus.InCart, RestockStatus.Due), (back.Id, back.Status, back.ProductStatus));
+        Assert.Null(await new GetLatestShoppingTripQueryHandler(f.Db).Handle(new(), Ct));
     }
 
     [Fact]
-    public async Task CheckingAnItemTwice_DoesNotLogTwice()
+    public async Task UndoCheckout_BringsBackSeAcabo()
     {
         await using var f = await Fixture.CreateAsync();
-        await f.AddProductAsync("Shampoo");
+        var product = await f.AddProductAsync("Arroz", interval: null);
+        await new MarkProductOutOfStockCommandHandler(f.Db, f.Tenant, f.User, f.Clock).Handle(new(product.Id), Ct);
         var item = Assert.Single(await f.SyncAsync());
+        await f.CartAsync(item.Id);
+        f.Clock.Now = Wednesday.AddMinutes(30);
+        var trip = await f.CheckoutAsync();
+        Assert.Null(product.OutOfStockAt);
 
-        await f.SetPurchasedAsync(item.Id, true);
-        await f.SetPurchasedAsync(item.Id, true);
+        await f.UndoAsync(trip.Id);
 
-        Assert.Single(await f.Db.ProductEvents.OfType<ProductPurchased>().ToListAsync(Ct));
+        Assert.Equal(Wednesday.UtcDateTime, product.OutOfStockAt);
+        Assert.Equal(RestockStatus.OutOfStock, Assert.Single(await f.SyncAsync()).ProductStatus);
+    }
+
+    [Fact]
+    public async Task UndoCheckout_OnlyTheLatestTrip_AndOnlyOnce()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var first = await f.CreateItemAsync("Pan", inCart: true);
+        var firstTrip = await f.CheckoutAsync();
+        f.Clock.Now = Wednesday.AddHours(1);
+        await f.CreateItemAsync("Leche", inCart: true);
+        var secondTrip = await f.CheckoutAsync();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => f.UndoAsync(firstTrip.Id));
+        await f.UndoAsync(secondTrip.Id);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => f.UndoAsync(secondTrip.Id));
+
+        // With the second one undone, the first is the latest again.
+        Assert.Equal(firstTrip.Id, (await new GetLatestShoppingTripQueryHandler(f.Db).Handle(new(), Ct))!.Id);
+        Assert.Equal(ShoppingItemStatus.Purchased, (await f.Db.ShoppingItems.SingleAsync(s => s.Id == first.Id, Ct)).Status);
+    }
+
+    [Fact]
+    public async Task SetQuantity_AdjustsItemsInTheCart_ButNotPurchasedOnes()
+    {
+        await using var f = await Fixture.CreateAsync();
+        var item = await f.CreateItemAsync("Pan", 1, MeasurementUnit.Piece, inCart: true);
+        var handler = new SetShoppingItemQuantityCommandHandler(f.Db, f.Clock);
+
+        Assert.Equal(2, (await handler.Handle(new(item.Id, 2), Ct))!.Quantity);
+        await f.CheckoutAsync();
+        Assert.Null(await handler.Handle(new(item.Id, 3), Ct));
     }
 
     // ---- Make recurring ----
@@ -376,7 +497,7 @@ public class ShoppingListSyncTests
     public async Task MakeRecurring_CreatesTheProduct_AndLinksTheItem()
     {
         await using var f = await Fixture.CreateAsync();
-        var item = await new CreateShoppingItemCommandHandler(f.Db, f.Tenant, f.Clock).Handle(
+        var item = await new CreateShoppingItemCommandHandler(f.Db, f.Tenant, f.User, f.Clock).Handle(
             new("Papel de baño", 4, MeasurementUnit.Piece),
             Ct
         );
@@ -402,7 +523,10 @@ public class ShoppingListSyncTests
         await using var f = await Fixture.CreateAsync();
         var product = await f.AddProductAsync("Shampoo");
         var listed = Assert.Single(await f.SyncAsync());
-        var manual = await new CreateShoppingItemCommandHandler(f.Db, f.Tenant, f.Clock).Handle(new("shampoo", null, null), Ct);
+        var manual = await new CreateShoppingItemCommandHandler(f.Db, f.Tenant, f.User, f.Clock).Handle(
+            new("shampoo", null, null),
+            Ct
+        );
 
         var result = await new MakeShoppingItemRecurringCommandHandler(f.Db, f.Clock).Handle(
             new(manual.Id, ProductCategory.Hygiene, null),

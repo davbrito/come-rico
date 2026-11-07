@@ -1379,13 +1379,13 @@
         }
       }
     },
-    "/api/shopping-items/{id}/purchased": {
+    "/api/shopping-items/{id}/cart": {
       "patch": {
         "tags": [
           "Shopping"
         ],
-        "summary": "Marca o desmarca un artículo como comprado",
-        "operationId": "SetShoppingItemPurchased",
+        "summary": "Echa al carrito o saca del carrito (no cuenta como comprado hasta terminar la compra)",
+        "operationId": "SetShoppingItemInCart",
         "parameters": [
           {
             "name": "id",
@@ -1401,7 +1401,52 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SetPurchasedRequest"
+                "$ref": "#/components/schemas/SetInCartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShoppingItemDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/shopping-items/{id}/quantity": {
+      "patch": {
+        "tags": [
+          "Shopping"
+        ],
+        "summary": "Ajusta la cantidad de un artículo de la lista o del carrito",
+        "operationId": "SetShoppingItemQuantity",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetQuantityRequest"
               }
             }
           },
@@ -1445,6 +1490,96 @@
         "responses": {
           "204": {
             "description": "No Content"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/api/shopping-trips": {
+      "post": {
+        "tags": [
+          "Shopping"
+        ],
+        "summary": "Terminar compra: confirma todo lo que está en el carrito (tienda y total opcionales)",
+        "operationId": "Checkout",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShoppingTripDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/shopping-trips/latest": {
+      "get": {
+        "tags": [
+          "Shopping"
+        ],
+        "summary": "La última compra que todavía se puede deshacer",
+        "operationId": "GetLatestShoppingTrip",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShoppingTripDto"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No Content"
+          }
+        }
+      }
+    },
+    "/api/shopping-trips/{id}/undo": {
+      "post": {
+        "tags": [
+          "Shopping"
+        ],
+        "summary": "Deshace la última compra: sus artículos vuelven al carrito y se revierten las compras",
+        "operationId": "UndoCheckout",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShoppingTripDto"
+                }
+              }
+            }
           },
           "404": {
             "description": "Not Found"
@@ -1754,6 +1889,30 @@
           }
         }
       },
+      "CheckoutCommand": {
+        "required": [
+          "store",
+          "totalPaid"
+        ],
+        "type": "object",
+        "properties": {
+          "store": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "totalPaid": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
+          }
+        }
+      },
       "CleanupFilesResponse": {
         "required": [
           "deleted"
@@ -1949,6 +2108,10 @@
                 "$ref": "#/components/schemas/MeasurementUnit"
               }
             ]
+          },
+          "inCart": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -2495,6 +2658,26 @@
           "Package"
         ]
       },
+      "Money": {
+        "required": [
+          "amount",
+          "currency"
+        ],
+        "type": "object",
+        "properties": {
+          "amount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "number",
+              "string"
+            ],
+            "format": "double"
+          },
+          "currency": {
+            "type": "string"
+          }
+        }
+      },
       "ProductCategory": {
         "enum": [
           "Hygiene",
@@ -2503,7 +2686,8 @@
           "Fresh",
           "Baby",
           "Pets",
-          "Other"
+          "Other",
+          null
         ]
       },
       "ProductDto": {
@@ -2763,6 +2947,17 @@
           null
         ]
       },
+      "SetInCartRequest": {
+        "required": [
+          "inCart"
+        ],
+        "type": "object",
+        "properties": {
+          "inCart": {
+            "type": "boolean"
+          }
+        }
+      },
       "SetIngredientsRequest": {
         "required": [
           "ingredients"
@@ -2777,14 +2972,20 @@
           }
         }
       },
-      "SetPurchasedRequest": {
+      "SetQuantityRequest": {
         "required": [
-          "isPurchased"
+          "quantity"
         ],
         "type": "object",
         "properties": {
-          "isPurchased": {
-            "type": "boolean"
+          "quantity": {
+            "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$",
+            "type": [
+              "null",
+              "number",
+              "string"
+            ],
+            "format": "double"
           }
         }
       },
@@ -2827,8 +3028,11 @@
           "source",
           "productId",
           "productStatus",
-          "isPurchased",
-          "purchasedAt",
+          "category",
+          "status",
+          "inCartAt",
+          "inCartByUserId",
+          "inCartByName",
           "createdAt"
         ],
         "type": "object",
@@ -2879,15 +3083,38 @@
               }
             ]
           },
-          "isPurchased": {
-            "type": "boolean"
+          "category": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ProductCategory"
+              }
+            ]
           },
-          "purchasedAt": {
+          "status": {
+            "$ref": "#/components/schemas/ShoppingItemStatus"
+          },
+          "inCartAt": {
             "type": [
               "null",
               "string"
             ],
             "format": "date-time"
+          },
+          "inCartByUserId": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "inCartByName": {
+            "type": [
+              "null",
+              "string"
+            ]
           },
           "createdAt": {
             "type": "string",
@@ -2901,6 +3128,65 @@
           "MealPlan",
           "Recurring"
         ]
+      },
+      "ShoppingItemStatus": {
+        "enum": [
+          "Pending",
+          "InCart",
+          "Purchased"
+        ]
+      },
+      "ShoppingTripDto": {
+        "required": [
+          "id",
+          "completedAt",
+          "store",
+          "totalPaid",
+          "itemCount",
+          "revertedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "store": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "totalPaid": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Money"
+              }
+            ]
+          },
+          "itemCount": {
+            "pattern": "^-?(?:0|[1-9]\\d*)$",
+            "type": [
+              "integer",
+              "string"
+            ],
+            "format": "int32"
+          },
+          "revertedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
       },
       "SnoozeProductRequest": {
         "required": [

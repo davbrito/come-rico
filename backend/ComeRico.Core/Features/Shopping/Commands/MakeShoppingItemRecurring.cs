@@ -39,8 +39,8 @@ public sealed class MakeShoppingItemRecurringCommandHandler(IAppDbContext dbCont
         );
         if (item is null)
             return null;
-        if (item.Source != ShoppingItemSource.Manual || item.ProductId is not null || item.IsPurchased)
-            throw new InvalidOperationException("Solo se puede hacer recurrente un artículo manual pendiente.");
+        if (item.Source != ShoppingItemSource.Manual || item.ProductId is not null || !item.IsOnList)
+            throw new InvalidOperationException("Solo se puede hacer recurrente un artículo manual de la lista.");
 
         var ctx = await dbContext.GetHouseholdContextAsync(clock, cancellationToken);
         var name = item.Name.Trim();
@@ -66,7 +66,7 @@ public sealed class MakeShoppingItemRecurringCommandHandler(IAppDbContext dbCont
         }
         else if (
             await dbContext.ShoppingItems.AnyAsync(
-                s => s.ProductId == product.Id && !s.IsPurchased && s.DismissedAt == null,
+                s => s.ProductId == product.Id && s.Status != ShoppingItemStatus.Purchased && s.DismissedAt == null,
                 cancellationToken
             )
         )
@@ -75,7 +75,7 @@ public sealed class MakeShoppingItemRecurringCommandHandler(IAppDbContext dbCont
             dbContext.ShoppingItems.Remove(item);
             await dbContext.SaveChangesAsync(cancellationToken);
             var existing = await dbContext.ShoppingItems.FirstAsync(
-                s => s.ProductId == product.Id && !s.IsPurchased && s.DismissedAt == null,
+                s => s.ProductId == product.Id && s.Status != ShoppingItemStatus.Purchased && s.DismissedAt == null,
                 cancellationToken
             );
             return await existing.ToDtoAsync(dbContext, ctx, cancellationToken);

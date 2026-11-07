@@ -20,7 +20,10 @@ public sealed class DeleteProductCommandHandler(IAppDbContext dbContext) : IRequ
         // Its pending recurring item leaves the list too (history is kept).
         var pending = await dbContext
             .ShoppingItems.Where(s =>
-                s.ProductId == product.Id && s.Source == ShoppingItemSource.Recurring && !s.IsPurchased && s.DismissedAt == null
+                s.ProductId == product.Id
+                && s.Source == ShoppingItemSource.Recurring
+                && s.Status == ShoppingItemStatus.Pending
+                && s.DismissedAt == null
             )
             .ToListAsync(cancellationToken);
         dbContext.ShoppingItems.RemoveRange(pending);

@@ -39,7 +39,7 @@ public sealed class DeleteShoppingItemCommandHandler(IAppDbContext dbContext, IC
             return true;
         }
 
-        if (item.IsPending && item.ProductId is { } productId)
+        if (item.IsOnList && item.ProductId is { } productId)
         {
             var product = await dbContext.FindActiveAsync(productId, cancellationToken);
             if (product is not null)
