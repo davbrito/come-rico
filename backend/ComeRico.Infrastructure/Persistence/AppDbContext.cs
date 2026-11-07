@@ -23,6 +23,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService
     public DbSet<Tag> Tags => Set<Tag>();
     public DbSet<MealPlan> MealPlans => Set<MealPlan>();
     public DbSet<ShoppingItem> ShoppingItems => Set<ShoppingItem>();
+    public DbSet<ShoppingTrip> ShoppingTrips => Set<ShoppingTrip>();
     public DbSet<StoredFile> StoredFiles => Set<StoredFile>();
     public DbSet<Product> Products => Set<Product>();
     public DbSet<ProductEvent> ProductEvents => Set<ProductEvent>();
@@ -120,6 +121,12 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService
             entity.Property(s => s.Quantity).HasPrecision(12, 4);
             entity.Property(s => s.Unit).HasConversion<string>();
             entity.Property(s => s.Source).HasConversion<string>().HasMaxLength(20).IsRequired();
+            entity.Property(s => s.Status).HasConversion<string>().HasMaxLength(20).IsRequired();
+            entity.HasIndex(s => new { s.HouseholdId, s.Status });
+            entity.HasOne<ShoppingTrip>().WithMany().HasForeignKey(s => s.ShoppingTripId).OnDelete(DeleteBehavior.SetNull);
+            entity.ToTable(t =>
+                t.HasCheckConstraint("CK_ShoppingItems_Purchased", "\"Status\" <> 'Purchased' OR \"PurchasedAt\" IS NOT NULL")
+            );
             entity.HasIndex(s => new { s.HouseholdId, s.ProductId });
             entity.HasIndex(s => new { s.HouseholdId, s.Source });
 
@@ -131,6 +138,29 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService
                 .WithMany(h => h.ShoppingItems)
                 .HasForeignKey(s => s.HouseholdId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ShoppingTrip>(entity =>
+        {
+            entity.HasKey(t => t.Id);
+            entity.Property(t => t.Store).HasMaxLength(100);
+            entity.Property(t => t.Origin).HasConversion<string>().HasMaxLength(10).IsRequired();
+            entity.OwnsOne(
+                t => t.TotalPaid,
+                m =>
+                {
+                    m.Property(x => x.Amount).HasPrecision(12, 2);
+                    m.Property(x => x.Currency).HasMaxLength(3).IsFixedLength();
+                }
+            );
+            entity.ToTable(t =>
+                t.HasCheckConstraint(
+                    "CK_ShoppingTrips_TotalPaid",
+                    "(\"TotalPaid_Amount\" IS NULL) = (\"TotalPaid_Currency\" IS NULL)"
+                )
+            );
+            entity.HasIndex(t => new { t.HouseholdId, t.CompletedAt });
+            entity.HasOne<Household>().WithMany().HasForeignKey(t => t.HouseholdId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<StoredFile>(entity =>

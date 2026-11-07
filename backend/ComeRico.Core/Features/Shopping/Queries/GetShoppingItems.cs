@@ -10,6 +10,8 @@ public sealed record GetShoppingItemsQuery : IRequest<IReadOnlyList<ShoppingItem
 
 /// <param name="ProductStatus">The linked product's restock status (null without a product): an
 /// <c>OutOfStock</c> one can't be snoozed, and removing it means "sí hay".</param>
+/// <param name="Category">The linked product's category, to group the list while shopping.</param>
+/// <param name="InCartByName">Who put it in the cart ("lo tomó Ana"), for a cart shared by the household.</param>
 public sealed record ShoppingItemDto(
     Guid Id,
     string Name,
@@ -18,14 +20,19 @@ public sealed record ShoppingItemDto(
     ShoppingItemSource Source,
     Guid? ProductId,
     RestockStatus? ProductStatus,
-    bool IsPurchased,
-    DateTime? PurchasedAt,
+    ProductCategory? Category,
+    ShoppingItemStatus Status,
+    DateTime? InCartAt,
+    Guid? InCartByUserId,
+    string? InCartByName,
     DateTime CreatedAt
 );
 
+internal sealed record ProductInfo(RestockStatus Status, ProductCategory Category);
+
 public static class ShoppingItemDtoMapper
 {
-    public static ShoppingItemDto ToDto(this ShoppingItem item, RestockStatus? productStatus) =>
+    internal static ShoppingItemDto ToDto(this ShoppingItem item, ProductInfo? product, string? inCartByName) =>
         new(
             item.Id,
             item.Name,
@@ -33,9 +40,12 @@ public static class ShoppingItemDtoMapper
             item.Unit,
             item.Source,
             item.ProductId,
-            productStatus,
-            item.IsPurchased,
-            item.PurchasedAt,
+            product?.Status,
+            product?.Category,
+            item.Status,
+            item.InCartAt,
+            item.InCartByUserId,
+            inCartByName,
             item.CreatedAt
         );
 }
@@ -52,7 +62,10 @@ public sealed class GetShoppingItemsQueryHandler(IAppDbContext dbContext, TimePr
 
 internal static class ShoppingListQuery
 {
-    /// <summary>The visible list (dismissed menu items are hidden): pending first, then by name.</summary>
+    /// <summary>
+    /// The list while shopping: pending and in-cart items (purchased ones left it at checkout; dismissed menu
+    /// items are hidden). Pending first, then by name.
+    /// </summary>
     public static async Task<IReadOnlyList<ShoppingItemDto>> GetShoppingListAsync(
         this IAppDbContext db,
         HouseholdContext ctx,
@@ -60,17 +73,11 @@ internal static class ShoppingListQuery
     )
     {
         var items = await db
-            .ShoppingItems.Where(s => s.DismissedAt == null)
-            .OrderBy(s => s.IsPurchased)
+            .ShoppingItems.Where(s => s.Status != ShoppingItemStatus.Purchased && s.DismissedAt == null)
+            .OrderBy(s => s.Status)
             .ThenBy(s => s.Name)
             .ToListAsync(ct);
-
-        var productIds = items.Where(i => i.ProductId != null).Select(i => i.ProductId!.Value).Distinct().ToList();
-        var statuses = await db
-            .Products.Where(p => productIds.Contains(p.Id))
-            .ToDictionaryAsync(p => p.Id, p => RestockRule.Evaluate(p, ctx.Today, ctx.ShoppingDay), ct);
-
-        return [.. items.Select(i => i.ToDto(i.ProductId is { } id && statuses.TryGetValue(id, out var status) ? status : null))];
+        return await ToDtosAsync(db, items, ctx, ct);
     }
 
     public static async Task<ShoppingItemDto> ToDtoAsync(
@@ -78,11 +85,38 @@ internal static class ShoppingListQuery
         IAppDbContext db,
         HouseholdContext ctx,
         CancellationToken ct
+    ) => (await ToDtosAsync(db, [item], ctx, ct))[0];
+
+    private static async Task<IReadOnlyList<ShoppingItemDto>> ToDtosAsync(
+        IAppDbContext db,
+        List<ShoppingItem> items,
+        HouseholdContext ctx,
+        CancellationToken ct
     )
     {
-        if (item.ProductId is not { } id)
-            return item.ToDto(null);
-        var product = await db.Products.FirstOrDefaultAsync(p => p.Id == id, ct);
-        return item.ToDto(product is null ? null : RestockRule.Evaluate(product, ctx.Today, ctx.ShoppingDay));
+        var productIds = items.Where(i => i.ProductId != null).Select(i => i.ProductId!.Value).Distinct().ToList();
+        var products =
+            productIds.Count == 0
+                ? []
+                : (await db.Products.Where(p => productIds.Contains(p.Id)).ToListAsync(ct)).ToDictionary(
+                    p => p.Id,
+                    p => new ProductInfo(RestockRule.Evaluate(p, ctx.Today, ctx.ShoppingDay), p.Category)
+                );
+
+        var userIds = items.Where(i => i.InCartByUserId != null).Select(i => i.InCartByUserId!.Value).Distinct().ToList();
+        var names =
+            userIds.Count == 0
+                ? []
+                : await db.Users.Where(u => userIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.DisplayName, ct);
+
+        return
+        [
+            .. items.Select(i =>
+                i.ToDto(
+                    i.ProductId is { } pid ? products.GetValueOrDefault(pid) : null,
+                    i.InCartByUserId is { } uid ? names.GetValueOrDefault(uid) : null
+                )
+            ),
+        ];
     }
 }

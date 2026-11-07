@@ -34,7 +34,7 @@ internal static class ShoppingListSync
         && RestockRule.Evaluate(product, ctx.Today, ctx.ShoppingDay) is RestockStatus.Due or RestockStatus.OutOfStock;
 
     /// <summary>
-    /// Adds the product's item if it's due/out of stock and has no pending item; removes its pending
+    /// Adds the product's item if it's due/out of stock and has none on the list; removes its pending
     /// <see cref="ShoppingItemSource.Recurring"/> item if it no longer belongs (snoozed, "sí hay", deactivated).
     /// A manual item linked to the product is left alone: someone added it on purpose. Call before
     /// <c>SaveChanges</c>; the caller saves.
@@ -48,21 +48,25 @@ internal static class ShoppingListSync
     )
     {
         var pending = await db
-            .ShoppingItems.Where(s => s.ProductId == product.Id && !s.IsPurchased && s.DismissedAt == null)
+            .ShoppingItems.Where(s =>
+                s.ProductId == product.Id && s.Status != ShoppingItemStatus.Purchased && s.DismissedAt == null
+            )
             .ToListAsync(ct);
         Reconcile(db, product, BelongsOnList(product, ctx), pending, now);
     }
 
-    private static void Reconcile(IAppDbContext db, Product product, bool belongs, List<ShoppingItem> pending, DateTime now)
+    /// <param name="onList">The product's items still on the list (pending or in the cart).</param>
+    private static void Reconcile(IAppDbContext db, Product product, bool belongs, List<ShoppingItem> onList, DateTime now)
     {
         if (belongs)
         {
-            if (pending.Count == 0)
+            if (onList.Count == 0)
                 db.ShoppingItems.Add(ShoppingItem.CreateRecurring(product, now));
             return;
         }
 
-        foreach (var item in pending.Where(i => i.Source == ShoppingItemSource.Recurring))
+        // Only what's still pending: something already in the cart is being bought, leave it there.
+        foreach (var item in onList.Where(i => i.Source == ShoppingItemSource.Recurring && i.IsPending))
             db.ShoppingItems.Remove(item);
     }
 
@@ -77,7 +81,11 @@ internal static class ShoppingListSync
     {
         var products = await db.Products.ToListAsync(ct);
         var pendingByProduct = (
-            await db.ShoppingItems.Where(s => s.ProductId != null && !s.IsPurchased && s.DismissedAt == null).ToListAsync(ct)
+            await db
+                .ShoppingItems.Where(s =>
+                    s.ProductId != null && s.Status != ShoppingItemStatus.Purchased && s.DismissedAt == null
+                )
+                .ToListAsync(ct)
         ).ToLookup(s => s.ProductId!.Value);
 
         foreach (var product in products)
@@ -90,8 +98,9 @@ internal static class ShoppingListSync
     /// <summary>
     /// Consolidates the ingredients of the meals in the window (summed by name + unit) and reconciles the
     /// pending menu items with them: updates quantities in place (stable ids for the UI), adds what's missing
-    /// and removes what's no longer needed. Purchased menu items in the look-back subtract from what's needed;
-    /// a dismissed one ("ya tengo") drops its ingredient for the window. Purchased items are never touched.
+    /// and removes what's no longer needed. Menu items in the cart, or purchased in the look-back, subtract from
+    /// what's needed; a dismissed one ("ya tengo") drops its ingredient for the window. Items in the cart or
+    /// purchased are never touched.
     /// </summary>
     private static async Task SyncMenuAsync(IAppDbContext db, HouseholdContext ctx, DateTime now, CancellationToken ct)
     {
@@ -120,8 +129,16 @@ internal static class ShoppingListSync
             .Where(s => s.DismissedAt >= countSinceUtc && s.Unit is not null)
             .Select(s => Key(s.Name, s.Unit!.Value))
             .ToHashSet();
-        var purchased = menuItems
-            .Where(s => s.IsPurchased && s.DismissedAt is null && s.PurchasedAt >= countSinceUtc && s.Unit is not null)
+        // Already covered: bought in the look-back, or in the cart right now (it's being bought).
+        var covered = menuItems
+            .Where(s =>
+                s.DismissedAt is null
+                && s.Unit is not null
+                && (
+                    s.Status == ShoppingItemStatus.InCart
+                    || (s.Status == ShoppingItemStatus.Purchased && s.PurchasedAt >= countSinceUtc)
+                )
+            )
             .GroupBy(s => Key(s.Name, s.Unit!.Value))
             .ToDictionary(g => g.Key, g => g.Sum(s => s.Quantity ?? 0));
         // Menu items always carry a unit (ingredients do); one without it can't match anything.
@@ -142,7 +159,7 @@ internal static class ShoppingListSync
                     g.Key.Unit,
                     // Scaled to the people each meal is cooked for (spike 3.5), then rounded for buying.
                     Quantity: Portions.RoundForList(
-                        g.Sum(i => Portions.Scale(i.Quantity, i.Planned, i.Yields)) - purchased.GetValueOrDefault(g.Key),
+                        g.Sum(i => Portions.Scale(i.Quantity, i.Planned, i.Yields)) - covered.GetValueOrDefault(g.Key),
                         g.Key.Unit
                     )
                 )
