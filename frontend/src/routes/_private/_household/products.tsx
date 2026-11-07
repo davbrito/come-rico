@@ -201,20 +201,23 @@ function ProductsPage() {
                       >
                         Se acabó
                       </Button>
-                      {(p.status === "Due" || p.status === "DueSoon") &&
-                        snoozeChoices.map((o) => (
-                          <Button
-                            key={o.days}
-                            variant="outline"
-                            size="sm"
-                            title="Todavía tengo"
-                            onClick={() =>
-                              snoozeMut.mutate({ path: { id: p.id }, body: { days: o.days } })
-                            }
-                          >
-                            Todavía tengo {o.label}
-                          </Button>
-                        ))}
+                      {(p.status === "Due" || p.status === "DueSoon") && (
+                        <>
+                          <span className="text-xs text-sea-ink-soft">Todavía tengo:</span>
+                          {snoozeChoices.map((o) => (
+                            <Button
+                              key={o.days}
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                snoozeMut.mutate({ path: { id: p.id }, body: { days: o.days } })
+                              }
+                            >
+                              {o.label}
+                            </Button>
+                          ))}
+                        </>
+                      )}
                     </>
                   )}
                 </div>
