@@ -5,6 +5,7 @@ import {
   getTagsOptions,
   setDishIngredientsMutation,
   setDishTagsMutation,
+  updateDishMutation,
 } from "#/api/@tanstack/react-query.gen";
 import type { DishDto } from "#/api/types.gen";
 import { useAppForm } from "#/components/form";
@@ -13,7 +14,7 @@ import { TagsInput } from "#/components/ui/TagsInput";
 import { getApiErrorMessage } from "#/lib/api";
 import { UNIT_LABELS, UNITS } from "#/lib/food";
 
-import { ingredientAmountSchema, type IngredientRow } from "./types";
+import { ingredientQuantitySchema, type IngredientRow, servingsSchema } from "./types";
 
 const UNIT_ITEMS = UNITS.map((unit) => ({ label: UNIT_LABELS[unit], value: unit }));
 
@@ -32,13 +33,15 @@ export function DishEditor({
 
   const saveIngredientsMut = useMutation(setDishIngredientsMutation());
   const saveTagsMut = useMutation(setDishTagsMutation());
+  const saveDishMut = useMutation(updateDishMutation());
 
   const form = useAppForm({
     defaultValues: {
       tagNames: dish.tags.map((t) => t.name) as string[],
+      servings: String(dish.servings),
       ingredients: dish.ingredients.map((i) => ({
         name: i.name,
-        amount: String(i.amount),
+        quantity: String(i.quantity),
         unit: i.unit,
       })) as IngredientRow[],
     },
@@ -51,12 +54,23 @@ export function DishEditor({
               .filter((row) => row.name.trim())
               .map((row) => ({
                 name: row.name.trim(),
-                amount: Number(row.amount) || 0,
+                quantity: Number(row.quantity) || 0,
                 unit: row.unit,
               })),
           },
         }),
         saveTagsMut.mutateAsync({ path: { id: dish.id }, body: { tagNames: value.tagNames } }),
+        Number(value.servings) !== Number(dish.servings) &&
+          saveDishMut.mutateAsync({
+            path: { id: dish.id },
+            // Name, description and image stay as they are (imageUploadId null keeps the image).
+            body: {
+              name: dish.name,
+              description: dish.description,
+              imageUploadId: null,
+              servings: Number(value.servings),
+            },
+          }),
       ]);
       onSaved();
       onOpenChange(false);
@@ -66,6 +80,7 @@ export function DishEditor({
   const error =
     (saveIngredientsMut.isError && getApiErrorMessage(saveIngredientsMut.error)) ||
     (saveTagsMut.isError && getApiErrorMessage(saveTagsMut.error)) ||
+    (saveDishMut.isError && getApiErrorMessage(saveDishMut.error)) ||
     null;
 
   return (
@@ -74,7 +89,7 @@ export function DishEditor({
         <Dialog.Backdrop className="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity data-[ending-style]:opacity-0 data-[starting-style]:opacity-0" />
         <Dialog.Popup className="island-shell fixed top-1/2 left-1/2 max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl p-6 transition-all data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0">
           <Dialog.Title className="text-base font-semibold text-sea-ink">
-            Ingredientes y etiquetas
+            Receta y etiquetas
           </Dialog.Title>
 
           {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
@@ -102,7 +117,27 @@ export function DishEditor({
             </div>
 
             <div>
-              <h4 className="mb-2 text-xs font-bold text-sea-ink-soft uppercase">Ingredientes</h4>
+              <div className="mb-3">
+                <span className="mb-1 block text-xs font-bold text-sea-ink-soft uppercase">
+                  Rinde para (personas)
+                </span>
+                <form.AppField name="servings" validators={{ onChange: servingsSchema }}>
+                  {(field) => (
+                    <field.TextField
+                      label="Rinde para (personas)"
+                      type="number"
+                      min="1"
+                      max="50"
+                      step="1"
+                      size="sm"
+                      className="w-24"
+                    />
+                  )}
+                </form.AppField>
+              </div>
+              <h4 className="mb-2 text-xs font-bold text-sea-ink-soft uppercase">
+                Ingredientes para esas personas
+              </h4>
               <form.Field name="ingredients" mode="array">
                 {(ingredientsField) => (
                   <div className="space-y-2">
@@ -123,8 +158,8 @@ export function DishEditor({
                           )}
                         </form.AppField>
                         <form.AppField
-                          name={`ingredients[${index}].amount`}
-                          validators={{ onChange: ingredientAmountSchema }}
+                          name={`ingredients[${index}].quantity`}
+                          validators={{ onChange: ingredientQuantitySchema }}
                         >
                           {(field) => (
                             <field.TextField
@@ -161,7 +196,7 @@ export function DishEditor({
                       variant="outline"
                       size="sm"
                       onClick={() =>
-                        ingredientsField.pushValue({ name: "", amount: "", unit: "Piece" })
+                        ingredientsField.pushValue({ name: "", quantity: "", unit: "Piece" })
                       }
                       className="rounded-lg bg-transparent"
                     >

@@ -10,7 +10,7 @@ import { Button } from "#/components/ui/Button";
 import { getApiErrorMessage } from "#/lib/api";
 import { UNIT_LABELS, UNITS } from "#/lib/food";
 
-import { ingredientAmountSchema, type IngredientRow } from "./types";
+import { ingredientQuantitySchema, type IngredientRow, servingsSchema } from "./types";
 
 const UNIT_ITEMS = UNITS.map((unit) => ({ label: UNIT_LABELS[unit], value: unit }));
 
@@ -22,7 +22,15 @@ const dishNameSchema = z
 
 const dishDescriptionSchema = z.string().trim().max(300, "Máximo 300 caracteres");
 
-export function DishForm({ dishes, onSaved }: { dishes: DishDto[]; onSaved: () => void }) {
+export function DishForm({
+  dishes,
+  defaultServings,
+  onSaved,
+}: {
+  dishes: DishDto[];
+  defaultServings: number;
+  onSaved: () => void;
+}) {
   const createMut = useMutation({ ...createDishMutation(), onSuccess: onSaved });
   const uploadMut = useMutation(createUploadMutation());
 
@@ -30,7 +38,12 @@ export function DishForm({ dishes, onSaved }: { dishes: DishDto[]; onSaved: () =
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const createForm = useAppForm({
-    defaultValues: { name: "", description: "", ingredients: [] as IngredientRow[] },
+    defaultValues: {
+      name: "",
+      description: "",
+      servings: String(defaultServings),
+      ingredients: [] as IngredientRow[],
+    },
     onSubmit: async ({ value, formApi }) => {
       setUploadError(null);
       let imageUploadId: string | null = null;
@@ -64,11 +77,12 @@ export function DishForm({ dishes, onSaved }: { dishes: DishDto[]; onSaved: () =
           name: value.name.trim(),
           description: value.description.trim() || null,
           imageUploadId,
+          servings: Number(value.servings),
           ingredients: value.ingredients
             .filter((row) => row.name.trim())
             .map((row) => ({
               name: row.name.trim(),
-              amount: Number(row.amount) || 0,
+              quantity: Number(row.quantity) || 0,
               unit: row.unit,
             })),
         },
@@ -126,9 +140,27 @@ export function DishForm({ dishes, onSaved }: { dishes: DishDto[]; onSaved: () =
 
         <ImagePicker file={imageFile} onChange={setImageFile} />
 
+        <div className="mb-3">
+          <span className="mb-1 block text-xs font-bold text-sea-ink-soft uppercase">
+            Rinde para (personas)
+          </span>
+          <createForm.AppField name="servings" validators={{ onChange: servingsSchema }}>
+            {(field) => (
+              <field.TextField
+                label="Rinde para (personas)"
+                type="number"
+                min="1"
+                max="50"
+                step="1"
+                className="w-24"
+              />
+            )}
+          </createForm.AppField>
+        </div>
+
         <div>
           <h3 className="mb-2 text-xs font-bold text-sea-ink-soft uppercase">
-            Ingredientes (opcional)
+            Ingredientes para esas personas (opcional)
           </h3>
           <createForm.Field name="ingredients" mode="array">
             {(ingredientsField) => (
@@ -146,8 +178,8 @@ export function DishForm({ dishes, onSaved }: { dishes: DishDto[]; onSaved: () =
                       )}
                     </createForm.AppField>
                     <createForm.AppField
-                      name={`ingredients[${index}].amount`}
-                      validators={{ onChange: ingredientAmountSchema }}
+                      name={`ingredients[${index}].quantity`}
+                      validators={{ onChange: ingredientQuantitySchema }}
                     >
                       {(field) => (
                         <field.TextField
@@ -184,7 +216,7 @@ export function DishForm({ dishes, onSaved }: { dishes: DishDto[]; onSaved: () =
                   variant="outline"
                   size="sm"
                   onClick={() =>
-                    ingredientsField.pushValue({ name: "", amount: "", unit: "Piece" })
+                    ingredientsField.pushValue({ name: "", quantity: "", unit: "Piece" })
                   }
                   className="rounded-lg bg-transparent"
                 >

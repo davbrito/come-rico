@@ -66,7 +66,7 @@ public class HouseholdSettingsTests
         var handler = new UpdateHouseholdSettingsCommandHandler(db, new FakeTenantService(a.Id));
         var result = await handler.Handle(new(DayOfWeek.Friday, "eur", "America/Caracas"), Ct);
 
-        Assert.Equal(new HouseholdSettingsDto(DayOfWeek.Friday, "EUR", "America/Caracas"), result);
+        Assert.Equal(new HouseholdSettingsDto(DayOfWeek.Friday, "EUR", "America/Caracas", Portions.Default), result);
         Assert.Equal("UTC", b.TimeZone);
         Assert.Equal("USD", b.DefaultCurrency);
         Assert.Null(b.ShoppingDay);

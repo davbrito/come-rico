@@ -59,6 +59,23 @@ public static class MealPlanEndpoints
             .WithSummary("Obtiene un plan de comidas por su identificador");
 
         group
+            .MapPatch(
+                "/{id:guid}/servings",
+                async Task<Results<Ok<MealPlanDto>, NotFound>> (
+                    Guid id,
+                    [FromBody] SetServingsRequest body,
+                    ISender mediator,
+                    CancellationToken ct
+                ) =>
+                {
+                    var result = await mediator.Send(new SetMealPlanServingsCommand(id, body.Servings), ct);
+                    return result is null ? TypedResults.NotFound() : TypedResults.Ok(result);
+                }
+            )
+            .WithName("SetMealPlanServings")
+            .WithSummary("Cambia para cuántas personas se cocina una comida planificada");
+
+        group
             .MapDelete(
                 "/{id:guid}",
                 async Task<Results<NoContent, NotFound>> (Guid id, ISender mediator, CancellationToken ct) =>
@@ -73,3 +90,5 @@ public static class MealPlanEndpoints
         return app;
     }
 }
+
+public sealed record SetServingsRequest(int Servings);

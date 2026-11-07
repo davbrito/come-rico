@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ComeRico.Core.Features.Dishes.Commands;
 
-public sealed record IngredientInput(string Name, decimal Amount, MeasurementUnit Unit);
+public sealed record IngredientInput(string Name, decimal Quantity, MeasurementUnit Unit);
 
 public sealed record SetDishIngredientsCommand(Guid DishId, IReadOnlyList<IngredientInput> Ingredients) : IRequest<DishDto?>;
 
@@ -25,7 +25,7 @@ public sealed class SetDishIngredientsCommandValidator : AbstractValidator<SetDi
                     .WithMessage("El nombre del ingrediente es obligatorio.")
                     .MaximumLength(200)
                     .WithMessage("El nombre del ingrediente no puede superar los 200 caracteres.");
-                ingredient.RuleFor(i => i.Amount).GreaterThan(0).WithMessage("La cantidad debe ser mayor que cero.");
+                ingredient.RuleFor(i => i.Quantity).GreaterThan(0).WithMessage("La cantidad debe ser mayor que cero.");
                 ingredient.RuleFor(i => i.Unit).IsInEnum().WithMessage("La unidad de medida no es válida.");
             });
     }
@@ -50,7 +50,7 @@ public sealed class SetDishIngredientsCommandHandler(IAppDbContext dbContext, IT
         foreach (var input in request.Ingredients)
         {
             dbContext.Ingredients.Add(
-                Ingredient.Create(tenantService.HouseholdId, dish.Id, input.Name.Trim(), input.Amount, input.Unit)
+                Ingredient.Create(tenantService.HouseholdId, dish.Id, input.Name.Trim(), input.Quantity, input.Unit)
             );
         }
 

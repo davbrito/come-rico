@@ -73,13 +73,22 @@ public class ShoppingListSyncTests
             return product;
         }
 
-        public async Task PlanAsync(DateOnly date, params (string Name, decimal Amount, MeasurementUnit Unit)[] ingredients)
+        public Task PlanAsync(DateOnly date, params (string Name, decimal Quantity, MeasurementUnit Unit)[] ingredients) =>
+            PlanAsync(date, Portions.Default, Portions.Default, ingredients);
+
+        /// <summary>Plans a dish that yields <paramref name="yields"/> people, cooked for <paramref name="cookedFor"/>.</summary>
+        public async Task PlanAsync(
+            DateOnly date,
+            int yields,
+            int cookedFor,
+            params (string Name, decimal Quantity, MeasurementUnit Unit)[] ingredients
+        )
         {
-            var dish = Dish.Create(Household.Id, $"Platillo {Guid.NewGuid():N}");
+            var dish = Dish.Create(Household.Id, $"Platillo {Guid.NewGuid():N}", servings: yields);
             Db.Dishes.Add(dish);
-            foreach (var (name, amount, unit) in ingredients)
-                Db.Ingredients.Add(Ingredient.Create(Household.Id, dish.Id, name, amount, unit));
-            Db.MealPlans.Add(MealPlan.Create(Household.Id, dish.Id, date, MealType.Lunch));
+            foreach (var (name, quantity, unit) in ingredients)
+                Db.Ingredients.Add(Ingredient.Create(Household.Id, dish.Id, name, quantity, unit));
+            Db.MealPlans.Add(MealPlan.Create(Household.Id, dish.Id, date, MealType.Lunch, cookedFor));
             await Db.SaveChangesAsync(Ct);
         }
 
@@ -376,6 +385,45 @@ public class ShoppingListSyncTests
 
         Assert.Equal(listed.Id, result!.Id);
         Assert.Equal(product.Id, Assert.Single(await f.Db.ShoppingItems.ToListAsync(Ct)).ProductId);
+    }
+
+    // ---- Portions (#61) ----
+
+    [Fact]
+    public async Task Menu_ScalesIngredientsByServings()
+    {
+        await using var f = await Fixture.CreateAsync();
+        // Recipe for 4, cooked for 2: half of everything.
+        await f.PlanAsync(new DateOnly(2026, 11, 5), yields: 4, cookedFor: 2, ("Arroz", 500, MeasurementUnit.Gram));
+        // Recipe for 2, cooked for 6: triple.
+        await f.PlanAsync(new DateOnly(2026, 11, 6), yields: 2, cookedFor: 6, ("Arroz", 100, MeasurementUnit.Gram));
+
+        var item = Assert.Single(await f.SyncAsync());
+
+        Assert.Equal(250 + 300, item.Quantity);
+    }
+
+    [Theory]
+    [InlineData(MeasurementUnit.Piece, 1)] // 0.75 onion → buy 1
+    [InlineData(MeasurementUnit.Package, 1)]
+    [InlineData(MeasurementUnit.Kilogram, 0.75)]
+    public async Task Menu_RoundsCountableUnitsUp_AndKeepsTwoDecimalsOtherwise(MeasurementUnit unit, decimal expected)
+    {
+        await using var f = await Fixture.CreateAsync();
+        await f.PlanAsync(new DateOnly(2026, 11, 5), yields: 4, cookedFor: 3, ("Cebolla", 1, unit));
+
+        Assert.Equal(expected, Assert.Single(await f.SyncAsync()).Quantity);
+    }
+
+    [Fact]
+    public async Task Menu_RoundsTheConsolidatedTotal_NotEachMeal()
+    {
+        await using var f = await Fixture.CreateAsync();
+        // Two meals needing half an onion each: 1 onion in total, not 2.
+        await f.PlanAsync(new DateOnly(2026, 11, 5), yields: 4, cookedFor: 2, ("Cebolla", 1, MeasurementUnit.Piece));
+        await f.PlanAsync(new DateOnly(2026, 11, 6), yields: 4, cookedFor: 2, ("Cebolla", 1, MeasurementUnit.Piece));
+
+        Assert.Equal(1, Assert.Single(await f.SyncAsync()).Quantity);
     }
 
     // ---- Tenancy ----

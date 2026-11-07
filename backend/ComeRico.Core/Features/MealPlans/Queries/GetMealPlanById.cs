@@ -28,8 +28,10 @@ public sealed class GetMealPlanByIdQueryHandler(IAppDbContext dbContext, IFileSt
                 m.Id,
                 m.Date,
                 m.MealType,
+                m.Servings,
                 m.DishId,
                 DishName = m.Dish.Name,
+                DishServings = m.Dish.Servings,
                 m.Dish.ImageKey,
             })
             .FirstOrDefaultAsync(cancellationToken);
@@ -40,8 +42,10 @@ public sealed class GetMealPlanByIdQueryHandler(IAppDbContext dbContext, IFileSt
                 plan.Id,
                 plan.Date,
                 plan.MealType,
+                plan.Servings,
                 plan.DishId,
                 plan.DishName,
+                plan.DishServings,
                 storage.ResolveImageUrl(plan.ImageKey)
             );
     }

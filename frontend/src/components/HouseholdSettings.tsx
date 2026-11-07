@@ -21,6 +21,11 @@ const DAY_ITEMS: ReadonlyArray<{ label: string; value: DayOfWeek | typeof NO_DAY
   { label: "Domingo", value: "Sunday" },
 ];
 
+const SERVINGS_ITEMS = Array.from({ length: 12 }, (_, i) => ({
+  label: i === 0 ? "1 persona" : `${i + 1} personas`,
+  value: i + 1,
+}));
+
 const CURRENCIES = ["USD", "EUR", "VES", "COP", "MXN", "ARS", "CLP", "PEN", "BRL", "GBP", "CAD"];
 const CURRENCY_ITEMS = CURRENCIES.map((c) => ({ label: c, value: c }));
 
@@ -51,6 +56,11 @@ export function HouseholdSettings({
   const [day, setDay] = useState<DayOfWeek | typeof NO_DAY>(settings.shoppingDay ?? NO_DAY);
   const [currency, setCurrency] = useState(settings.defaultCurrency);
   const [timeZone, setTimeZone] = useState(settings.timeZone);
+  const savedServings = Number(settings.defaultServings);
+  const [servings, setServings] = useState(savedServings);
+  const servingsItems = SERVINGS_ITEMS.some((i) => i.value === servings)
+    ? SERVINGS_ITEMS
+    : [...SERVINGS_ITEMS, { label: `${servings} personas`, value: servings }];
   const [zoneItems] = useState(() => timeZoneItems(settings.timeZone));
   const currencyItems = CURRENCIES.includes(currency)
     ? CURRENCY_ITEMS
@@ -65,7 +75,8 @@ export function HouseholdSettings({
   const dirty =
     day !== (settings.shoppingDay ?? NO_DAY) ||
     currency !== settings.defaultCurrency ||
-    timeZone !== settings.timeZone;
+    timeZone !== settings.timeZone ||
+    servings !== savedServings;
 
   return (
     <form
@@ -76,6 +87,7 @@ export function HouseholdSettings({
             shoppingDay: day === NO_DAY ? null : day,
             defaultCurrency: currency,
             timeZone,
+            defaultServings: servings,
           },
         });
       }}
@@ -93,6 +105,21 @@ export function HouseholdSettings({
         <label className="block">
           <span className="mb-1 block text-xs font-semibold text-sea-ink-soft">Día de compra</span>
           <Select items={DAY_ITEMS} value={day} onValueChange={setDay} disabled={!isAdmin} />
+        </label>
+
+        <label className="block">
+          <span className="mb-1 block text-xs font-semibold text-sea-ink-soft">
+            Personas en casa
+          </span>
+          <Select
+            items={servingsItems}
+            value={servings}
+            onValueChange={setServings}
+            disabled={!isAdmin}
+          />
+          <span className="mt-1 block text-xs text-sea-ink-soft">
+            Porciones por defecto de los platillos nuevos y de las comidas del menú.
+          </span>
         </label>
 
         <label className="block">
