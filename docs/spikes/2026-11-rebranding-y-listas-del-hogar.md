@@ -61,7 +61,7 @@ Redes sociales: no se pudieron verificar automáticamente (Instagram, TikTok y X
 
 **Forma del nombre** (aplica a cualquier nombre elegido): la marca es solo el nombre, sin "App". "App" solo se usa donde haga falta desambiguar (dominio o redes ocupados), y en las tiendas de apps el título lleva un descriptor de búsqueda (p. ej. "Rebasto: lista de compras de casa").
 
-> **Decisión: Rebasto** (*re* + *abasto*). Dominio principal: `rebasto.app` (el `.com` lo tiene un marketplace de insumos médicos), más el del país de lanzamiento. Pendiente: confirmar la compra con un registrador, revisar los handles de redes a mano (`@rebasto`, o `@rebastoapp` si está ocupado) y la marca en la oficina del país de lanzamiento. Lema por definir (debe cubrir también el menú).
+> **Decisión: Rebasto** (*re* + *abasto*). **Dominio: `rebasto.davbrito.dev`** (subdominio del dominio personal; no hay presupuesto para comprar dominios). Pendiente: revisar los handles de redes a mano (`@rebasto`, o `@rebastoapp` si está ocupado) y la marca en la oficina del país de lanzamiento. Lema por definir (debe cubrir también el menú).
 
 ### 1.2 Alcance: tres niveles
 
@@ -73,7 +73,7 @@ Redes sociales: no se pudieron verificar automáticamente (Instagram, TikTok y X
 - `frontend/src/lib/og-image.tsx`: el texto y el dominio `come-rico.app`.
 - `frontend/public/manifest.json`: `name` y `short_name` (PWA), favicon e íconos si cambia el logo.
 - `about.tsx`, `README.md` y los textos de los correos, si los hay.
-- **Dominio**: `comerico.davbrito.dev` (`infra/root.hcl` → `base_domain`). Agregar el nuevo dominio y mantener una redirección 301 desde el anterior.
+- **Dominio**: de `comerico.davbrito.dev` a **`rebasto.davbrito.dev`** (`infra/root.hcl` → `base_domain`), con una redirección 301 desde el anterior. Ojo: `base_domain` también define el dominio de R2 (`storage-<entorno>.<base_domain>`) y el origen permitido por CORS en el Lambda, así que esos cambian con él.
 
 **Nivel 2: identificadores de runtime (con cuidado: rompe las sesiones)**
 
@@ -451,7 +451,7 @@ ComeRico.Core handlers (los mismos que usan los endpoints REST)
 - **Un servidor OAuth/OIDC administrado** para el MCP, sin construir uno propio con OpenIddict. Este era el punto más caro de la propuesta anterior.
 - Login administrado (Managed Login, con la marca nueva), **recuperación de contraseña y confirmación de correo** (hoy no están implementadas), MFA y login con Google sin código propio.
 - Encaja con la infraestructura, que ya está en AWS (Lambda + Terraform).
-- Costo: el free tier cubre **10,000 MAU al mes** de inicio de sesión directo o social en los tiers Lite y Essentials. El federado SAML/OIDC solo cubre 50 MAU, pero Google cuenta como "social", no como federado. El tier Plus no tiene free tier: hay que **fijar Essentials o Lite en Terraform**.
+- Costo: el free tier cubre **10,000 MAU al mes** de inicio de sesión directo o social en los tiers Lite y Essentials. El federado SAML/OIDC solo cubre 50 MAU, pero Google cuenta como "social", no como federado. El tier Plus no tiene free tier. **Hay que fijar Essentials en Terraform**: la rotación de refresh tokens, que necesita el MCP, solo existe en Essentials y Plus.
 
 **Control de registro: enlaces de invitación firmados (sin tabla de correos)**
 
@@ -493,11 +493,14 @@ Cognito **no implementa** Dynamic Client Registration, no acepta Client ID Metad
 - **Sin DCR en v1.** Si anunciamos CIMD correctamente, Claude no necesita DCR. Quitarlo elimina el único endpoint público de registro (y su riesgo de abuso) y su lógica. La guía también recomienda CIMD sobre DCR para servidores con mucho tráfico. Si más adelante se quiere soportar clientes MCP que no sean Claude, se agrega DCR con `client_id` stateless (payload protegido con Data Protection, sin tabla).
 - **Los tokens siguen siendo de Cognito.** La validación de la API no cambia y no emitimos JWT propios.
 
-**URL pública del MCP (pendiente de decidir).** El campo `resource` de la metadata debe ser **exactamente** la URL que el usuario pega en Claude, ruta incluida. Opciones:
-1. `https://rebasto.app/mcp`, a través de la reescritura de Vercel. Hay que reenviar al backend `/mcp`, `/oauth/*` y `/.well-known/oauth-*` en `vercel.json`, y comprobar que la reescritura no corta las respuestas en streaming.
-2. Un dominio propio del API (p. ej. `api.rebasto.app/mcp`) apuntando al Lambda.
+**URL pública del MCP: `https://rebasto.davbrito.dev/mcp`** (decidido). Es la URL que el usuario pega en Claude o ChatGPT, y el valor exacto de `resource`. El `issuer` de la capa OAuth es `https://rebasto.davbrito.dev`, sin barra final y con exactamente la misma cadena en todos lados (RFC 9207).
 
-Con cualquiera de las dos, el `401` puede apuntar `resource_metadata` a **cualquier** URL HTTPS que sirva el JSON. La guía lo recomienda justo para plataformas donde servir `/.well-known/*` en la raíz es complicado.
+Cómo llega al backend: hoy la API es un **Lambda Function URL en otro origen** (el frontend la llama con `PUBLIC_BACKEND_URL`), y `vercel.json` manda todo al frontend. Para servir el MCP bajo el dominio de la app, sin comprar nada ni montar infraestructura nueva:
+- **Reescrituras externas en `vercel.json`**, antes del comodín del frontend: `/mcp`, `/oauth/:path*`, `/.well-known/oauth-protected-resource` y `/.well-known/oauth-authorization-server` → el Function URL de producción.
+- `vercel.json` no interpola variables de entorno, así que la URL de producción va escrita en el archivo. Es estable mientras no se recree la función. Los previews de Vercel no tendrán MCP, y no hace falta.
+- Usar **respuestas JSON** del transporte Streamable HTTP (modo stateless, sin SSE), para no depender de que la reescritura de Vercel pase respuestas en streaming.
+- **Alternativa** si la reescritura da problemas (latencia, límites de Vercel): un Cloudflare Worker gratuito en `mcp.rebasto.davbrito.dev` que haga de proxy al Function URL, con la URL en una variable de entorno. Implica cambiar `resource` e `issuer` a ese host.
+- En cualquier caso, el `401` puede apuntar `resource_metadata` a la URL completa del JSON, lo que la guía de Claude recomienda en plataformas donde servir `/.well-known/*` en la raíz es complicado.
 
 **Endpoints** (en la misma API, un solo despliegue):
 
@@ -514,7 +517,15 @@ Con cualquiera de las dos, el `401` puede apuntar `resource_metadata` a **cualqu
 
 **Refresh tokens.**
 - Claude refresca de forma reactiva ante un `401`, y de forma proactiva hasta 5 minutos antes de que expire el token.
-- OAuth 2.1 exige **rotar** los refresh tokens de los clientes públicos (con CIMD, Claude es cliente público). Como devolvemos los refresh tokens de Cognito tal cual, hay que activar la rotación de refresh tokens en el app client `mcp-gateway`. **Hay que confirmar** que Cognito la soporta con nuestra configuración; si no, la capa tendría que emitir refresh tokens propios (opacos) y guardar el de Cognito.
+- **La rotación es obligatoria.** OAuth 2.1 y la spec MCP exigen rotar (o atar al emisor) los refresh tokens de clientes públicos, y con CIMD tanto Claude como ChatGPT son clientes públicos. La guía de Claude lo pide explícitamente.
+- **Cognito la soporta** (investigado el 2026-11-07, [guía de refresh tokens](https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-the-refresh-token.html), [anuncio de abril de 2025](https://aws.amazon.com/about-aws/whats-new/2025/04/amazon-cognito-refresh-token-rotation)), así que **no hace falta emitir refresh tokens propios**:
+  - **Solo en los tiers Essentials y Plus**, no en Lite. De ahí que el user pool deba ser Essentials (sigue dentro del free tier).
+  - Se activa por app client: `RefreshTokenRotation { Feature = ENABLED, RetryGracePeriodSeconds = N }`, con un periodo de gracia de hasta 60 s para el token anterior. Propuesta: 30 s, para absorber reintentos y refrescos simultáneos.
+  - Con la rotación activa, `POST /oauth2/token` con `grant_type=refresh_token` **devuelve un refresh token nuevo**, así que nuestro proxy en `/oauth/token` funciona sin cambios.
+  - Requiere **desactivar el flujo `REFRESH_TOKEN_AUTH`** en ese app client (no lo usamos) y **no activar "device remembering"** en el pool (exigiría mandar la clave del dispositivo en cada refresh).
+  - **La rotación no extiende la sesión**: cada token nuevo vale solo el tiempo que le quedaba al original (`RefreshTokenValidity`). Propuesta para `mcp-gateway`: 90 días; después, el usuario vuelve a conectar (con el consentimiento recordado, es un clic).
+  - Los JWT ganan los claims `jti` y `origin_jti`; no afecta a la validación.
+  - Hay que verificar que el provider de AWS para Terraform expone `refresh_token_rotation` en `aws_cognito_user_pool_client`. Si no, configurarlo con `aws cognito-idp update-user-pool-client` desde CI.
 
 **Latencia.** Claude espera **10 s** en discovery y token, y **30 s** en refresh. Un canje en frío puede sumar el arranque en frío de .NET en Lambda, despertar Neon (por la tabla de códigos) y la llamada a Cognito. Mitigaciones: SnapStart o concurrencia provisionada para el Lambda, endpoints de OAuth sin trabajo extra, y medir los tiempos en frío.
 
@@ -638,10 +649,10 @@ No quedan preguntas abiertas de producto. Quedan tareas: comprar el dominio, rev
 
 ### Decisiones tomadas
 
-- **Nombre**: **Rebasto**, con `rebasto.app` como dominio principal (1.1).
-- **Autenticación**: Amazon Cognito (free tier, tier Essentials o Lite), con **Managed Login** al inicio. Pantallas propias → issue L. Login con Google → issue M.
+- **Nombre**: **Rebasto**, en **`rebasto.davbrito.dev`** (1.1). MCP en `https://rebasto.davbrito.dev/mcp`.
+- **Autenticación**: Amazon Cognito (free tier, **tier Essentials**, por la rotación de refresh tokens), con **Managed Login** al inicio. Pantallas propias → issue L. Login con Google → issue M.
 - **Control de registro**: invitaciones firmadas (Data Protection), ligadas al correo, con el auto-registro de Cognito desactivado. Solo las emite el admin general. Sin tabla de correos ni DynamoDB (**aprobado**).
-- **MCP**: capa OAuth delante de Cognito **desde el inicio** (issue K, requisito del MCP), **solo CIMD en v1** (sin DCR), con pantalla de consentimiento, compatible con **Claude y ChatGPT** (RFC 9207 + `resource`), **un app client fijo en Terraform** (`mcp-gateway`) y estado casi stateless (solo los códigos de un solo uso en Postgres). Pendiente: URL pública del MCP y confirmar la rotación de refresh tokens en Cognito.
+- **MCP**: capa OAuth delante de Cognito **desde el inicio** (issue K, requisito del MCP), **solo CIMD en v1** (sin DCR), con pantalla de consentimiento, compatible con **Claude y ChatGPT** (RFC 9207 + `resource`), **un app client fijo en Terraform** (`mcp-gateway`) y estado casi stateless (solo los códigos de un solo uso en Postgres). URL pública `https://rebasto.davbrito.dev/mcp` (reescritura de Vercel). Rotación de refresh tokens de Cognito confirmada (tier Essentials).
 - **Día de compra opcional**: si existe, se anticipa contra él. Si no, se evalúa contra hoy, con la sección "Por vencer (7 días)", y el menú usa los próximos 7 días.
 - **Historial de eventos** `ProductEvent` desde el MVP. Se guarda lo que llega gratis (cantidad siempre; precio, marca, tienda y línea del ticket si vienen del ticket), y t escala con la cantidad comprada.
 - **Lista = tabla sincronizada + log**, no una vista del log.
@@ -660,9 +671,9 @@ No quedan preguntas abiertas de producto. Quedan tareas: comprar el dominio, rev
 Orden sugerido: **A** (independiente) · **B → C → D** · **E** (antes de que el MCP planee menús) · **J → K → I** (Cognito → capa OAuth → MCP) en paralelo con B/C. F/G/H/L/M después.
 
 ### A. Rebranding visible: ComeRico → Rebasto
-- Comprar `rebasto.app` (y el dominio del país de lanzamiento), revisar handles de redes y marca. Definir el lema (que cubra lista y menú).
+- Dominio `rebasto.davbrito.dev` (sin compra). Revisar handles de redes y marca. Definir el lema (que cubra lista y menú).
 - Cambiar los textos, el título, OG, el manifest, el header, la landing (nueva propuesta: lista + menú), el README y los íconos.
-- Configurar el dominio nuevo en Vercel/infra con un 301 desde `comerico.davbrito.dev`.
+- Cambiar `base_domain` a `rebasto.davbrito.dev` (Vercel, CORS del Lambda, dominio de R2) con un 301 desde `comerico.davbrito.dev`.
 - **Incluye** renombrar la cookie (`__Host-rebasto.auth`) y `SetApplicationName("Rebasto")` de Data Protection (decidido: no hay usuarios en producción).
 - **Fuera del alcance**: namespaces, buckets, base de datos y repo.
 
@@ -695,7 +706,7 @@ Orden sugerido: **A** (independiente) · **B → C → D** · **E** (antes de qu
 - Cron por hogar en `ShoppingDay - 1` + notificación. Depende de tener un canal de notificaciones.
 
 ### J. Migrar la autenticación a Amazon Cognito con invitaciones firmadas
-- User pool (tier Essentials o Lite, fijado en Terraform), **Managed Login** con la marca nueva, **auto-registro desactivado** y app clients fijos `web-bff` y `mcp-gateway`.
+- User pool (**tier Essentials**, fijado en Terraform; necesario para la rotación de refresh tokens), **Managed Login** con la marca nueva, **auto-registro desactivado** y app clients fijos `web-bff` y `mcp-gateway`.
 - Invitaciones firmadas con Data Protection (`email`, `householdId?`, `exp`), emitidas solo por el admin general. Al abrirlas: `AdminCreateUser` + unirse al hogar.
 - Backend: login OIDC → `AppUser` por `CognitoSub` → la misma cookie propia con claims del hogar. Retirar contraseñas de Identity.
 - Frontend: reemplazar login/registro/recuperación por la redirección, y agregar la página de invitación.
