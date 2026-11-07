@@ -272,6 +272,7 @@ function ShoppingPage() {
         },
       });
       formApi.reset();
+      setAddToCart(false);
       setShowForm(false);
     },
   });

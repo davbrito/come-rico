@@ -426,6 +426,9 @@ namespace ComeRico.Infrastructure.Migrations
                         .HasPrecision(12, 4)
                         .HasColumnType("numeric(12,4)");
 
+                    b.Property<bool>("QuantityOverridden")
+                        .HasColumnType("boolean");
+
                     b.Property<Guid?>("ShoppingTripId")
                         .HasColumnType("uuid");
 

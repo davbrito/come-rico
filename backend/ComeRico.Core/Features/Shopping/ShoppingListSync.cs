@@ -170,7 +170,9 @@ internal static class ShoppingListSync
         {
             if (pending.Remove(need.Key, out var existing))
             {
-                existing[0].SetQuantity(need.Quantity);
+                // A quantity typed by hand wins over the recomputed one.
+                if (!existing[0].QuantityOverridden)
+                    existing[0].SetQuantity(need.Quantity);
                 db.ShoppingItems.RemoveRange(existing.Skip(1));
             }
             else

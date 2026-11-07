@@ -109,7 +109,18 @@ public class ShoppingItem : IHasHousehold
             now
         );
 
+    /// <summary>Someone set the quantity by hand ("eché 2"): the menu sync keeps it instead of recomputing it.</summary>
+    public bool QuantityOverridden { get; private set; }
+
+    /// <summary>Quantity computed by the sync (only while nobody overrode it).</summary>
     public void SetQuantity(decimal? quantity) => Quantity = quantity;
+
+    /// <summary>Quantity typed by a person; the sync won't change it afterwards.</summary>
+    public void OverrideQuantity(decimal? quantity)
+    {
+        Quantity = quantity;
+        QuantityOverridden = true;
+    }
 
     /// <summary>"Hacer recurrente": the manual item now stands for a catalog product.</summary>
     public void LinkToProduct(Guid productId)

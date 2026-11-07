@@ -11,6 +11,13 @@ namespace ComeRico.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.AddColumn<bool>(
+                name: "QuantityOverridden",
+                table: "ShoppingItems",
+                type: "boolean",
+                nullable: false,
+                defaultValue: false);
+
             migrationBuilder.AddColumn<DateTime>(
                 name: "InCartAt",
                 table: "ShoppingItems",
@@ -149,6 +156,9 @@ namespace ComeRico.Infrastructure.Migrations
                 name: "Status",
                 table: "ShoppingItems");
 
+            migrationBuilder.DropColumn(
+                name: "QuantityOverridden",
+                table: "ShoppingItems");
         }
     }
 }

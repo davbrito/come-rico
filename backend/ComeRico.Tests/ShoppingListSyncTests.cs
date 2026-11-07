@@ -480,6 +480,21 @@ public class ShoppingListSyncTests
     }
 
     [Fact]
+    public async Task SetQuantity_OnAMenuItem_IsKeptBySync_UntilTheMenuNoLongerNeedsIt()
+    {
+        await using var f = await Fixture.CreateAsync();
+        await f.PlanAsync(new DateOnly(2026, 11, 5), ("Cebolla", 3, MeasurementUnit.Piece));
+        var item = Assert.Single(await f.SyncAsync());
+
+        await new SetShoppingItemQuantityCommandHandler(f.Db, f.Clock).Handle(new(item.Id, 2), Ct);
+        Assert.Equal(2, Assert.Single(await f.SyncAsync()).Quantity);
+
+        f.Db.MealPlans.RemoveRange(await f.Db.MealPlans.ToListAsync(Ct));
+        await f.Db.SaveChangesAsync(Ct);
+        Assert.Empty(await f.SyncAsync());
+    }
+
+    [Fact]
     public async Task SetQuantity_AdjustsItemsInTheCart_ButNotPurchasedOnes()
     {
         await using var f = await Fixture.CreateAsync();
