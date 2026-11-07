@@ -1,4 +1,5 @@
 using ComeRico.Core.Domain.Entities;
+using ComeRico.Core.Features.Products.Commands;
 using ComeRico.Core.Features.Shopping.Queries;
 using ComeRico.Core.Interfaces;
 using FluentValidation;
@@ -6,7 +7,9 @@ using MediatR;
 
 namespace ComeRico.Core.Features.Shopping.Commands;
 
-public sealed record CreateShoppingItemCommand(string Name, decimal? Quantity, MeasurementUnit? Unit) : IRequest<ShoppingItemDto>;
+/// <param name="InCart">Bought on impulse while shopping: created straight in the cart.</param>
+public sealed record CreateShoppingItemCommand(string Name, decimal? Quantity, MeasurementUnit? Unit, bool InCart = false)
+    : IRequest<ShoppingItemDto>;
 
 public sealed class CreateShoppingItemCommandValidator : AbstractValidator<CreateShoppingItemCommand>
 {
@@ -25,20 +28,22 @@ public sealed class CreateShoppingItemCommandValidator : AbstractValidator<Creat
     }
 }
 
-public sealed class CreateShoppingItemCommandHandler(IAppDbContext dbContext, ITenantService tenantService, TimeProvider clock)
-    : IRequestHandler<CreateShoppingItemCommand, ShoppingItemDto>
+public sealed class CreateShoppingItemCommandHandler(
+    IAppDbContext dbContext,
+    ITenantService tenantService,
+    ICurrentUserService currentUser,
+    TimeProvider clock
+) : IRequestHandler<CreateShoppingItemCommand, ShoppingItemDto>
 {
     public async Task<ShoppingItemDto> Handle(CreateShoppingItemCommand request, CancellationToken cancellationToken)
     {
-        var item = ShoppingItem.CreateManual(
-            tenantService.HouseholdId,
-            request.Name.Trim(),
-            request.Quantity,
-            request.Unit,
-            clock.GetUtcNow().UtcDateTime
-        );
+        var now = clock.GetUtcNow().UtcDateTime;
+        var item = ShoppingItem.CreateManual(tenantService.HouseholdId, request.Name.Trim(), request.Quantity, request.Unit, now);
+        if (request.InCart)
+            item.PutInCart(currentUser.UserId, now);
         dbContext.ShoppingItems.Add(item);
         await dbContext.SaveChangesAsync(cancellationToken);
-        return item.ToDto(null);
+        var ctx = await dbContext.GetHouseholdContextAsync(clock, cancellationToken);
+        return await item.ToDtoAsync(dbContext, ctx, cancellationToken);
     }
 }
