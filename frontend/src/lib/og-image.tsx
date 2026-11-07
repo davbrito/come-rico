@@ -2,7 +2,7 @@ import { renderPng } from "#/lib/render-image";
 
 // ── Font loading (Google Fonts CSS API) ─────────────────────────────────
 
-const OG_TEXT = "ComeRico¿Qué vamos a comer hoy?.app";
+const OG_TEXT = "RebastoLo que hace falta en casa, y qué vamos a comer rebasto.davbrito.dev";
 
 async function loadGoogleFont(font: string, text: string): Promise<ArrayBuffer> {
   const url = `https://fonts.googleapis.com/css2?family=${font}&text=${encodeURIComponent(text)}`;
@@ -100,7 +100,7 @@ function OgTemplate() {
             textAlign: "center",
           }}
         >
-          ComeRico
+          Rebasto
         </div>
 
         {/* Tagline */}
@@ -114,7 +114,7 @@ function OgTemplate() {
             textAlign: "center",
           }}
         >
-          ¿Qué vamos a comer hoy?
+          Lo que hace falta en casa, y qué vamos a comer
         </div>
 
         {/* Divider */}
@@ -141,7 +141,7 @@ function OgTemplate() {
           textAlign: "center",
         }}
       >
-        come-rico.app
+        rebasto.davbrito.dev
       </div>
     </div>
   );

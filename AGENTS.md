@@ -1,6 +1,6 @@
-# AGENTS.md — ComeRico Project Context
+# AGENTS.md — Rebasto Project Context
 
-This file is the durable context file for AI agents and contributors working on the **ComeRico** project. Keep it up to date after significant architectural changes. For project overview, setup, and run commands, see [README.md](README.md).
+This file is the durable context file for AI agents and contributors working on the **Rebasto** project (formerly ComeRico; code namespaces and infra names keep the old name). Keep it up to date after significant architectural changes. For project overview, setup, and run commands, see [README.md](README.md).
 
 ---
 
@@ -64,7 +64,7 @@ dotnet sln add ComeRico.Api/ComeRico.Api.csproj
 
 ### Authentication (BFF pattern)
 - ASP.NET Core Identity with `AppUser : IdentityUser<Guid>` (`DisplayName`, nullable `HouseholdId`, `Role` Admin/Member).
-- Cookie-based session (`comerico.auth`, HttpOnly, SameSite=Lax) — the BFF pattern: no tokens ever reach browser JavaScript; the frontend proxies `/api` and `/hubs` to the backend on the same origin and the cookie rides along automatically.
+- Cookie-based session (`rebasto.auth` / `__Host-rebasto.auth` in production, HttpOnly, SameSite=Lax) — the BFF pattern: no tokens ever reach browser JavaScript; the frontend proxies `/api` and `/hubs` to the backend on the same origin and the cookie rides along automatically.
 - `AppUserClaimsPrincipalFactory` stamps `household_id`, `household_role`, and `display_name` claims into the cookie. After create/join household, the endpoint calls `RefreshSignInAsync` to re-issue the cookie with fresh claims.
 - Endpoints: `POST /api/auth/register|login|logout`, `GET /api/auth/me`, `POST /api/households`, `POST /api/households/join` (invite code).
 - Cookie auth events return 401/403 JSON instead of login-page redirects.

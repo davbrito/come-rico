@@ -77,13 +77,13 @@ builder
 // Persist Data Protection keys in the shared database so auth cookies remain
 // valid across container instances and restarts (in-memory keys caused random
 // session loss in production).
-builder.Services.AddDataProtection().SetApplicationName("ComeRico").PersistKeysToDbContext<AppDbContext>();
+builder.Services.AddDataProtection().SetApplicationName("Rebasto").PersistKeysToDbContext<AppDbContext>();
 
 builder.Services.ConfigureApplicationCookie(options =>
 {
     // The __Host- prefix requires the Secure attribute unconditionally, which
     // breaks the cookie over plain HTTP in local dev.
-    options.Cookie.Name = builder.Environment.IsDevelopment() ? "comerico.auth" : "__Host-comerico.auth";
+    options.Cookie.Name = builder.Environment.IsDevelopment() ? "rebasto.auth" : "__Host-rebasto.auth";
     options.Cookie.HttpOnly = true;
     // Cross-origin now (frontend on Vercel, API on a Lambda Function URL)
     // — browsers won't attach a SameSite=Lax cookie to a cross-site
