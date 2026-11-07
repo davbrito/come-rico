@@ -5,18 +5,20 @@ import { useState } from "react";
 
 import { logoutMutation } from "#/api/@tanstack/react-query.gen";
 import { Button } from "#/components/ui/Button";
-import { authUserOptions } from "#/server/auth";
+import { authUserOptions, useClearSession } from "#/server/auth";
 
 import ThemeToggle from "./ThemeToggle";
 
 export default function Header() {
   const { data: user } = useQuery(authUserOptions());
   const navigate = useNavigate();
+  const clearSession = useClearSession();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const logoutMut = useMutation({
     ...logoutMutation(),
     onSuccess: async () => {
+      clearSession();
       await navigate({ to: "/login" });
     },
   });

@@ -1,11 +1,12 @@
 import { useMutation } from "@tanstack/react-query";
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 
 import { registerMutation } from "#/api/@tanstack/react-query.gen";
 import { useAppForm } from "#/components/form";
 import { Button } from "#/components/ui/Button";
 import { getApiErrorMessage } from "#/lib/api";
+import { useRefreshSession } from "#/server/auth";
 
 export const Route = createFileRoute("/_auth/register")({
   component: LoginPage,
@@ -16,13 +17,13 @@ const emailSchema = z.email("Correo electrónico inválido");
 const passwordSchema = z.string().min(8, "Mínimo 8 caracteres");
 
 function LoginPage() {
-  const router = useRouter();
+  const refreshSession = useRefreshSession();
   const navigate = Route.useNavigate();
 
   const registerMut = useMutation({
     ...registerMutation(),
     async onSuccess() {
-      await router.invalidate();
+      await refreshSession();
       navigate({ to: "/" });
     },
   });

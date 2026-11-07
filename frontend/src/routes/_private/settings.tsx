@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
 
@@ -12,6 +12,7 @@ import { useAppForm } from "#/components/form";
 import { Button } from "#/components/ui/Button";
 import { Input } from "#/components/ui/Input";
 import { getApiErrorMessage } from "#/lib/api";
+import { useClearSession, useRefreshSession } from "#/server/auth";
 
 export const Route = createFileRoute("/_private/settings")({
   component: SettingsPage,
@@ -22,7 +23,8 @@ const passwordSchema = z.string().min(8, "Mínimo 8 caracteres");
 
 function SettingsPage() {
   const { user } = Route.useRouteContext();
-  const router = useRouter();
+  const refreshSession = useRefreshSession();
+  const clearSession = useClearSession();
   const navigate = Route.useNavigate();
 
   return (
@@ -32,9 +34,14 @@ function SettingsPage() {
           ⚙️ Ajustes de la cuenta
         </h1>
 
-        <ProfileSection displayName={user.displayName} onSaved={() => router.invalidate()} />
+        <ProfileSection displayName={user.displayName} onSaved={refreshSession} />
         <PasswordSection />
-        <DangerZoneSection onDeleted={() => navigate({ to: "/login" })} />
+        <DangerZoneSection
+          onDeleted={() => {
+            clearSession();
+            void navigate({ to: "/login" });
+          }}
+        />
       </div>
     </main>
   );

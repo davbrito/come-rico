@@ -6,6 +6,7 @@ import { postApiIdentityLoginMutation } from "#/api/@tanstack/react-query.gen";
 import { useAppForm } from "#/components/form";
 import { Button } from "#/components/ui/Button";
 import { getApiErrorMessage } from "#/lib/api";
+import { useRefreshSession } from "#/server/auth";
 
 export const Route = createFileRoute("/_auth/login")({
   component: LoginPage,
@@ -16,10 +17,12 @@ const passwordSchema = z.string().min(8, "Mínimo 8 caracteres");
 
 function LoginPage() {
   const navigate = Route.useNavigate();
+  const refreshSession = useRefreshSession();
 
   const loginMut = useMutation({
     ...postApiIdentityLoginMutation(),
     async onSuccess() {
+      await refreshSession();
       await navigate({ to: "/" });
     },
   });
