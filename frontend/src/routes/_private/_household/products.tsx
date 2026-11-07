@@ -295,70 +295,86 @@ function ProductForm({ product, onSaved }: { product: ProductDto | null; onSaved
         {product ? `Editar ${product.name}` : "Nuevo producto"}
       </h2>
       {mut.isError && <p className="mb-3 text-sm text-red-600">{getApiErrorMessage(mut.error)}</p>}
-      <div className="flex flex-wrap gap-3">
-        <form.AppField
-          name="name"
-          validators={{ onChange: ({ value }) => (value.trim() ? undefined : "Requerido") }}
-        >
-          {(field) => <field.TextField label="Nombre *" required className="min-w-48 flex-1" />}
-        </form.AppField>
-        <form.AppField name="category">
-          {(field) => (
-            <field.SelectField label="Categoría" items={CATEGORY_ITEMS} className="w-40" />
-          )}
-        </form.AppField>
-        <form.AppField
-          name="quantity"
-          validators={{
-            onChange: ({ value }) =>
-              value === "" || Number(value) > 0 ? undefined : "Debe ser mayor a 0",
-          }}
-        >
-          {(field) => (
-            <field.TextField label="Cantidad" type="number" min="0" step="any" className="w-28" />
-          )}
-        </form.AppField>
-        <form.AppField name="unit">
-          {(field) => <field.SelectField label="Unidad" items={UNIT_ITEMS} className="w-32" />}
-        </form.AppField>
+      <div className="flex flex-wrap items-end gap-3">
+        <Labeled text="Nombre">
+          <form.AppField
+            name="name"
+            validators={{ onChange: ({ value }) => (value.trim() ? undefined : "Requerido") }}
+          >
+            {(field) => <field.TextField label="Nombre *" required className="min-w-48" />}
+          </form.AppField>
+        </Labeled>
+        <Labeled text="Categoría">
+          <form.AppField name="category">
+            {(field) => (
+              <field.SelectField label="Categoría" items={CATEGORY_ITEMS} className="w-40" />
+            )}
+          </form.AppField>
+        </Labeled>
+        <Labeled text="Cantidad habitual">
+          <form.AppField
+            name="quantity"
+            validators={{
+              onChange: ({ value }) =>
+                value === "" || Number(value) > 0 ? undefined : "Debe ser mayor a 0",
+            }}
+          >
+            {(field) => (
+              <field.TextField label="Cantidad" type="number" min="0" step="any" className="w-28" />
+            )}
+          </form.AppField>
+        </Labeled>
+        <Labeled text="Unidad">
+          <form.AppField name="unit">
+            {(field) => <field.SelectField label="Unidad" items={UNIT_ITEMS} className="w-32" />}
+          </form.AppField>
+        </Labeled>
       </div>
-      <div className="mt-3 flex flex-wrap gap-3">
-        <form.AppField name="interval">
-          {(field) => (
-            <field.SelectField label="¿Cada cuánto?" items={INTERVAL_ITEMS} className="w-64" />
-          )}
-        </form.AppField>
+      <div className="mt-3 flex flex-wrap items-end gap-3">
+        <Labeled text="¿Cada cuánto se compra?">
+          <form.AppField name="interval">
+            {(field) => (
+              <field.SelectField label="¿Cada cuánto?" items={INTERVAL_ITEMS} className="w-64" />
+            )}
+          </form.AppField>
+        </Labeled>
         <form.Subscribe selector={(s) => s.values.interval}>
           {(interval) =>
             interval === CUSTOM && (
-              <form.AppField
-                name="customDays"
-                validators={{
-                  onChange: ({ value }) =>
-                    Number.isInteger(Number(value)) && Number(value) >= 2
-                      ? undefined
-                      : "Días (entero ≥ 2)",
-                }}
-              >
-                {(field) => (
-                  <field.TextField label="Cada (días)" type="number" min="2" className="w-28" />
-                )}
-              </form.AppField>
+              <Labeled text="Cada (días)">
+                <form.AppField
+                  name="customDays"
+                  validators={{
+                    onChange: ({ value }) =>
+                      Number.isInteger(Number(value)) && Number(value) >= 2
+                        ? undefined
+                        : "Días (entero ≥ 2)",
+                  }}
+                >
+                  {(field) => (
+                    <field.TextField label="Cada (días)" type="number" min="2" className="w-28" />
+                  )}
+                </form.AppField>
+              </Labeled>
             )
           }
         </form.Subscribe>
-        <form.AppField name="brand">
-          {(field) => <field.TextField label="Marca preferida" className="w-48" />}
-        </form.AppField>
-        <form.AppField name="lastPurchasedOn">
-          {(field) => (
-            <field.TextField
-              label="¿Cuándo lo compraste por última vez?"
-              type="date"
-              className="w-64"
-            />
-          )}
-        </form.AppField>
+        <Labeled text="Marca preferida">
+          <form.AppField name="brand">
+            {(field) => <field.TextField label="Marca preferida" className="w-48" />}
+          </form.AppField>
+        </Labeled>
+        <Labeled text="Última compra (aprox.)">
+          <form.AppField name="lastPurchasedOn">
+            {(field) => (
+              <field.TextField
+                label="¿Cuándo lo compraste por última vez?"
+                type="date"
+                className="w-64"
+              />
+            )}
+          </form.AppField>
+        </Labeled>
       </div>
       <div className="mt-4">
         <form.AppForm>
@@ -366,5 +382,15 @@ function ProductForm({ product, onSaved }: { product: ProductDto | null; onSaved
         </form.AppForm>
       </div>
     </form>
+  );
+}
+
+/** Visible caption above a field: placeholders vanish once the field is filled ("1", a bare date). */
+function Labeled({ text, children }: { text: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col">
+      <span className="mb-1 text-xs font-semibold text-sea-ink-soft">{text}</span>
+      {children}
+    </div>
   );
 }
