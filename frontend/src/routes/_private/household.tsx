@@ -11,6 +11,7 @@ import {
   renameHouseholdMutation,
   rotateInviteCodeMutation,
 } from "#/api/@tanstack/react-query.gen";
+import { HouseholdSettings } from "#/components/HouseholdSettings";
 import { Button } from "#/components/ui/Button";
 import { Input } from "#/components/ui/Input";
 import { getApiErrorMessage } from "#/lib/api";
@@ -280,6 +281,13 @@ function HouseholdDetails({
           </div>
         )}
       </div>
+
+      {user.householdSettings && (
+        <HouseholdSettings
+          settings={user.householdSettings}
+          isAdmin={isAdmin}
+        />
+      )}
 
       <div className="island-shell mt-4 rounded-2xl p-6">
         <h2 className="mb-3 text-base font-semibold text-sea-ink">Miembros ({members.length})</h2>

@@ -92,6 +92,16 @@ public static class HouseholdEndpoints
             .WithSummary("Cambia el nombre del hogar (solo admin)");
 
         group
+            .MapPut(
+                "/settings",
+                async Task<Ok<HouseholdSettingsDto>> ([FromBody] UpdateHouseholdSettingsCommand command, ISender mediator, CancellationToken ct) =>
+                    TypedResults.Ok(await mediator.Send(command, ct))
+            )
+            .RequireAuthorization("RequiresHousehold")
+            .WithName("UpdateHouseholdSettings")
+            .WithSummary("Actualiza día de compra, moneda y zona horaria del hogar (solo admin)");
+
+        group
             .MapPost(
                 "/invite-code/rotate",
                 async Task<Results<Ok<HouseholdDto>, UnauthorizedHttpResult>> (ISender mediator, CancellationToken ct) =>

@@ -145,6 +145,8 @@ builder.Services.AddHealthChecks().AddDbContextCheck<AppDbContext>();
 
 var app = builder.Build();
 
+HouseholdTime.Configure(app.Services.GetRequiredService<ILoggerFactory>());
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
