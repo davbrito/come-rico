@@ -14,7 +14,7 @@ Manages, per environment (`var.environment`):
   [neon.com/docs/reference/terraform](https://neon.com/docs/reference/terraform))
 - **Cloudflare R2**: the image storage bucket, its CORS policy, and a
   custom domain (`storage-<environment>.<base_domain>`, e.g.
-  `storage-prod.comerico.davbrito.dev` by default)
+  `storage-prod.rebasto.davbrito.dev` by default)
 - **CORS**: the Lambda function's `Cors__*` env vars, allowing the
   frontend's origin(s) to call it directly — see
   [Vercel (frontend)](#vercel-frontend)

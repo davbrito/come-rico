@@ -32,18 +32,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "ComeRico — ¿Qué vamos a comer?" },
+      { title: "Rebasto — lista de compras y menú del hogar" },
       {
         name: "description",
         content:
-          "Organiza los platillos de tu hogar, gira la ruleta para decidir qué comer y genera tu lista de compras automáticamente.",
+          "Lleva la lista de compras de tu hogar, avisa qué se acabó y planifica el menú de la semana en un solo lugar.",
       },
       // Open Graph / social share
-      { property: "og:title", content: "ComeRico — ¿Qué vamos a comer?" },
+      { property: "og:title", content: "Rebasto — lista de compras y menú del hogar" },
       {
         property: "og:description",
         content:
-          "Organiza los platillos de tu hogar, gira la ruleta para decidir qué comer y genera tu lista de compras automáticamente.",
+          "Lleva la lista de compras de tu hogar, avisa qué se acabó y planifica el menú de la semana en un solo lugar.",
       },
       { property: "og:image", content: `${OG_BASE}/og-image` },
       { property: "og:type", content: "website" },

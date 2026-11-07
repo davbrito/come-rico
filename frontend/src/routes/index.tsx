@@ -10,13 +10,13 @@ function HomePage() {
       <section className="island-shell rise-in relative overflow-hidden rounded-4xl px-6 py-10 sm:px-10 sm:py-14">
         <div className="pointer-events-none absolute -top-24 -left-20 h-56 w-56 rounded-full bg-[radial-gradient(circle,rgba(249,115,22,0.22),transparent_66%)]" />
         <div className="pointer-events-none absolute -right-20 -bottom-20 h-56 w-56 rounded-full bg-[radial-gradient(circle,rgba(239,68,68,0.12),transparent_66%)]" />
-        <p className="island-kicker mb-3">¡Bienvenido a ComeRico!</p>
+        <p className="island-kicker mb-3">¡Bienvenido a Rebasto!</p>
         <h1 className="display-title mb-5 max-w-3xl text-4xl leading-[1.02] font-bold tracking-tight text-sea-ink sm:text-6xl">
-          ¿Qué vamos a comer hoy? 🍽️
+          Lo que hace falta en casa, y qué vamos a comer 🛒
         </h1>
         <p className="mb-8 max-w-2xl text-base text-sea-ink-soft sm:text-lg">
-          Organiza los platillos de tu hogar y planifica la semana sin complicarte:{" "}
-          <em>¿qué comemos?</em>
+          Lleva la lista de compras del hogar, marca lo que se acabó y planifica el menú de la
+          semana sin complicarte: <em>¿qué falta y qué comemos?</em>
         </p>
         <div className="flex flex-wrap gap-3">
           <Button nativeButton={false} render={<Link to="/dishes" />}>

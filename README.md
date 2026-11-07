@@ -1,6 +1,8 @@
-# ComeRico
+# Rebasto
 
-A domestic/family app to plan meals: manage dishes, schedule a weekly meal plan, and generate a shopping list. Built for households; user-facing copy is in Spanish.
+> Formerly "ComeRico". Code namespaces, packages and infrastructure resource names keep the old name on purpose (see the rebranding spike).
+
+A domestic/family app to keep the household stocked: shopping list, product restock tracking, dishes and a weekly meal plan. Rebasto = *re* + *abasto*. Built for households; user-facing copy is in Spanish.
 
 ## Tech Stack
 

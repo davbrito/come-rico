@@ -30,7 +30,7 @@ export default function Header() {
             className="inline-flex items-center gap-2 rounded-full border border-chip-line bg-chip-bg px-3 py-1.5 text-sm text-sea-ink no-underline shadow-[0_8px_24px_rgba(30,90,72,0.08)] sm:px-4 sm:py-2"
           >
             <img src="/favicon.svg" alt="" className="h-5 w-5" />
-            ComeRico
+            Rebasto
           </Link>
         </h2>
 
