@@ -41,6 +41,8 @@ public class HouseholdSettingsTests
     [Theory]
     [InlineData("USD", "America/Caracas", true)]
     [InlineData("eur", "UTC", true)]
+    [InlineData(" usd ", "UTC", true)]
+    [InlineData("HRK", "UTC", false)]
     [InlineData("XXX1", "UTC", false)]
     [InlineData("ZZZ", "UTC", false)]
     [InlineData("USD", "Nope", false)]

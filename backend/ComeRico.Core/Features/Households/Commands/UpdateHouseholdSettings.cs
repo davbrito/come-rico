@@ -37,7 +37,7 @@ public sealed class UpdateHouseholdSettingsCommandHandler(IAppDbContext dbContex
 
         household.SetShoppingDay(request.ShoppingDay);
         household.SetDefaultCurrency(request.DefaultCurrency);
-        household.SetTimeZone(request.TimeZone.Trim());
+        household.SetTimeZone(request.TimeZone);
 
         await dbContext.SaveChangesAsync(cancellationToken);
         return new HouseholdSettingsDto(household.ShoppingDay, household.DefaultCurrency, household.TimeZone);

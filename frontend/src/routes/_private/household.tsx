@@ -284,8 +284,6 @@ function HouseholdDetails({
 
       {user.householdSettings && (
         <HouseholdSettings
-          // remount when the server values change so the form re-syncs
-          key={JSON.stringify(user.householdSettings)}
           settings={user.householdSettings}
           isAdmin={isAdmin}
         />

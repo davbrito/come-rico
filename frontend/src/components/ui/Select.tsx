@@ -9,6 +9,7 @@ export interface SelectProps<T> {
   placeholder?: React.ReactNode;
   className?: string;
   size?: "sm" | "md";
+  disabled?: boolean;
 }
 
 const triggerSizeClasses = {
@@ -23,11 +24,13 @@ export function Select<T>({
   placeholder,
   className,
   size = "md",
+  disabled,
 }: SelectProps<T>) {
   return (
     <BaseSelect.Root
       items={items}
       value={value}
+      disabled={disabled}
       onValueChange={(next) => {
         if (next != null) onValueChange(next as T);
       }}

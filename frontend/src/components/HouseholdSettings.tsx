@@ -92,17 +92,27 @@ export function HouseholdSettings({
       <div className="space-y-4">
         <label className="block">
           <span className="mb-1 block text-xs font-semibold text-sea-ink-soft">Día de compra</span>
-          <Select items={DAY_ITEMS} value={day} onValueChange={setDay} />
+          <Select items={DAY_ITEMS} value={day} onValueChange={setDay} disabled={!isAdmin} />
         </label>
 
         <label className="block">
           <span className="mb-1 block text-xs font-semibold text-sea-ink-soft">Moneda</span>
-          <Select items={currencyItems} value={currency} onValueChange={setCurrency} />
+          <Select
+            items={currencyItems}
+            value={currency}
+            onValueChange={setCurrency}
+            disabled={!isAdmin}
+          />
         </label>
 
         <div>
           <span className="mb-1 block text-xs font-semibold text-sea-ink-soft">Zona horaria</span>
-          <Select items={zoneItems} value={timeZone} onValueChange={setTimeZone} />
+          <Select
+            items={zoneItems}
+            value={timeZone}
+            onValueChange={setTimeZone}
+            disabled={!isAdmin}
+          />
           {isAdmin && timeZone !== device && (
             <Button
               type="button"
