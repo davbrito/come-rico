@@ -1,5 +1,5 @@
 import { useMutation, useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Check, Pencil, RefreshCw, X } from "lucide-react";
 import { useState } from "react";
 
@@ -15,6 +15,7 @@ import { HouseholdSettings } from "#/components/HouseholdSettings";
 import { Button } from "#/components/ui/Button";
 import { Input } from "#/components/ui/Input";
 import { getApiErrorMessage } from "#/lib/api";
+import { useRefreshSession } from "#/server/auth";
 
 export const Route = createFileRoute("/_private/household")({
   loader: async ({ context }) => {
@@ -39,7 +40,7 @@ function HouseholdPage() {
 }
 
 function HouseholdOnboard() {
-  const router = useRouter();
+  const refreshSession = useRefreshSession();
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
@@ -47,7 +48,7 @@ function HouseholdOnboard() {
   const createMut = useMutation({
     ...createHouseholdMutation(),
     onSuccess: async () => {
-      await router.invalidate();
+      await refreshSession();
       navigate({ to: "/" });
     },
   });
@@ -55,7 +56,7 @@ function HouseholdOnboard() {
   const joinMut = useMutation({
     ...joinHouseholdMutation(),
     onSuccess: async () => {
-      await router.invalidate();
+      await refreshSession();
       navigate({ to: "/" });
     },
   });
@@ -134,7 +135,7 @@ function HouseholdDetails({
 }: {
   user: NonNullable<ReturnType<typeof Route.useRouteContext>["user"]>;
 }) {
-  const router = useRouter();
+  const refreshSession = useRefreshSession();
   const navigate = useNavigate();
   const { data: members } = useSuspenseQuery(getHouseholdMembersOptions());
   const [copied, setCopied] = useState(false);
@@ -158,7 +159,7 @@ function HouseholdDetails({
       setEditing(true);
     },
     onSettled: async () => {
-      await router.invalidate();
+      await refreshSession();
       setOptimisticName(null);
     },
   });
@@ -166,14 +167,14 @@ function HouseholdDetails({
   const rotateCodeMut = useMutation({
     ...rotateInviteCodeMutation(),
     onSuccess: async () => {
-      await router.invalidate();
+      await refreshSession();
     },
   });
 
   const leaveMut = useMutation({
     ...leaveHouseholdMutation(),
     onSuccess: async () => {
-      await router.invalidate();
+      await refreshSession();
       navigate({ to: "/household" });
     },
   });
@@ -283,10 +284,7 @@ function HouseholdDetails({
       </div>
 
       {user.householdSettings && (
-        <HouseholdSettings
-          settings={user.householdSettings}
-          isAdmin={isAdmin}
-        />
+        <HouseholdSettings settings={user.householdSettings} isAdmin={isAdmin} />
       )}
 
       <div className="island-shell mt-4 rounded-2xl p-6">

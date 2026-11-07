@@ -1,4 +1,5 @@
-import { queryOptions } from "@tanstack/react-query";
+import { queryOptions, useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "@tanstack/react-router";
 
 import { getCurrentUser } from "#/api";
 import type { CurrentUserDto } from "#/api/types.gen";
@@ -33,3 +34,27 @@ export const authUserOptions = () =>
     queryKey: ["auth-user"],
     queryFn: () => fetchCurrentUser(),
   });
+
+/**
+ * After anything that changes the session (login, register, household created/joined/left, profile or
+ * household settings saved): re-reads the user into the "auth-user" cache, then re-runs the route guards.
+ * `router.invalidate()` alone isn't enough: `/_private` reads the user with `staleTime: "static"`, so it
+ * would keep the stale one (the header would still say "Entrar", the menu would miss the household pages).
+ */
+export function useRefreshSession() {
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  return async () => {
+    queryClient.setQueryData(authUserOptions().queryKey, await fetchCurrentUser());
+    await router.invalidate();
+  };
+}
+
+/** On logout / account deletion: drops every cached query (they belong to that user's household). */
+export function useClearSession() {
+  const queryClient = useQueryClient();
+  return () => {
+    queryClient.removeQueries();
+    queryClient.setQueryData(authUserOptions().queryKey, null);
+  };
+}
