@@ -45,7 +45,7 @@ remote_state {
 # genuinely varies by environment (environment, app_name_unique_suffix)
 # stays in live/<env>/terragrunt.hcl instead of here.
 inputs = {
-  base_domain           = "comerico.davbrito.dev"
+  base_domain           = "rebasto.davbrito.dev"
   github_repository     = "davbrito/come-rico"
   cloudflare_account_id = local.cloudflare_account_id
   cloudflare_zone_id    = get_env("CLOUDFLARE_ZONE_ID")

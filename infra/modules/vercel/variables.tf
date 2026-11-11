@@ -12,6 +12,12 @@ variable "base_domain" {
   type = string
 }
 
+variable "legacy_domain" {
+  description = "Pre-rebranding domain (ComeRico). Kept attached to the Vercel project only to 301-redirect to var.base_domain. Set to null to drop the redirect."
+  type        = string
+  default     = "comerico.davbrito.dev"
+}
+
 variable "prod_backend_url" {
   description = "Prod backend's URL (https://...), from ../../live/prod via a Terragrunt dependency block. Used for the production Vercel deployment (host == var.base_domain)."
   type        = string

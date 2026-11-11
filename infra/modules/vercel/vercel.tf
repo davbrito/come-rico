@@ -65,3 +65,15 @@ resource "vercel_project_domain" "frontend" {
   project_id = data.vercel_project.frontend.id
   domain     = var.base_domain
 }
+
+# 301 from the pre-rebranding domain (ComeRico) to the new one (Rebasto).
+# The old hostname must still resolve (CNAME to Vercel) for the redirect
+# to be served.
+resource "vercel_project_domain" "legacy_redirect" {
+  count = var.legacy_domain == null ? 0 : 1
+
+  project_id           = data.vercel_project.frontend.id
+  domain               = var.legacy_domain
+  redirect             = vercel_project_domain.frontend.domain
+  redirect_status_code = 301
+}

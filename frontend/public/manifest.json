@@ -1,7 +1,7 @@
 {
-  "short_name": "ComeRico",
-  "name": "ComeRico — ¿Qué vamos a comer?",
-  "description": "Organiza los platillos de tu hogar, gira la ruleta para decidir qué comer y genera tu lista de compras automáticamente.",
+  "short_name": "Rebasto",
+  "name": "Rebasto: lista de compras de casa",
+  "description": "Lleva la lista de compras de tu hogar, avisa qué se acabó y planifica el menú de la semana en un solo lugar.",
   "icons": [
     {
       "src": "/favicon.png",
