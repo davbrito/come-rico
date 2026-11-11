@@ -9,6 +9,13 @@ name: migrate-database
 # dotnet CLI) is the only supported way to apply them outside a
 # developer's machine.
 on:
+  # Called by release.yml before the Production backend deploy.
+  workflow_call:
+    inputs:
+      environment:
+        description: Environment to migrate
+        type: string
+        required: true
   workflow_dispatch:
     inputs:
       environment:

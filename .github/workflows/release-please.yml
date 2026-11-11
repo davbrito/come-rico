@@ -1,0 +1,41 @@
+name: release-please
+
+# Keeps a "chore(main): release X.Y.Z" PR open, with the version computed
+# from the Conventional Commits since the last release (feat → minor,
+# fix → patch, `!`/BREAKING CHANGE → major) and the CHANGELOG. Merging that
+# PR is the release: release-please tags vX.Y.Z and creates the GitHub
+# release, then the `release` job below publishes it to Production.
+#
+# The release is called here instead of being left to the tag's own push
+# event because a tag created with the default GITHUB_TOKEN doesn't trigger
+# other workflows.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+  id-token: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  release:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    uses: ./.github/workflows/release.yml
+    with:
+      tag: ${{ needs.release-please.outputs.tag_name }}
+    secrets: inherit
