@@ -13,6 +13,14 @@ public enum ShoppingItemSource
     Recurring,
 }
 
+/// <summary>Pending → InCart (reversible, no side effects) → Purchased (only at checkout).</summary>
+public enum ShoppingItemStatus
+{
+    Pending,
+    InCart,
+    Purchased,
+}
+
 public class ShoppingItem : IHasHousehold
 {
     public Guid Id { get; private set; }
@@ -25,8 +33,15 @@ public class ShoppingItem : IHasHousehold
     /// <summary>The catalog product it came from (or was linked to with "hacer recurrente").</summary>
     public Guid? ProductId { get; private set; }
 
-    public bool IsPurchased { get; private set; }
+    public ShoppingItemStatus Status { get; private set; }
+
+    /// <summary>When someone put it in the cart, and who ("lo tomó Ana"); only while <see cref="ShoppingItemStatus.InCart"/> or after.</summary>
+    public DateTime? InCartAt { get; private set; }
+    public Guid? InCartByUserId { get; private set; }
+
+    /// <summary>Set at checkout, together with <see cref="ShoppingTripId"/>.</summary>
     public DateTime? PurchasedAt { get; private set; }
+    public Guid? ShoppingTripId { get; private set; }
 
     /// <summary>
     /// A menu item the user removed ("ya tengo"). It is hidden instead of deleted so the next sync
@@ -38,8 +53,11 @@ public class ShoppingItem : IHasHousehold
 
     public Household Household { get; private set; } = null!;
 
-    /// <summary>Still to buy: not purchased and not dismissed.</summary>
-    public bool IsPending => !IsPurchased && DismissedAt is null;
+    /// <summary>Still to buy and not yet in the cart.</summary>
+    public bool IsPending => Status == ShoppingItemStatus.Pending && DismissedAt is null;
+
+    /// <summary>Shown on the list: pending or in the cart (purchased ones leave it at checkout).</summary>
+    public bool IsOnList => Status != ShoppingItemStatus.Purchased && DismissedAt is null;
 
     private ShoppingItem() { }
 
@@ -91,7 +109,18 @@ public class ShoppingItem : IHasHousehold
             now
         );
 
+    /// <summary>Someone set the quantity by hand ("eché 2"): the menu sync keeps it instead of recomputing it.</summary>
+    public bool QuantityOverridden { get; private set; }
+
+    /// <summary>Quantity computed by the sync (only while nobody overrode it).</summary>
     public void SetQuantity(decimal? quantity) => Quantity = quantity;
+
+    /// <summary>Quantity typed by a person; the sync won't change it afterwards.</summary>
+    public void OverrideQuantity(decimal? quantity)
+    {
+        Quantity = quantity;
+        QuantityOverridden = true;
+    }
 
     /// <summary>"Hacer recurrente": the manual item now stands for a catalog product.</summary>
     public void LinkToProduct(Guid productId)
@@ -100,16 +129,39 @@ public class ShoppingItem : IHasHousehold
         Source = ShoppingItemSource.Recurring;
     }
 
-    public void MarkPurchased(DateTime now)
+    /// <summary>"Al carrito": no effect on the product or its history, so it can be undone freely.</summary>
+    public void PutInCart(Guid userId, DateTime now)
     {
-        IsPurchased = true;
-        PurchasedAt = now;
+        if (Status != ShoppingItemStatus.Pending)
+            return;
+        Status = ShoppingItemStatus.InCart;
+        InCartAt = now;
+        InCartByUserId = userId;
     }
 
-    public void MarkPending()
+    public void TakeOutOfCart()
     {
-        IsPurchased = false;
+        if (Status != ShoppingItemStatus.InCart)
+            return;
+        Status = ShoppingItemStatus.Pending;
+        InCartAt = null;
+        InCartByUserId = null;
+    }
+
+    /// <summary>Checkout: the cart becomes a purchase of <paramref name="tripId"/>.</summary>
+    public void ConfirmPurchase(Guid tripId, DateTime now)
+    {
+        Status = ShoppingItemStatus.Purchased;
+        PurchasedAt = now;
+        ShoppingTripId = tripId;
+    }
+
+    /// <summary>Undoing a checkout puts the item back in the cart, as it was before paying.</summary>
+    public void UndoPurchase()
+    {
+        Status = ShoppingItemStatus.InCart;
         PurchasedAt = null;
+        ShoppingTripId = null;
     }
 
     public void Dismiss(DateTime now) => DismissedAt ??= now;

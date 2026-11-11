@@ -405,8 +405,11 @@ namespace ComeRico.Infrastructure.Migrations
                     b.Property<Guid>("HouseholdId")
                         .HasColumnType("uuid");
 
-                    b.Property<bool>("IsPurchased")
-                        .HasColumnType("boolean");
+                    b.Property<DateTime?>("InCartAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("InCartByUserId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -423,7 +426,18 @@ namespace ComeRico.Infrastructure.Migrations
                         .HasPrecision(12, 4)
                         .HasColumnType("numeric(12,4)");
 
+                    b.Property<bool>("QuantityOverridden")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("ShoppingTripId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
@@ -435,11 +449,55 @@ namespace ComeRico.Infrastructure.Migrations
 
                     b.HasIndex("ProductId");
 
+                    b.HasIndex("ShoppingTripId");
+
                     b.HasIndex("HouseholdId", "ProductId");
 
                     b.HasIndex("HouseholdId", "Source");
 
-                    b.ToTable("ShoppingItems");
+                    b.HasIndex("HouseholdId", "Status");
+
+                    b.ToTable("ShoppingItems", t =>
+                        {
+                            t.HasCheckConstraint("CK_ShoppingItems_Purchased", "\"Status\" <> 'Purchased' OR \"PurchasedAt\" IS NOT NULL");
+                        });
+                });
+
+            modelBuilder.Entity("ComeRico.Core.Domain.Entities.ShoppingTrip", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("HouseholdId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Origin")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<DateTime?>("RevertedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Store")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HouseholdId", "CompletedAt");
+
+                    b.ToTable("ShoppingTrips", t =>
+                        {
+                            t.HasCheckConstraint("CK_ShoppingTrips_TotalPaid", "(\"TotalPaid_Amount\" IS NULL) = (\"TotalPaid_Currency\" IS NULL)");
+                        });
                 });
 
             modelBuilder.Entity("ComeRico.Core.Domain.Entities.StoredFile", b =>
@@ -938,7 +996,46 @@ namespace ComeRico.Infrastructure.Migrations
                         .HasForeignKey("ProductId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("ComeRico.Core.Domain.Entities.ShoppingTrip", null)
+                        .WithMany()
+                        .HasForeignKey("ShoppingTripId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Household");
+                });
+
+            modelBuilder.Entity("ComeRico.Core.Domain.Entities.ShoppingTrip", b =>
+                {
+                    b.HasOne("ComeRico.Core.Domain.Entities.Household", null)
+                        .WithMany()
+                        .HasForeignKey("HouseholdId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.OwnsOne("ComeRico.Core.Domain.Entities.Money", "TotalPaid", b1 =>
+                        {
+                            b1.Property<Guid>("ShoppingTripId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<decimal>("Amount")
+                                .HasPrecision(12, 2)
+                                .HasColumnType("numeric(12,2)");
+
+                            b1.Property<string>("Currency")
+                                .IsRequired()
+                                .HasMaxLength(3)
+                                .HasColumnType("character(3)")
+                                .IsFixedLength();
+
+                            b1.HasKey("ShoppingTripId");
+
+                            b1.ToTable("ShoppingTrips");
+
+                            b1.WithOwner()
+                                .HasForeignKey("ShoppingTripId");
+                        });
+
+                    b.Navigation("TotalPaid");
                 });
 
             modelBuilder.Entity("ComeRico.Core.Domain.Entities.StoredFile", b =>

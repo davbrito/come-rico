@@ -99,7 +99,7 @@ public class Product : IHasHousehold
 
     /// <summary>
     /// After a purchase is reverted: the cache goes back to the latest purchase still in effect
-    /// (all null if there is none). Out-of-stock and snooze, cleared by the purchase, stay cleared.
+    /// (all null if there is none). Out-of-stock is restored separately (<see cref="RestoreOutOfStock"/>).
     /// </summary>
     public void RestoreLastPurchase(DateOnly? on, decimal? quantity, MeasurementUnit? unit)
     {
@@ -109,6 +109,9 @@ public class Product : IHasHousehold
     }
 
     public void MarkOutOfStock(DateTime now) => OutOfStockAt ??= now;
+
+    /// <summary>After a purchase is reverted: "se acabó" comes back if it was what the history said last.</summary>
+    public void RestoreOutOfStock(DateTime? since) => OutOfStockAt = since;
 
     public void MarkInStock() => OutOfStockAt = null;
 

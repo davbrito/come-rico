@@ -13,6 +13,7 @@ public interface IAppDbContext
     DbSet<Tag> Tags { get; }
     DbSet<MealPlan> MealPlans { get; }
     DbSet<ShoppingItem> ShoppingItems { get; }
+    DbSet<ShoppingTrip> ShoppingTrips { get; }
     DbSet<StoredFile> StoredFiles { get; }
     DbSet<Product> Products { get; }
     DbSet<ProductEvent> ProductEvents { get; }
