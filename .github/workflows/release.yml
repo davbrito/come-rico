@@ -1,90 +1,112 @@
 name: Release
 
+# Publishes a version to Production. Normally called by release-please.yml
+# when its release PR is merged (release-please creates the vX.Y.Z tag and
+# the GitHub release); pushing a v*.*.* tag by hand still works too.
+#
+#   verify CI on the tagged commit → (create the GitHub release if missing)
+#   → migrate the Production database → deploy the backend to Production
+#   → move the `production` branch, which Vercel publishes as the
+#     production frontend (comerico.davbrito.dev).
+#
+# Every step runs on the tagged commit, and each one waits for the previous:
+# the schema is migrated before the new backend starts, and the frontend only
+# moves once its backend is live. The migrate and deploy jobs use the
+# Production GitHub Environment, so its required reviewers approve them.
 on:
   push:
     tags:
       - "v*.*.*"
+  workflow_call:
+    inputs:
+      tag:
+        description: Tag being released (vX.Y.Z)
+        type: string
+        required: true
 
 permissions:
   contents: write
-  actions: write
+  checks: read
+  id-token: write
 
 jobs:
-  release:
+  verify:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      sha: ${{ steps.tag.outputs.sha }}
     steps:
-      - uses: actions/checkout@v7
-
-      # Tags aren't covered by test.yml's own triggers (push-to-main, PRs),
-      # so nothing otherwise stops a tag on a red or unbuilt commit from
-      # cutting a release and dispatching a Production deploy. Require the
-      # tagged commit's checks to have already passed on main first.
-      - name: Verify tagged commit passed CI
+      - id: tag
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
-          status=$(gh api repos/${{ github.repository }}/commits/${{ github.sha }}/check-runs \
-            --jq '[.check_runs[] | select(.name != "release")] | if length == 0 then "missing" elif all(.conclusion == "success") then "success" else "failure" end')
+          sha=$(gh api "repos/${{ github.repository }}/commits/$TAG" --jq .sha)
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "Releasing $TAG ($sha)"
 
+      # Tags aren't covered by test.yml's own triggers, so nothing else stops
+      # a release of a red or unbuilt commit. Wait for test.yml's jobs on the
+      # tagged commit (after a release-PR merge they're still running) and
+      # require both to have passed.
+      - name: Wait for CI on the tagged commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.tag.outputs.sha }}
+        run: |
+          for _ in $(seq 1 90); do
+            status=$(gh api "repos/${{ github.repository }}/commits/$SHA/check-runs" \
+              --jq '[.check_runs[] | select(.name == "backend" or .name == "frontend")]
+                    | if length < 2 then "pending"
+                      elif any(.status != "completed") then "pending"
+                      elif all(.conclusion == "success") then "success"
+                      else "failure" end')
+            [ "$status" != "pending" ] && break
+            sleep 20
+          done
           if [ "$status" != "success" ]; then
-            echo "::error::Tagged commit ${{ github.sha }} has no successful CI checks (status: $status) — refusing to release."
+            echo "::error::CI on $SHA is '$status' — refusing to release."
             exit 1
           fi
 
+      # release-please already created it; a hand-pushed tag hasn't.
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
         run: |
-          gh release create "${{ github.ref_name }}" \
-            --title "${{ github.ref_name }}" \
-            --generate-notes
+          gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1 \
+            || gh release create "$TAG" --repo "${{ github.repository }}" --title "$TAG" --generate-notes --verify-tag
 
-      # The GITHUB_TOKEN release above can't itself trigger deploy-backend's
-      # `on: release` event (Actions blocks the default token from cascading
-      # into other workflows), so dispatch it explicitly — on the tag, so the
-      # backend deployed is the released commit and not whatever main has now.
-      - name: Deploy backend to Production
-        id: backend
+  migrate:
+    needs: verify
+    uses: ./.github/workflows/migrate-database.yml
+    with:
+      environment: Production
+    secrets: inherit
+
+  backend:
+    needs: migrate
+    uses: ./.github/workflows/deploy-backend.yml
+    with:
+      environment: Production
+    secrets: inherit
+
+  # The production frontend is the Vercel deployment of the `production`
+  # branch (Vercel → Settings → Git → Production Branch); pushes to main are
+  # only Previews wired to the Development backend.
+  frontend:
+    needs: [verify, backend]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Move the production branch to the release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
-        run: |
-          started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          gh workflow run deploy-backend.yml --ref "$TAG" -f environment=Production
-
-          # `gh workflow run` doesn't return the run id: find the run it created.
-          run_id=""
-          for _ in $(seq 1 30); do
-            run_id=$(gh run list --workflow deploy-backend.yml --event workflow_dispatch --limit 20 \
-              --json databaseId,headBranch,createdAt \
-              --jq "[.[] | select(.headBranch == \"$TAG\" and .createdAt >= \"$started\")][0].databaseId // empty")
-            [ -n "$run_id" ] && break
-            sleep 5
-          done
-          if [ -z "$run_id" ]; then
-            echo "::error::Couldn't find the deploy-backend run dispatched for $TAG."
-            exit 1
-          fi
-          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
-
-      # The frontend's Production is the Vercel deployment of the `production`
-      # branch (Vercel → Settings → Git → Production Branch); every push to main
-      # is only a Preview, wired to the Development backend. Move `production`
-      # to the released commit only once its backend is live, so the
-      # production frontend never calls endpoints its backend doesn't have yet.
-      - name: Wait for the backend deploy
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh run watch "${{ steps.backend.outputs.run_id }}" --exit-status --interval 15
-
-      - name: Release frontend (move the production branch)
-        env:
-          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ needs.verify.outputs.sha }}
         run: |
           if gh api "repos/${{ github.repository }}/git/refs/heads/production" >/dev/null 2>&1; then
-            gh api -X PATCH "repos/${{ github.repository }}/git/refs/heads/production" \
-              -f sha="${{ github.sha }}" -F force=true
+            gh api -X PATCH "repos/${{ github.repository }}/git/refs/heads/production" -f sha="$SHA" -F force=true
           else
-            gh api -X POST "repos/${{ github.repository }}/git/refs" \
-              -f ref=refs/heads/production -f sha="${{ github.sha }}"
+            gh api -X POST "repos/${{ github.repository }}/git/refs" -f ref=refs/heads/production -f sha="$SHA"
           fi

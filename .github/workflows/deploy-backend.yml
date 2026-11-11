@@ -19,8 +19,15 @@ on:
     paths:
       - "backend/**"
       - ".github/workflows/deploy-backend.yml"
-  release:
-    types: [published]
+  # Production deploys come from release.yml (called as a reusable workflow,
+  # so they run on the released commit and only after the Production
+  # migration), not from a `release` event.
+  workflow_call:
+    inputs:
+      environment:
+        description: Environment to deploy
+        type: string
+        required: true
   workflow_dispatch:
     inputs:
       environment:
@@ -44,7 +51,17 @@ jobs:
       name: ${{ steps.resolve.outputs.name }}
     steps:
       - id: resolve
-        run: echo "name=${{ github.event_name == 'release' && 'Production' || (github.event_name == 'workflow_dispatch' && inputs.environment || 'Development') }}" >> "$GITHUB_OUTPUT"
+        # Called (release.yml) or dispatched: the given environment. A push to main: Development.
+        # workflow_call inputs can't be `choice`, so reject anything else here: an unknown name would
+        # make GitHub create an empty environment (no secrets, no reviewers) instead of failing.
+        env:
+          ENVIRONMENT: ${{ inputs.environment || 'Development' }}
+        run: |
+          case "$ENVIRONMENT" in
+            Development|Production) ;;
+            *) echo "::error::Unknown environment '$ENVIRONMENT' (expected Development or Production)."; exit 1 ;;
+          esac
+          echo "name=$ENVIRONMENT" >> "$GITHUB_OUTPUT"
 
   deploy:
     name: Deploy (${{ needs.resolve-environment.outputs.name }})

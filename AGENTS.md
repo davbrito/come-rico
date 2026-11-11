@@ -118,10 +118,11 @@ dotnet sln add ComeRico.Api/ComeRico.Api.csproj
 - **Two backend URLs, by design:** `frontend/src/lib/api.ts` resolves the API base isomorphically — `window.location.origin` in the browser (→ Vercel rewrite → Azure) and `process.env.BACKEND_URL` on the Start server (→ Azure directly, cookie forwarded manually). Both must point at the backend or auth breaks on one path only.
 
 ### Environments & releases (Development vs Production)
-- **Development** = `main`. Every push to `main` deploys the backend to the Development Lambda (`deploy-backend.yml`), and Vercel builds `main` as a **Preview**, whose `PUBLIC_BACKEND_URL` is the Development backend. Stable URL: Vercel's branch alias for `main` (`come-rico-git-main-…vercel.app`, behind Vercel's deployment protection).
-- **Production** = the latest `v*.*.*` tag. Vercel's Production Branch is **`production`** (not `main`), so `comerico.davbrito.dev` only changes on a release. Pushing a tag runs `release.yml`: checks CI on the tagged commit → creates the GitHub release → dispatches `deploy-backend.yml` **on the tag** for Production → waits for it → only then moves the `production` branch to the tagged commit, so the production frontend never gets ahead of its backend.
-- **Before tagging**, run `migrate-database` with `environment=Production` (migrations are never applied by the app or by the release).
-- Never push to `production` by hand except to roll back (point it at an older release's commit).
+- **Development** = `main`. Every push to `main` deploys the backend to the Development Lambda (`deploy-backend.yml`), and Vercel builds `main` as a **Preview**, whose `PUBLIC_BACKEND_URL` is the Development backend. Stable URL: Vercel's branch alias for `main` (`come-rico-git-main-…vercel.app`, behind Vercel's deployment protection). Development migrations are run by hand (`migrate-database`, `environment=Development`).
+- **Production** = the latest release. Vercel's Production Branch is **`production`** (not `main`), so `comerico.davbrito.dev` only changes on a release.
+- **Releasing = merging release-please's PR.** `release-please.yml` keeps a `chore(main): release X.Y.Z` PR open, computing the version and `CHANGELOG.md` from Conventional Commits since the last release (`feat` → minor, `fix` → patch, `!`/`BREAKING CHANGE` → major; `chore`/`docs`/`ci`/… don't bump). Merging it tags `vX.Y.Z`, creates the GitHub release and calls `release.yml`, which, on the tagged commit: waits for CI (`backend`/`frontend` green) → **migrates the Production database** (`migrate-database.yml`) → deploys the Production backend (`deploy-backend.yml`) → moves the `production` branch (Vercel publishes it). Migrate and deploy use the `Production` GitHub Environment, so its reviewers approve them. Pushing a `v*.*.*` tag by hand runs the same `release.yml`.
+- Because the release migrates before deploying, **write migrations backward-compatible** (expand/contract: add first, drop/rename in a later release) whenever the old backend could run against the new schema.
+- Commit messages must follow Conventional Commits (Dependabot uses `chore(deps)`). Never push to `production` by hand except to roll back (point it at an older release's commit).
 
 ---
 
@@ -130,7 +131,7 @@ dotnet sln add ComeRico.Api/ComeRico.Api.csproj
 - **Email confirmation / password reset:** Not implemented; `AddDefaultTokenProviders()` is already wired for when they're needed.
 - **Tests:** Backend has xUnit coverage (`backend/ComeRico.Tests`, xUnit v3 on Microsoft.Testing.Platform + EF Core InMemory, hand-rolled fakes instead of a mocking library) — run via `dotnet test --solution backend/ComeRico.slnx`. Covers household invite codes, membership/fallback-admin logic, the household create/join flow, EF Core household query-filter isolation (`TenantIsolationTests.cs`), and `ClaimsTenantService` claim resolution. Frontend still has no Vitest coverage.
 - **Database config:** the backend reads `ConnectionStrings:DefaultConnection` only, in ADO.NET `keyword=value` form (`Host=...;Port=...;Database=...;Username=...;Password=...`), set via the `ConnectionStrings__DefaultConnection` env var in production. There is **no** URI-style `DATABASE_URL` parsing in the codebase — earlier docs claimed a `ConnectionStringResolver` that has never existed. Neon's dashboard can emit the ADO.NET format directly.
-- **Migrations policy:** Migrations run exclusively via the dotnet CLI (`dotnet ef database update --project ComeRico.Core --startup-project ComeRico.Api`). The app never auto-migrates at startup, in any environment.
+- **Migrations policy:** Migrations run exclusively via the dotnet CLI (`dotnet ef database update --project ComeRico.Core --startup-project ComeRico.Api`), wrapped by `migrate-database.yml` (by hand for Development; automatically, before the backend deploy, in every Production release). The app never auto-migrates at startup, in any environment.
 
 ---
 

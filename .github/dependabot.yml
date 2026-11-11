@@ -7,11 +7,16 @@ version: 2
 #     all-or-nothing)
 #   - security updates: their own grouped PR; security updates ignore the
 #     version-update groups, so without these they open one PR per advisory
+#   - commit messages use the "chore(deps)" prefix (Conventional Commits, read
+#     by release-please: maintenance, never a version bump on its own)
 updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
+    # Conventional Commits, so release-please files them as maintenance (no version bump).
+    commit-message:
+      prefix: "chore(deps)"
     open-pull-requests-limit: 10
     groups:
       npm-minor-patch:
@@ -28,6 +33,9 @@ updates:
     directory: "/backend"
     schedule:
       interval: "weekly"
+    # Conventional Commits, so release-please files them as maintenance (no version bump).
+    commit-message:
+      prefix: "chore(deps)"
     open-pull-requests-limit: 10
     groups:
       nuget-minor-patch:
@@ -44,6 +52,9 @@ updates:
     directory: "/backend"
     schedule:
       interval: "weekly"
+    # Conventional Commits, so release-please files them as maintenance (no version bump).
+    commit-message:
+      prefix: "chore(deps)"
     groups:
       docker-minor-patch:
         applies-to: version-updates
@@ -59,6 +70,9 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # Conventional Commits, so release-please files them as maintenance (no version bump).
+    commit-message:
+      prefix: "chore(deps)"
     groups:
       github-actions-minor-patch:
         applies-to: version-updates
@@ -82,6 +96,9 @@ updates:
       - "/infra/stack"
     schedule:
       interval: "weekly"
+    # Conventional Commits, so release-please files them as maintenance (no version bump).
+    commit-message:
+      prefix: "chore(deps)"
     groups:
       terraform-minor-patch:
         applies-to: version-updates
