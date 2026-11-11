@@ -25,7 +25,22 @@ on:
         default: Development
 
 jobs:
+  # workflow_call inputs can't be `choice`, so check the name before any job
+  # uses it as `environment:` — an unknown one would make GitHub create an
+  # empty environment (no secrets, no reviewers) instead of failing.
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          ENVIRONMENT: ${{ inputs.environment }}
+        run: |
+          case "$ENVIRONMENT" in
+            Development|Production) ;;
+            *) echo "::error::Unknown environment '$ENVIRONMENT' (expected Development or Production)."; exit 1 ;;
+          esac
+
   migrate:
+    needs: validate
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     steps:

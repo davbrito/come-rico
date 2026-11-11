@@ -52,7 +52,16 @@ jobs:
     steps:
       - id: resolve
         # Called (release.yml) or dispatched: the given environment. A push to main: Development.
-        run: echo "name=${{ inputs.environment || 'Development' }}" >> "$GITHUB_OUTPUT"
+        # workflow_call inputs can't be `choice`, so reject anything else here: an unknown name would
+        # make GitHub create an empty environment (no secrets, no reviewers) instead of failing.
+        env:
+          ENVIRONMENT: ${{ inputs.environment || 'Development' }}
+        run: |
+          case "$ENVIRONMENT" in
+            Development|Production) ;;
+            *) echo "::error::Unknown environment '$ENVIRONMENT' (expected Development or Production)."; exit 1 ;;
+          esac
+          echo "name=$ENVIRONMENT" >> "$GITHUB_OUTPUT"
 
   deploy:
     name: Deploy (${{ needs.resolve-environment.outputs.name }})
