@@ -10,7 +10,7 @@ namespace ComeRico.Core.Features.Dishes.Queries;
 
 public sealed record GetDishesQuery : IRequest<IReadOnlyList<DishDto>>;
 
-public sealed record IngredientDto(Guid Id, string Name, decimal Amount, MeasurementUnit Unit);
+public sealed record IngredientDto(Guid Id, string Name, decimal Quantity, MeasurementUnit Unit);
 
 public sealed record DishDto(
     Guid Id,
@@ -18,6 +18,7 @@ public sealed record DishDto(
     string Name,
     string? Description,
     string? ImageUrl,
+    int Servings,
     bool IsActive,
     DateTime CreatedAt,
     IReadOnlyList<IngredientDto> Ingredients,
@@ -35,9 +36,10 @@ public static class DishDtoMapper
             dish.Name,
             dish.Description,
             storage.ResolveImageUrl(dish.ImageKey),
+            dish.Servings,
             dish.IsActive,
             dish.CreatedAt,
-            [.. dish.Ingredients.OrderBy(i => i.Name).Select(i => new IngredientDto(i.Id, i.Name, i.Amount, i.Unit))],
+            [.. dish.Ingredients.OrderBy(i => i.Name).Select(i => new IngredientDto(i.Id, i.Name, i.Quantity, i.Unit))],
             [.. dish.Tags.OrderBy(t => t.Name).Select(t => new TagDto(t.Id, t.Name))]
         );
 }

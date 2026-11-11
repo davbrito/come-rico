@@ -1,3 +1,4 @@
+using ComeRico.Core.Domain.Entities;
 using ComeRico.Core.Features.Dishes.Queries;
 using ComeRico.Core.Features.Images;
 using ComeRico.Core.Interfaces;
@@ -8,10 +9,16 @@ using Microsoft.EntityFrameworkCore;
 namespace ComeRico.Core.Features.Dishes.Commands;
 
 /// <summary>
-/// ImageUploadId null keeps the current image; set RemoveImage to drop it.
+/// ImageUploadId null keeps the current image; set RemoveImage to drop it. Servings null keeps the current yield.
 /// </summary>
-public sealed record UpdateDishCommand(Guid DishId, string Name, string? Description, Guid? ImageUploadId, bool RemoveImage)
-    : IRequest<DishDto?>;
+public sealed record UpdateDishCommand(
+    Guid DishId,
+    string Name,
+    string? Description,
+    Guid? ImageUploadId,
+    bool RemoveImage,
+    int? Servings = null
+) : IRequest<DishDto?>;
 
 public sealed class UpdateDishCommandValidator : AbstractValidator<UpdateDishCommand>
 {
@@ -27,6 +34,10 @@ public sealed class UpdateDishCommandValidator : AbstractValidator<UpdateDishCom
             .MaximumLength(1000)
             .WithMessage("La descripción no puede superar los 1000 caracteres.")
             .When(x => x.Description is not null);
+        RuleFor(x => x.Servings)
+            .InclusiveBetween(Portions.Min, Portions.Max)
+            .WithMessage($"Las porciones deben estar entre {Portions.Min} y {Portions.Max}.")
+            .When(x => x.Servings is not null);
     }
 }
 
@@ -56,6 +67,8 @@ public sealed class UpdateDishCommandHandler(IAppDbContext dbContext, IFileStora
             await dbContext.StoredFiles.OrphanByKeyAsync(dish.ImageKey, cancellationToken);
 
         dish.Update(request.Name, request.Description, imageKey);
+        if (request.Servings is { } servings)
+            dish.SetServings(servings);
         await dbContext.SaveChangesAsync(cancellationToken);
         return dish.ToDto(storage);
     }

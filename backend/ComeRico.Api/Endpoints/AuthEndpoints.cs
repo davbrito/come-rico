@@ -255,6 +255,6 @@ public static class AuthEndpoints
             household?.Name,
             household?.InviteCode,
             user.Role.ToString(),
-            household is null ? null : new HouseholdSettingsDto(household.ShoppingDay, household.DefaultCurrency, household.TimeZone)
+            household?.ToSettingsDto()
         );
 }

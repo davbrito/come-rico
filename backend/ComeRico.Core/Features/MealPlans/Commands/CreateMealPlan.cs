@@ -1,4 +1,5 @@
 using ComeRico.Core.Domain.Entities;
+using ComeRico.Core.Features.Households;
 using ComeRico.Core.Features.Images;
 using ComeRico.Core.Features.MealPlans.Queries;
 using ComeRico.Core.Interfaces;
@@ -8,7 +9,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ComeRico.Core.Features.MealPlans.Commands;
 
-public sealed record CreateMealPlanCommand(Guid DishId, DateOnly Date, MealType MealType) : IRequest<MealPlanDto>;
+/// <param name="Servings">How many people it's cooked for; null = the household's default.</param>
+public sealed record CreateMealPlanCommand(Guid DishId, DateOnly Date, MealType MealType, int? Servings = null)
+    : IRequest<MealPlanDto>;
 
 public sealed class CreateMealPlanCommandValidator : AbstractValidator<CreateMealPlanCommand>
 {
@@ -16,6 +19,10 @@ public sealed class CreateMealPlanCommandValidator : AbstractValidator<CreateMea
     {
         RuleFor(x => x.DishId).NotEmpty().WithMessage("El platillo es obligatorio.");
         RuleFor(x => x.MealType).IsInEnum().WithMessage("El tipo de comida no es válido.");
+        RuleFor(x => x.Servings)
+            .InclusiveBetween(Portions.Min, Portions.Max)
+            .WithMessage($"Las porciones deben estar entre {Portions.Min} y {Portions.Max}.")
+            .When(x => x.Servings is not null);
     }
 }
 
@@ -35,7 +42,8 @@ public sealed class CreateMealPlanCommandHandler(IAppDbContext dbContext, ITenan
         if (alreadyPlanned)
             throw new InvalidOperationException("Ese platillo ya está planificado para esa comida.");
 
-        var mealPlan = MealPlan.Create(tenantService.HouseholdId, dish.Id, request.Date, request.MealType);
+        var servings = request.Servings ?? await dbContext.GetDefaultServingsAsync(cancellationToken);
+        var mealPlan = MealPlan.Create(tenantService.HouseholdId, dish.Id, request.Date, request.MealType, servings);
         dbContext.MealPlans.Add(mealPlan);
         await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -43,8 +51,10 @@ public sealed class CreateMealPlanCommandHandler(IAppDbContext dbContext, ITenan
             mealPlan.Id,
             mealPlan.Date,
             mealPlan.MealType,
+            mealPlan.Servings,
             dish.Id,
             dish.Name,
+            dish.Servings,
             storage.ResolveImageUrl(dish.ImageKey)
         );
     }
