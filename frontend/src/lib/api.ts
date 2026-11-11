@@ -13,10 +13,12 @@ axios.defaults.adapter = "fetch";
 // per origin with AllowCredentials(), matching this.
 axios.defaults.withCredentials = true;
 
+export const backendUrl: string = import.meta.env.PUBLIC_BACKEND_URL || "http://localhost:5276";
+
 export const createClientConfig: CreateClientConfig = (config) => ({
   ...config,
   axios,
-  baseURL: import.meta.env.PUBLIC_BACKEND_URL || "http://localhost:5276",
+  baseURL: backendUrl,
 });
 
 export interface ErrorMetadata {

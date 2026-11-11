@@ -14,10 +14,7 @@ import { Route as AuthRouteRouteImport } from './routes/_auth/route'
 import { Route as PrivateRouteRouteImport } from './routes/_private/route'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as OgImageRouteImport } from './routes/og-image'
-import { Route as AuthForgotPasswordRouteImport } from './routes/_auth/forgot-password'
 import { Route as AuthLoginRouteImport } from './routes/_auth/login'
-import { Route as AuthRegisterRouteImport } from './routes/_auth/register'
-import { Route as AuthResetPasswordRouteImport } from './routes/_auth/reset-password'
 import { Route as IconsFaviconDotpngRouteImport } from './routes/_icons/favicon[.]png'
 import { Route as IconsFaviconDotsvgRouteImport } from './routes/_icons/favicon[.]svg'
 import { Route as IconsIcon192DotpngRouteImport } from './routes/_icons/icon-192[.]png'
@@ -53,24 +50,9 @@ const OgImageRoute = OgImageRouteImport.update({
   path: '/og-image',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
-  id: '/forgot-password',
-  path: '/forgot-password',
-  getParentRoute: () => AuthRouteRoute,
-} as any)
 const AuthLoginRoute = AuthLoginRouteImport.update({
   id: '/login',
   path: '/login',
-  getParentRoute: () => AuthRouteRoute,
-} as any)
-const AuthRegisterRoute = AuthRegisterRouteImport.update({
-  id: '/register',
-  path: '/register',
-  getParentRoute: () => AuthRouteRoute,
-} as any)
-const AuthResetPasswordRoute = AuthResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
   getParentRoute: () => AuthRouteRoute,
 } as any)
 const IconsFaviconDotpngRoute = IconsFaviconDotpngRouteImport.update({
@@ -135,10 +117,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/og-image': typeof OgImageRoute
-  '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
-  '/register': typeof AuthRegisterRoute
-  '/reset-password': typeof AuthResetPasswordRoute
   '/favicon.png': typeof IconsFaviconDotpngRoute
   '/favicon.svg': typeof IconsFaviconDotsvgRoute
   '/icon-192.png': typeof IconsIcon192DotpngRoute
@@ -154,10 +133,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/og-image': typeof OgImageRoute
-  '/forgot-password': typeof AuthForgotPasswordRoute
   '/login': typeof AuthLoginRoute
-  '/register': typeof AuthRegisterRoute
-  '/reset-password': typeof AuthResetPasswordRoute
   '/favicon.png': typeof IconsFaviconDotpngRoute
   '/favicon.svg': typeof IconsFaviconDotsvgRoute
   '/icon-192.png': typeof IconsIcon192DotpngRoute
@@ -177,10 +153,7 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/og-image': typeof OgImageRoute
   '/_private/_household': typeof PrivateHouseholdRouteRouteWithChildren
-  '/_auth/forgot-password': typeof AuthForgotPasswordRoute
   '/_auth/login': typeof AuthLoginRoute
-  '/_auth/register': typeof AuthRegisterRoute
-  '/_auth/reset-password': typeof AuthResetPasswordRoute
   '/_icons/favicon.png': typeof IconsFaviconDotpngRoute
   '/_icons/favicon.svg': typeof IconsFaviconDotsvgRoute
   '/_icons/icon-192.png': typeof IconsIcon192DotpngRoute
@@ -198,10 +171,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/og-image'
-    | '/forgot-password'
     | '/login'
-    | '/register'
-    | '/reset-password'
     | '/favicon.png'
     | '/favicon.svg'
     | '/icon-192.png'
@@ -217,10 +187,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/og-image'
-    | '/forgot-password'
     | '/login'
-    | '/register'
-    | '/reset-password'
     | '/favicon.png'
     | '/favicon.svg'
     | '/icon-192.png'
@@ -239,10 +206,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/og-image'
     | '/_private/_household'
-    | '/_auth/forgot-password'
     | '/_auth/login'
-    | '/_auth/register'
-    | '/_auth/reset-password'
     | '/_icons/favicon.png'
     | '/_icons/favicon.svg'
     | '/_icons/icon-192.png'
@@ -304,32 +268,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OgImageRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_auth/forgot-password': {
-      id: '/_auth/forgot-password'
-      path: '/forgot-password'
-      fullPath: '/forgot-password'
-      preLoaderRoute: typeof AuthForgotPasswordRouteImport
-      parentRoute: typeof AuthRouteRoute
-    }
     '/_auth/login': {
       id: '/_auth/login'
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof AuthLoginRouteImport
-      parentRoute: typeof AuthRouteRoute
-    }
-    '/_auth/register': {
-      id: '/_auth/register'
-      path: '/register'
-      fullPath: '/register'
-      preLoaderRoute: typeof AuthRegisterRouteImport
-      parentRoute: typeof AuthRouteRoute
-    }
-    '/_auth/reset-password': {
-      id: '/_auth/reset-password'
-      path: '/reset-password'
-      fullPath: '/reset-password'
-      preLoaderRoute: typeof AuthResetPasswordRouteImport
       parentRoute: typeof AuthRouteRoute
     }
     '/_icons/favicon.png': {
@@ -413,17 +356,11 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthRouteRouteChildren {
-  AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
   AuthLoginRoute: typeof AuthLoginRoute
-  AuthRegisterRoute: typeof AuthRegisterRoute
-  AuthResetPasswordRoute: typeof AuthResetPasswordRoute
 }
 
 const AuthRouteRouteChildren: AuthRouteRouteChildren = {
-  AuthForgotPasswordRoute: AuthForgotPasswordRoute,
   AuthLoginRoute: AuthLoginRoute,
-  AuthRegisterRoute: AuthRegisterRoute,
-  AuthResetPasswordRoute: AuthResetPasswordRoute,
 }
 
 const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(

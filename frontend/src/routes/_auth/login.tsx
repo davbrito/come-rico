@@ -1,112 +1,58 @@
-import { useMutation } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { z } from "zod";
 
-import { postApiIdentityLoginMutation } from "#/api/@tanstack/react-query.gen";
-import { useAppForm } from "#/components/form";
 import { Button } from "#/components/ui/Button";
-import { getApiErrorMessage } from "#/lib/api";
-import { useRefreshSession } from "#/server/auth";
+import { loginUrl } from "#/server/auth";
+
+// `error` is set by the backend when it sends the browser back here after a failed sign-in.
+const searchSchema = z.object({ error: z.string().optional() });
 
 export const Route = createFileRoute("/_auth/login")({
+  validateSearch: searchSchema,
   component: LoginPage,
 });
 
-const emailSchema = z.email("Correo electrónico inválido");
-const passwordSchema = z.string().min(8, "Mínimo 8 caracteres");
+const ERROR_MESSAGES: Record<string, string> = {
+  email_not_verified: "Verifica tu correo electrónico antes de entrar.",
+  email_in_use:
+    "Ese correo ya pertenece a otra cuenta. Entra con la cuenta con la que te registraste.",
+};
+const DEFAULT_ERROR = "No pudimos iniciar tu sesión. Inténtalo de nuevo.";
 
 function LoginPage() {
-  const navigate = Route.useNavigate();
-  const refreshSession = useRefreshSession();
-
-  const loginMut = useMutation({
-    ...postApiIdentityLoginMutation(),
-    async onSuccess() {
-      await refreshSession();
-      await navigate({ to: "/" });
-    },
-  });
-  const error = loginMut.error
-    ? loginMut.error.response?.status === 401
-      ? "Credenciales inválidas"
-      : getApiErrorMessage(loginMut.error)
-    : null;
-
-  const form = useAppForm({
-    defaultValues: { email: "", password: "" },
-    onSubmit: async ({ value }) => {
-      await loginMut.mutateAsync({
-        body: { email: value.email, password: value.password },
-        query: { useCookies: true },
-      });
-    },
-  });
+  const { error } = Route.useSearch();
+  const [redirecting, setRedirecting] = useState(false);
 
   return (
     <>
       <h1 className="mb-6 text-center text-2xl font-bold text-sea-ink">👋 Inicia sesión</h1>
 
       {error && (
-        <p className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
-          {error}
+        <p
+          role="alert"
+          className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400"
+        >
+          {ERROR_MESSAGES[error] ?? DEFAULT_ERROR}
         </p>
       )}
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          form.handleSubmit();
-        }}
-        className="island-shell space-y-5 rounded-2xl p-6"
-      >
-        <div className="space-y-3">
-          <form.AppField name="email" validators={{ onChange: emailSchema }}>
-            {(field) => (
-              <field.TextField
-                label="Correo electrónico *"
-                type="email"
-                autoComplete="email"
-                required
-              />
-            )}
-          </form.AppField>
-          <form.AppField name="password" validators={{ onChange: passwordSchema }}>
-            {(field) => (
-              <field.PasswordField label="Contraseña *" autoComplete="current-password" required />
-            )}
-          </form.AppField>
-        </div>
-
-        <p className="text-right text-sm">
-          <Button
-            variant="link"
-            onClick={() => {
-              navigate({ to: "/forgot-password" });
-            }}
-          >
-            ¿Olvidaste tu contraseña?
-          </Button>
-        </p>
-
-        <form.AppForm>
-          <form.SubmitButton pendingLabel="Un momento…" className="w-full">
-            Entrar
-          </form.SubmitButton>
-        </form.AppForm>
-      </form>
-
-      <p className="mt-4 text-center text-sm text-sea-ink-soft">
-        ¿No tienes cuenta?{" "}
+      <div className="island-shell space-y-4 rounded-2xl p-6">
         <Button
-          variant="link"
+          className="w-full"
+          disabled={redirecting}
           onClick={() => {
-            navigate({ to: "/register" });
+            setRedirecting(true);
+            window.location.assign(loginUrl());
           }}
         >
-          Regístrate
+          {redirecting ? "Un momento…" : "Entrar"}
         </Button>
-      </p>
+        <p className="text-center text-sm text-sea-ink-soft">
+          El acceso es solo por invitación. Si recibiste una, usa el enlace del correo para crear tu
+          cuenta.
+        </p>
+      </div>
     </>
   );
 }

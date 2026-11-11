@@ -11,6 +11,7 @@ using ComeRico.Infrastructure.Persistence;
 using ComeRico.Infrastructure.Services;
 using FluentValidation;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -59,20 +60,22 @@ builder.Services.AddScoped<ICurrentUserService, HttpCurrentUserService>();
 builder.Services.AddScoped<IHouseholdMembershipService, HouseholdMembershipService>();
 builder.Services.AddAuthorization();
 
-// ASP.NET Core Identity API — supports both HttpOnly cookie (BFF/SPA) and bearer
-// token (mobile/native) auth in a single setup.
+// ASP.NET Core Identity as the user store + our session cookie. Credentials are NOT
+// ours: sign-in happens at WorkOS AuthKit (see AuthEndpoints), so there are no password
+// options, lockout or token providers here.
+builder.Services.AddAuthentication(IdentityConstants.ApplicationScheme).AddIdentityCookies();
 builder
-    .Services.AddIdentityApiEndpoints<AppUser>(options =>
-    {
-        options.User.RequireUniqueEmail = true;
-        options.Password.RequiredLength = 8;
-        options.Password.RequireNonAlphanumeric = false;
-        options.Password.RequireUppercase = false;
-        options.Lockout.MaxFailedAccessAttempts = 5;
-        options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
-    })
+    .Services.AddIdentityCore<AppUser>(options => options.User.RequireUniqueEmail = true)
     .AddEntityFrameworkStores<AppDbContext>()
+    .AddSignInManager()
     .AddClaimsPrincipalFactory<AppUserClaimsPrincipalFactory>();
+
+// WorkOS AuthKit: the identity provider. The backend redirects to it, exchanges the code
+// server-side and issues its own cookie (BFF).
+builder.Services.AddOptions<WorkOsOptions>().BindConfiguration(WorkOsOptions.SectionName);
+builder.Services.AddHttpClient<IWorkOsClient, WorkOsClient>(client => client.Timeout = TimeSpan.FromSeconds(10));
+builder.Services.AddScoped<AuthKitUserProvisioner>();
+builder.Services.AddSingleton<LoginFlow>();
 
 // Persist Data Protection keys in the shared database so auth cookies remain
 // valid across container instances and restarts (in-memory keys caused random

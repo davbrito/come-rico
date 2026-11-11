@@ -107,6 +107,14 @@ resource "aws_lambda_function" "api" {
         "R2__BucketName"                       = cloudflare_r2_bucket.images.name
         "R2__PublicBaseUrl"                    = local.r2_public_base_url
         "CRON_SECRET"                          = random_password.cron_secret.result
+        # WorkOS AuthKit (identity provider) — see ../workos.md. Issued by
+        # the WorkOS dashboard per environment (staging for dev, production
+        # for prod), so they come from Infisical. try(): until the secrets
+        # exist there, the function still deploys and /api/auth/login
+        # answers 503 instead of the whole apply failing.
+        "WorkOS__ApiKey"           = try(data.infisical_secrets.this.secrets["WORKOS_API_KEY"].value, "")
+        "WorkOS__ClientId"         = try(data.infisical_secrets.this.secrets["WORKOS_CLIENT_ID"].value, "")
+        "WorkOS__DefaultReturnUrl" = local.frontend_default_url
       },
       # ASP.NET Core binds array config from indexed double-underscore
       # keys (Cors__AllowedOrigins__0, __1, ...) — see local.cors_allowed_origins
@@ -140,4 +148,9 @@ locals {
   # stack/README.md#vercel-frontend for why dev doesn't get its own
   # base_domain-scoped hostname the way prod does.
   cors_allowed_origins = var.environment == "prod" ? ["https://${var.base_domain}"] : ["https://*.vercel.app"]
+
+  # Where a login that didn't start in our app lands (an invitation
+  # accepted at AuthKit). Dev has no fixed frontend origin (see above), so
+  # there such a login just asks the person to start again from the app.
+  frontend_default_url = var.environment == "prod" ? "https://${var.base_domain}/" : ""
 }
