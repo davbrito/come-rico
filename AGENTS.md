@@ -117,6 +117,12 @@ dotnet sln add ComeRico.Api/ComeRico.Api.csproj
 - **REST** (`/api/*`) for CRUD operations — in dev, proxied via Nitro's `devProxy` (configured on the `nitro()` plugin in `vite.config.ts`; Vite's own `server.proxy` is NOT used because the Nitro dev server handles requests first). In production, `vercel.json` rewrites route these paths to the Azure App Service backend (see `infra/azure.md`) — server-side, so the browser only ever sees the Vercel origin and the `__Host-` auth cookie stays same-origin.
 - **Two backend URLs, by design:** `frontend/src/lib/api.ts` resolves the API base isomorphically — `window.location.origin` in the browser (→ Vercel rewrite → Azure) and `process.env.BACKEND_URL` on the Start server (→ Azure directly, cookie forwarded manually). Both must point at the backend or auth breaks on one path only.
 
+### Environments & releases (Development vs Production)
+- **Development** = `main`. Every push to `main` deploys the backend to the Development Lambda (`deploy-backend.yml`), and Vercel builds `main` as a **Preview**, whose `PUBLIC_BACKEND_URL` is the Development backend. Stable URL: Vercel's branch alias for `main` (`come-rico-git-main-…vercel.app`, behind Vercel's deployment protection).
+- **Production** = the latest `v*.*.*` tag. Vercel's Production Branch is **`production`** (not `main`), so `comerico.davbrito.dev` only changes on a release. Pushing a tag runs `release.yml`: checks CI on the tagged commit → creates the GitHub release → dispatches `deploy-backend.yml` **on the tag** for Production → waits for it → only then moves the `production` branch to the tagged commit, so the production frontend never gets ahead of its backend.
+- **Before tagging**, run `migrate-database` with `environment=Production` (migrations are never applied by the app or by the release).
+- Never push to `production` by hand except to roll back (point it at an older release's commit).
+
 ---
 
 ## 5. Known Issues & Next Steps
