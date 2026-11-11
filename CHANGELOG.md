@@ -7,11 +7,8 @@
 
 * catálogo de productos del hogar con intervalo de reposición e historial de eventos ([#71](https://github.com/davbrito/come-rico/issues/71)) ([adeea79](https://github.com/davbrito/come-rico/commit/adeea79f116a667c36597f0f485d0ce1c1835ef1))
 * configuración del hogar (día de compra, moneda, zona horaria) y respaldo a UTC ([#80](https://github.com/davbrito/come-rico/issues/80)) ([b152b07](https://github.com/davbrito/come-rico/commit/b152b0707ee0aabb06c5d0a682302c0b5d8bf69a))
-* lista de compras unificada (recurrentes + agotados + menú + manuales) ([37cf61f](https://github.com/davbrito/come-rico/commit/37cf61f3bc3a0c22faefa4b85441a268502cffd4))
 * lista de compras unificada (recurrentes + agotados + menú + manuales) ([#59](https://github.com/davbrito/come-rico/issues/59)) ([127c33a](https://github.com/davbrito/come-rico/commit/127c33aaede3d62e94499a5160dca1595bb87dd9))
-* modo compra con carrito y confirmación en caja ([60f4c3a](https://github.com/davbrito/come-rico/commit/60f4c3aeccbc0d36aaa46d4ae35bccaf582f43b3))
 * modo compra con carrito y confirmación en caja ([#60](https://github.com/davbrito/come-rico/issues/60)) ([30362a4](https://github.com/davbrito/come-rico/commit/30362a4c47ade0550a579b84be739f72c70365cb))
-* porciones en platillos y en el menú ([501f720](https://github.com/davbrito/come-rico/commit/501f7207145baa635c2275e1d13f22e24120a9e1))
 * porciones en platillos y en el menú ([#61](https://github.com/davbrito/come-rico/issues/61)) ([2e4df9b](https://github.com/davbrito/come-rico/commit/2e4df9b7da76f80d2a9e8d4e4246320ccd8c9bba))
 
 
