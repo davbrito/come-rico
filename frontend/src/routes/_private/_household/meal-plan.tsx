@@ -1,16 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useState } from "react";
 
 import {
   createMealPlanMutation,
   deleteMealPlanMutation,
-  generateShoppingListMutation,
   getDishesOptions,
   getMealPlansOptions,
   getMealPlansQueryKey,
-  getShoppingItemsQueryKey,
 } from "#/api/@tanstack/react-query.gen";
 import type { MealType } from "#/api/types.gen";
 import { Button } from "#/components/ui/Button";
@@ -54,15 +52,9 @@ function MealPlanPage() {
 
   const deleteMut = useMutation({ ...deleteMealPlanMutation(), onSuccess: invalidate });
 
-  const generateMut = useMutation({
-    ...generateShoppingListMutation(),
-    onSuccess: () => qc.invalidateQueries({ queryKey: getShoppingItemsQueryKey() }),
-  });
-
   const error =
     (createMut.isError && getApiErrorMessage(createMut.error)) ||
     (deleteMut.isError && getApiErrorMessage(deleteMut.error)) ||
-    (generateMut.isError && getApiErrorMessage(generateMut.error)) ||
     null;
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -104,19 +96,13 @@ function MealPlanPage() {
         </p>
       )}
 
-      {generateMut.isSuccess && (
-        <p className="mb-4 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700 dark:bg-green-900/20 dark:text-green-400">
-          Lista de compras generada con {generateMut.data?.length} ingrediente(s) consolidados.
-        </p>
-      )}
-
       <div className="mb-6 flex justify-end">
-        <Button
-          onClick={() => generateMut.mutate({ body: { anyDateInWeek: from } })}
-          disabled={generateMut.isPending}
+        <Link
+          to="/shopping"
+          className="rounded-full bg-orange-700 px-4 py-2 text-sm font-semibold text-white no-underline hover:bg-orange-800"
         >
-          {generateMut.isPending ? "Generando…" : "🛒 Generar lista de compras de esta semana"}
-        </Button>
+          🛒 Ver lista de compras
+        </Link>
       </div>
 
       {isLoading ? (

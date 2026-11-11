@@ -1,5 +1,6 @@
 using ComeRico.Core.Domain.Entities;
 using ComeRico.Core.Features.Products.Queries;
+using ComeRico.Core.Features.Shopping;
 using ComeRico.Core.Interfaces;
 using FluentValidation;
 using MediatR;
@@ -89,6 +90,7 @@ public sealed class UpdateProductCommandHandler(
             );
         }
 
+        await dbContext.SyncProductOnListAsync(product, ctx, now, cancellationToken);
         await dbContext.SaveChangesAsync(cancellationToken);
         return product.ToDto(ctx);
     }

@@ -1,3 +1,4 @@
+using ComeRico.Core.Domain.Entities;
 using ComeRico.Core.Features.Shopping.Commands;
 using ComeRico.Core.Features.Shopping.Queries;
 using MediatR;
@@ -42,19 +43,32 @@ public static class ShoppingEndpoints
 
         group
             .MapPost(
-                "/generate",
-                async Task<Ok<IReadOnlyList<ShoppingItemDto>>> (
-                    [FromBody] GenerateShoppingListCommand command,
+                "/sync",
+                async Task<Ok<IReadOnlyList<ShoppingItemDto>>> (ISender mediator, CancellationToken ct) =>
+                    TypedResults.Ok(await mediator.Send(new SyncShoppingListCommand(), ct))
+            )
+            .WithName("SyncShoppingList")
+            .WithSummary("Actualiza la lista: productos que tocan o se acabaron + ingredientes del menú (idempotente)");
+
+        group
+            .MapPost(
+                "/{id:guid}/make-recurring",
+                async Task<Results<Ok<ShoppingItemDto>, NotFound>> (
+                    Guid id,
+                    [FromBody] MakeRecurringRequest body,
                     ISender mediator,
                     CancellationToken ct
                 ) =>
                 {
-                    var result = await mediator.Send(command, ct);
-                    return TypedResults.Ok(result);
+                    var result = await mediator.Send(
+                        new MakeShoppingItemRecurringCommand(id, body.Category, body.RestockIntervalDays),
+                        ct
+                    );
+                    return result is null ? TypedResults.NotFound() : TypedResults.Ok(result);
                 }
             )
-            .WithName("GenerateShoppingList")
-            .WithSummary("Genera la lista de compras consolidando los ingredientes del plan semanal");
+            .WithName("MakeShoppingItemRecurring")
+            .WithSummary("Convierte un artículo manual en un producto del catálogo y lo vincula");
 
         group
             .MapPatch(
@@ -83,10 +97,14 @@ public static class ShoppingEndpoints
                 }
             )
             .WithName("DeleteShoppingItem")
-            .WithSummary("Elimina un artículo de la lista de compras");
+            .WithSummary(
+                "Quita un artículo. Menú: \"ya tengo\". Producto que toca: \"saltar esta compra\". Agotado: \"sí hay\"."
+            );
 
         return app;
     }
 }
 
 public sealed record SetPurchasedRequest(bool IsPurchased);
+
+public sealed record MakeRecurringRequest(ProductCategory Category, int? RestockIntervalDays);

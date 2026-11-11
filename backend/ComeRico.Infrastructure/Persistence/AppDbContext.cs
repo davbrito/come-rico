@@ -114,9 +114,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService
         {
             entity.HasKey(s => s.Id);
             entity.Property(s => s.Name).IsRequired().HasMaxLength(200);
-            entity.Property(s => s.Amount).HasPrecision(10, 2);
+            entity.Property(s => s.Quantity).HasPrecision(12, 4);
             entity.Property(s => s.Unit).HasConversion<string>();
-            entity.HasIndex(s => new { s.HouseholdId, s.GeneratedForWeekStart });
+            entity.Property(s => s.Source).HasConversion<string>().HasMaxLength(20).IsRequired();
+            entity.HasIndex(s => new { s.HouseholdId, s.ProductId });
+            entity.HasIndex(s => new { s.HouseholdId, s.Source });
+
+            // Products are deactivated, never deleted; SetNull only guards a hard delete.
+            entity.HasOne<Product>().WithMany().HasForeignKey(s => s.ProductId).OnDelete(DeleteBehavior.SetNull);
 
             entity
                 .HasOne(s => s.Household)
