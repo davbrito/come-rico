@@ -40,12 +40,21 @@ export const authUserOptions = () =>
  * household settings saved): re-reads the user into the "auth-user" cache, then re-runs the route guards.
  * `router.invalidate()` alone isn't enough: `/_private` reads the user with `staleTime: "static"`, so it
  * would keep the stale one (the header would still say "Entrar", the menu would miss the household pages).
+ *
+ * If the user or their household changed, every other cached query is dropped: dishes, products, the
+ * shopping list… are household data, and keeping them would show the previous household's until stale.
  */
 export function useRefreshSession() {
   const queryClient = useQueryClient();
   const router = useRouter();
   return async () => {
-    queryClient.setQueryData(authUserOptions().queryKey, await fetchCurrentUser());
+    const key = authUserOptions().queryKey;
+    const previous = queryClient.getQueryData<CurrentUserDto | null>(key);
+    const user = await fetchCurrentUser();
+    if (previous?.id !== user?.id || previous?.householdId !== user?.householdId) {
+      queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== key[0] });
+    }
+    queryClient.setQueryData(key, user);
     await router.invalidate();
   };
 }
