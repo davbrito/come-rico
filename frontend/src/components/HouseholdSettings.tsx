@@ -1,5 +1,4 @@
 import { useMutation } from "@tanstack/react-query";
-import { useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 
 import { updateHouseholdSettingsMutation } from "#/api/@tanstack/react-query.gen";
@@ -7,6 +6,7 @@ import type { CurrentUserDto, DayOfWeek } from "#/api/types.gen";
 import { Button } from "#/components/ui/Button";
 import { Select } from "#/components/ui/Select";
 import { getApiErrorMessage } from "#/lib/api";
+import { useRefreshSession } from "#/server/auth";
 
 const NO_DAY = "none";
 
@@ -52,7 +52,7 @@ export function HouseholdSettings({
   settings: NonNullable<CurrentUserDto["householdSettings"]>;
   isAdmin: boolean;
 }) {
-  const router = useRouter();
+  const refreshSession = useRefreshSession();
   const [day, setDay] = useState<DayOfWeek | typeof NO_DAY>(settings.shoppingDay ?? NO_DAY);
   const [currency, setCurrency] = useState(settings.defaultCurrency);
   const [timeZone, setTimeZone] = useState(settings.timeZone);
@@ -68,7 +68,7 @@ export function HouseholdSettings({
 
   const saveMut = useMutation({
     ...updateHouseholdSettingsMutation(),
-    onSuccess: () => router.invalidate(),
+    onSuccess: refreshSession,
   });
 
   const device = deviceTimeZone();

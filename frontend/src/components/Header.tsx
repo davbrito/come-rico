@@ -5,18 +5,20 @@ import { useState } from "react";
 
 import { logoutMutation } from "#/api/@tanstack/react-query.gen";
 import { Button } from "#/components/ui/Button";
-import { authUserOptions } from "#/server/auth";
+import { authUserOptions, useClearSession } from "#/server/auth";
 
 import ThemeToggle from "./ThemeToggle";
 
 export default function Header() {
   const { data: user } = useQuery(authUserOptions());
   const navigate = useNavigate();
+  const clearSession = useClearSession();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const logoutMut = useMutation({
     ...logoutMutation(),
     onSuccess: async () => {
+      clearSession();
       await navigate({ to: "/login" });
     },
   });
@@ -45,10 +47,19 @@ export default function Header() {
           {menuOpen ? <X size={16} /> : <Menu size={16} />}
         </Button>
 
+        {/* On mobile, picking a page closes the menu (it would otherwise cover the page). */}
         <div
+          onClick={(e) => {
+            if ((e.target as HTMLElement).closest("a")) setMenuOpen(false);
+          }}
           className={`${menuOpen ? "flex" : "hidden"} order-4 w-full flex-col items-start gap-2 pb-1 text-sm font-semibold sm:order-0 sm:flex sm:w-auto sm:flex-row sm:flex-nowrap sm:items-center sm:gap-x-4 sm:gap-y-1 sm:pb-0`}
         >
-          <Link to="/" className="nav-link" activeProps={{ className: "nav-link is-active" }}>
+          <Link
+            to="/"
+            className="nav-link"
+            activeOptions={{ exact: true }}
+            activeProps={{ className: "nav-link is-active" }}
+          >
             Inicio
           </Link>
           {user?.householdId && (
