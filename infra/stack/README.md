@@ -119,11 +119,11 @@ auth cookie uses `SameSite=None` in production to go with it
 
 `infisical.tf` reads externally-issued tokens that Terraform can't
 generate itself, per environment (`data "infisical_secrets"`, `env_slug =
-var.environment`, `folder_path = "/"`). Nothing currently consumes it —
-the AWS Lambda migration dropped the one thing that used to (`GHCR_PAT`, a
-registry pull credential with no Lambda equivalent) — but it's kept wired
-up (provider, data source, `infisical_project_id` variable) for whatever
-gets added next.
+var.environment`, `folder_path = "/"`). `lambda.tf` takes the WorkOS
+AuthKit credentials from it (`WORKOS_API_KEY`, `WORKOS_CLIENT_ID` →
+`WorkOS__ApiKey`, `WorkOS__ClientId`); see [`../workos.md`](../workos.md)
+for where they come from. Until they exist the function still deploys,
+and signing in answers 503.
 
 ## Changing settings later
 

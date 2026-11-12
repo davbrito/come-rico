@@ -1,27 +1,20 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
 
-import { logoutMutation } from "#/api/@tanstack/react-query.gen";
 import { Button } from "#/components/ui/Button";
-import { authUserOptions, useClearSession } from "#/server/auth";
+import { authUserOptions, signOut } from "#/server/auth";
 
 import ThemeToggle from "./ThemeToggle";
 
 export default function Header() {
   const { data: user } = useQuery(authUserOptions());
-  const navigate = useNavigate();
-  const clearSession = useClearSession();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const logoutMut = useMutation({
-    ...logoutMutation(),
-    onSuccess: async () => {
-      clearSession();
-      await navigate({ to: "/login" });
-    },
-  });
+  // signOut ends in a full-page navigation (to AuthKit's logout, then back to /login),
+  // which also drops every cached query of the session that just ended.
+  const logoutMut = useMutation({ mutationFn: signOut });
 
   return (
     <header className="sticky top-0 isolate z-50 border-b border-line bg-header-bg px-2 backdrop-blur-lg sm:px-4">
@@ -123,8 +116,8 @@ export default function Header() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => logoutMut.mutate({ body: {} })}
-                disabled={logoutMut.isPending}
+                onClick={() => logoutMut.mutate()}
+                disabled={logoutMut.isPending || logoutMut.isSuccess}
               >
                 Salir
               </Button>

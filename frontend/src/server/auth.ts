@@ -1,8 +1,9 @@
 import { queryOptions, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 
-import { getCurrentUser } from "#/api";
+import { getCurrentUser, logout } from "#/api";
 import type { CurrentUserDto } from "#/api/types.gen";
+import { backendUrl } from "#/lib/api";
 
 /**
  * Reads the current session on the Start server (the BFF): forwards the
@@ -36,7 +37,7 @@ export const authUserOptions = () =>
   });
 
 /**
- * After anything that changes the session (login, register, household created/joined/left, profile or
+ * After anything that changes the session (household created/joined/left, profile or
  * household settings saved): re-reads the user into the "auth-user" cache, then re-runs the route guards.
  * `router.invalidate()` alone isn't enough: `/_private` reads the user with `staleTime: "static"`, so it
  * would keep the stale one (the header would still say "Entrar", the menu would miss the household pages).
@@ -66,4 +67,23 @@ export function useClearSession() {
     queryClient.removeQueries();
     queryClient.setQueryData(authUserOptions().queryKey, null);
   };
+}
+
+/**
+ * Sign-in happens at WorkOS AuthKit (hosted UI), never in our own forms: the browser *navigates* to the
+ * backend, which redirects to AuthKit, exchanges the code and comes back to `returnTo` with our session
+ * cookie already set. It has to be a full-page navigation (not a fetch) for those redirects to happen.
+ */
+export function loginUrl(returnTo: string = window.location.origin + "/") {
+  return `${backendUrl}/api/auth/login?returnTo=${encodeURIComponent(returnTo)}`;
+}
+
+/**
+ * Ends our session and then AuthKit's: without the second step, the next "Entrar" would sign the same
+ * person back in without asking. Sessions that predate AuthKit have no AuthKit session to end.
+ */
+export async function signOut() {
+  const returnTo = `${window.location.origin}/login`;
+  const { data } = await logout({ body: { returnTo }, throwOnError: true });
+  window.location.assign(data.logoutUrl ?? returnTo);
 }

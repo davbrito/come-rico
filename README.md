@@ -36,6 +36,8 @@ dotnet run
 
 > Never commit real credentials — set them via user secrets or the `ConnectionStrings__DefaultConnection` environment variable.
 
+Sign-in goes through WorkOS AuthKit. Set `WorkOS:ApiKey` and `WorkOS:ClientId` (user secrets) from the staging environment, or run the WorkOS emulator — see [infra/workos.md](infra/workos.md).
+
 ### Frontend
 
 ```bash

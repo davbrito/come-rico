@@ -39,6 +39,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantService
             entity.Property(u => u.DisplayName).IsRequired().HasMaxLength(200);
             entity.Property(u => u.Role).HasConversion<string>().IsRequired();
 
+            // Unique, but nullable: accounts that predate AuthKit have no WorkOS id until
+            // their first AuthKit login (Postgres allows any number of NULLs in a unique index).
+            entity.Property(u => u.WorkOsUserId).HasMaxLength(64);
+            entity.HasIndex(u => u.WorkOsUserId).IsUnique();
+
             entity
                 .HasOne(u => u.Household)
                 .WithMany(h => h.Members)

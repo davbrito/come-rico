@@ -90,6 +90,10 @@ namespace ComeRico.Infrastructure.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<string>("WorkOsUserId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("HouseholdId");
@@ -100,6 +104,9 @@ namespace ComeRico.Infrastructure.Migrations
                     b.HasIndex("NormalizedUserName")
                         .IsUnique()
                         .HasDatabaseName("UserNameIndex");
+
+                    b.HasIndex("WorkOsUserId")
+                        .IsUnique();
 
                     b.ToTable("AspNetUsers", (string)null);
                 });

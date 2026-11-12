@@ -3,11 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
 
-import {
-  deleteAccountMutation,
-  postApiIdentityManageInfoMutation,
-  updateProfileMutation,
-} from "#/api/@tanstack/react-query.gen";
+import { deleteAccountMutation, updateProfileMutation } from "#/api/@tanstack/react-query.gen";
 import { useAppForm } from "#/components/form";
 import { Button } from "#/components/ui/Button";
 import { Input } from "#/components/ui/Input";
@@ -19,7 +15,6 @@ export const Route = createFileRoute("/_private/settings")({
 });
 
 const displayNameSchema = z.string().trim().min(1, "Requerido");
-const passwordSchema = z.string().min(8, "Mínimo 8 caracteres");
 
 function SettingsPage() {
   const { user } = Route.useRouteContext();
@@ -35,7 +30,6 @@ function SettingsPage() {
         </h1>
 
         <ProfileSection displayName={user.displayName} onSaved={refreshSession} />
-        <PasswordSection />
         <DangerZoneSection
           onDeleted={() => {
             clearSession();
@@ -93,67 +87,6 @@ function ProfileSection({ displayName, onSaved }: { displayName: string; onSaved
       <form.AppForm>
         <form.SubmitButton pendingLabel="Guardando…" className="mt-4 w-full px-5 py-2.5">
           Guardar nombre
-        </form.SubmitButton>
-      </form.AppForm>
-    </form>
-  );
-}
-
-function PasswordSection() {
-  const mut = useMutation({ ...postApiIdentityManageInfoMutation() });
-
-  const form = useAppForm({
-    defaultValues: { oldPassword: "", newPassword: "" },
-    onSubmit: async ({ value }) => {
-      await mut.mutateAsync({ body: value });
-      form.reset();
-    },
-  });
-
-  const errorMessage = mut.isError ? getApiErrorMessage(mut.error) : null;
-
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        form.handleSubmit();
-      }}
-      className="island-shell rounded-2xl p-6"
-    >
-      <h2 className="mb-3 text-base font-semibold text-[var(--sea-ink)]">Contraseña</h2>
-
-      {errorMessage && (
-        <p className="mb-3 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
-          {errorMessage}
-        </p>
-      )}
-      {mut.isSuccess && !errorMessage && (
-        <p className="mb-3 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400">
-          Contraseña actualizada.
-        </p>
-      )}
-
-      <div className="space-y-3">
-        <form.AppField name="oldPassword" validators={{ onChange: passwordSchema }}>
-          {(field) => (
-            <field.PasswordField
-              label="Contraseña actual *"
-              autoComplete="current-password"
-              required
-            />
-          )}
-        </form.AppField>
-        <form.AppField name="newPassword" validators={{ onChange: passwordSchema }}>
-          {(field) => (
-            <field.PasswordField label="Nueva contraseña *" autoComplete="new-password" required />
-          )}
-        </form.AppField>
-      </div>
-
-      <form.AppForm>
-        <form.SubmitButton pendingLabel="Guardando…" className="mt-4 w-full px-5 py-2.5">
-          Actualizar contraseña
         </form.SubmitButton>
       </form.AppForm>
     </form>
