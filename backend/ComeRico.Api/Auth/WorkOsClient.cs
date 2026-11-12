@@ -1,9 +1,7 @@
 using System.Buffers.Text;
-using System.Net.Http.Headers;
 using System.Text.Json;
-using System.Text.Json.Serialization;
-using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
+using WorkOS;
 
 namespace ComeRico.Api.Auth;
 
@@ -35,35 +33,39 @@ public interface IWorkOsClient
 }
 
 /// <summary>
-/// Plain HTTP calls to the WorkOS API (no SDK): three endpoints, all documented at
-/// https://workos.com/docs/reference/authkit.
+/// <see cref="IWorkOsClient"/> on top of the official WorkOS .NET SDK (<c>WorkOS.net</c>).
+/// The interface keeps the SDK's types out of the endpoints and lets tests fake WorkOS.
 /// </summary>
 public sealed class WorkOsClient(HttpClient http, IOptions<WorkOsOptions> options) : IWorkOsClient
 {
-    private static readonly JsonSerializerOptions Json = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-    };
+    // Built on first use: the SDK rejects an empty API key, and the app must still start
+    // (and answer 503 on /api/auth/login) when WorkOS isn't configured.
+    private readonly Lazy<WorkOSClient> sdk = new(() =>
+        new WorkOSClient(
+            new WorkOSOptions
+            {
+                ApiKey = options.Value.ApiKey,
+                ClientId = options.Value.ClientId,
+                ApiBaseURL = options.Value.ApiBaseUrl.TrimEnd('/'),
+                HttpClient = http,
+                // A person is waiting on a redirect: fail fast instead of backing off.
+                MaxRetries = 1,
+            }
+        )
+    );
 
-    private WorkOsOptions Options => options.Value;
-    private string BaseUrl => Options.ApiBaseUrl.TrimEnd('/');
+    private UserManagementService UserManagement => sdk.Value.UserManagement;
 
-    public string BuildAuthorizationUrl(string redirectUri, string state, string? invitationToken = null)
-    {
-        var query = new Dictionary<string, string?>
-        {
-            ["response_type"] = "code",
-            ["client_id"] = Options.ClientId,
-            ["redirect_uri"] = redirectUri,
-            ["provider"] = "authkit",
-            ["state"] = state,
-        };
-        if (!string.IsNullOrWhiteSpace(invitationToken))
-            query["invitation_token"] = invitationToken;
-
-        return QueryHelpers.AddQueryString($"{BaseUrl}/user_management/authorize", query);
-    }
+    public string BuildAuthorizationUrl(string redirectUri, string state, string? invitationToken = null) =>
+        UserManagement.GetAuthorizationUrl(
+            new UserManagementGetAuthorizationUrlOptions
+            {
+                RedirectUri = redirectUri,
+                Provider = UserManagementAuthenticationProvider.Authkit,
+                State = state,
+                InvitationToken = string.IsNullOrWhiteSpace(invitationToken) ? null : invitationToken,
+            }
+        );
 
     public async Task<WorkOsAuthentication> AuthenticateWithCodeAsync(
         string code,
@@ -72,66 +74,85 @@ public sealed class WorkOsClient(HttpClient http, IOptions<WorkOsOptions> option
         CancellationToken ct
     )
     {
-        var body = new AuthenticateRequest(Options.ClientId, Options.ApiKey, "authorization_code", code, ipAddress, userAgent);
-        using var response = await http.PostAsJsonAsync($"{BaseUrl}/user_management/authenticate", body, Json, ct);
-        await EnsureSuccessAsync(response, ct);
+        AuthenticateResponse response;
+        try
+        {
+            response = await UserManagement.AuthenticateWithCodeAsync(
+                new AuthenticateWithCodeOptions
+                {
+                    Code = code,
+                    IpAddress = ipAddress,
+                    UserAgent = userAgent,
+                },
+                cancellationToken: ct
+            );
+        }
+        catch (ApiException ex)
+        {
+            throw Translate(ex);
+        }
 
-        var result =
-            await response.Content.ReadFromJsonAsync<AuthenticateResponse>(Json, ct)
-            ?? throw new WorkOsApiException((int)response.StatusCode, "empty_response", null);
-        if (result.User is not { Id.Length: > 0, Email.Length: > 0 } user)
-            throw new WorkOsApiException((int)response.StatusCode, "invalid_response", "La respuesta no trae el usuario.");
+        if (response.User is not { Id.Length: > 0, Email.Length: > 0 } user)
+            throw new WorkOsApiException(200, "invalid_response", "La respuesta no trae el usuario.");
 
         return new WorkOsAuthentication(
             new WorkOsUser(user.Id, user.Email, user.EmailVerified, user.FirstName, user.LastName),
-            ReadSessionId(result.AccessToken)
+            ReadSessionId(response.AccessToken)
         );
     }
 
-    public string BuildLogoutUrl(string sessionId, string? returnTo)
-    {
-        var query = new Dictionary<string, string?> { ["session_id"] = sessionId };
-        if (!string.IsNullOrWhiteSpace(returnTo))
-            query["return_to"] = returnTo;
-
-        return QueryHelpers.AddQueryString($"{BaseUrl}/user_management/sessions/logout", query);
-    }
+    public string BuildLogoutUrl(string sessionId, string? returnTo) =>
+        UserManagement.GetLogoutUrl(
+            new UserManagementGetLogoutUrlOptions
+            {
+                SessionId = sessionId,
+                ReturnTo = string.IsNullOrWhiteSpace(returnTo) ? null : returnTo,
+            }
+        );
 
     public async Task DeleteUserAsync(string userId, CancellationToken ct)
     {
-        using var request = new HttpRequestMessage(
-            HttpMethod.Delete,
-            $"{BaseUrl}/user_management/users/{Uri.EscapeDataString(userId)}"
-        );
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Options.ApiKey);
-        using var response = await http.SendAsync(request, ct);
-
-        // Already gone in WorkOS is the outcome we wanted.
-        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
-            return;
-        await EnsureSuccessAsync(response, ct);
-    }
-
-    private static async Task EnsureSuccessAsync(HttpResponseMessage response, CancellationToken ct)
-    {
-        if (response.IsSuccessStatusCode)
-            return;
-
-        ErrorResponse? error = null;
         try
         {
-            error = await response.Content.ReadFromJsonAsync<ErrorResponse>(Json, ct);
+            await UserManagement.DeleteAsync(userId, cancellationToken: ct);
+        }
+        catch (NotFoundException)
+        {
+            // Already gone in WorkOS is the outcome we wanted.
+        }
+        catch (ApiException ex)
+        {
+            throw Translate(ex);
+        }
+    }
+
+    private static WorkOsApiException Translate(ApiException ex)
+    {
+        // The SDK reads WorkOS's own error shape ({ code, message }); the code exchange
+        // answers in OAuth's ({ error, error_description }), which only the raw body has.
+        var (oauthError, oauthDescription) = ReadOAuthError(ex.RawBody);
+        return new WorkOsApiException((int)ex.StatusCode, ex.Code ?? oauthError, ex.ErrorMessage ?? oauthDescription);
+    }
+
+    private static (string? Error, string? Description) ReadOAuthError(string? body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+            return (null, null);
+
+        try
+        {
+            using var json = JsonDocument.Parse(body);
+            if (json.RootElement.ValueKind != JsonValueKind.Object)
+                return (null, null);
+            return (ReadString(json.RootElement, "error"), ReadString(json.RootElement, "error_description"));
         }
         catch (JsonException)
         {
-            // Not a JSON error body; the status code is all we have.
+            return (null, null);
         }
 
-        throw new WorkOsApiException(
-            (int)response.StatusCode,
-            error?.Code ?? error?.Error,
-            error?.Message ?? error?.ErrorDescription
-        );
+        static string? ReadString(JsonElement element, string name) =>
+            element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
     }
 
     /// <summary>
@@ -157,19 +178,4 @@ public sealed class WorkOsClient(HttpClient http, IOptions<WorkOsOptions> option
             return null;
         }
     }
-
-    private sealed record AuthenticateRequest(
-        string ClientId,
-        string ClientSecret,
-        string GrantType,
-        string Code,
-        string? IpAddress,
-        string? UserAgent
-    );
-
-    private sealed record AuthenticateResponse(UserResponse? User, string? AccessToken);
-
-    private sealed record UserResponse(string Id, string Email, bool EmailVerified, string? FirstName, string? LastName);
-
-    private sealed record ErrorResponse(string? Code, string? Message, string? Error, string? ErrorDescription);
 }
